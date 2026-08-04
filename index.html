@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PSMMC Neurology QBank</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235b9dff'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Helvetica,Arial' font-weight='bold' fill='%23fff' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+  --ink:#e7eaf0; --dim:#9aa3b2; --faint:#6b7482;
+  --accent:#5b9dff; --accent-dim:#2d4a7a;
+  --ok:#3fb950; --ok-bg:#12321c; --bad:#f85149; --bad-bg:#3a1518;
+  --warn:#d29922; --warn-bg:#33280c; --r:10px;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
+         --ink:#12151a; --dim:#5a6472; --faint:#8b95a3;
+         --accent:#1f6feb; --accent-dim:#c8ddff;
+         --ok:#1a7f37; --ok-bg:#e6f6ea; --bad:#cf222e; --bad-bg:#ffebe9;
+         --warn:#9a6700; --warn-bg:#fff8c5; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+ -webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px 80px}
+a{color:var(--accent)}
+select,input,button{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);
+ border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+input{width:100%}
+select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{cursor:pointer;user-select:none}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.on,button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.hide{display:none!important}
+
+/* ---------- sign in ---------- */
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px}
+.gatebox{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
+ border-radius:14px;padding:30px 28px}
+.gatebox h1{margin:0 0 4px;font-size:19px;letter-spacing:-.01em}
+.gatebox .lede{color:var(--dim);font-size:13px;margin-bottom:22px;line-height:1.55}
+.gatebox label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+.gatebox button{width:100%;margin-top:12px;padding:10px}
+.msg{margin-top:16px;padding:11px 13px;border-radius:8px;font-size:13px;line-height:1.55}
+.msg.info{background:var(--panel2);color:var(--dim)}
+.msg.good{background:var(--ok-bg);color:var(--ok)}
+.msg.err{background:var(--bad-bg);color:var(--bad)}
+.priv{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+ font-size:11.5px;color:var(--faint);line-height:1.5}
+
+/* ---------- chrome ---------- */
+header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 0 0}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em}
+.who{margin-left:auto;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px}
+.tabs{display:flex;gap:4px;margin-bottom:10px}
+.tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+ padding:6px 10px;color:var(--dim);font-size:13.5px}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
+.bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:10px}
+.bar input[type=search]{min-width:150px;flex:1;width:auto}
+.spacer{flex:1}
+.stats{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:8px 0 12px;
+ border-top:1px solid var(--line);font-size:12.5px;color:var(--dim)}
+.stat b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+.stat.good b{color:var(--ok)} .stat.bad b{color:var(--bad)}
+.pbar{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-bottom:10px}
+.pbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+
+/* ---------- question ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin:12px 0}
+.qhead{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tag{font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;font-weight:600;padding:2.5px 7px;
+ border-radius:5px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);white-space:nowrap}
+.tag.yr{color:var(--accent);border-color:var(--accent-dim)}
+.tag.rep{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
+.tag.flag{color:var(--warn);background:var(--warn-bg);border-color:transparent;text-transform:none;
+ letter-spacing:0;font-weight:500}
+.num{margin-left:auto;color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
+.stem{font-size:15.5px;line-height:1.62;margin:0 0 14px;white-space:pre-wrap}
+.opts{display:flex;flex-direction:column;gap:7px}
+.opt{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;background:var(--panel2);
+ border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;line-height:1.5;
+ transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt .L{flex:none;width:21px;height:21px;border-radius:5px;background:var(--bg);border:1px solid var(--line);
+ display:grid;place-items:center;font-size:11.5px;font-weight:650;margin-top:1px}
+.opt.correct{border-color:var(--ok);background:var(--ok-bg)}
+.opt.correct .L{background:var(--ok);border-color:var(--ok);color:#fff}
+.opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.opt.wrong .L{background:var(--bad);border-color:var(--bad);color:#fff}
+.opt.muted{opacity:.55}
+.mark{margin-left:auto;font-size:11px;font-weight:650;padding-top:2px;white-space:nowrap}
+.opt.correct .mark{color:var(--ok)} .opt.wrong .mark{color:var(--bad)}
+.rb{font-size:10px;color:var(--faint);font-weight:500;margin-left:6px}
+.exp{margin-top:13px;padding:13px 15px;background:var(--panel2);border-left:3px solid var(--accent);
+ border-radius:0 8px 8px 0}
+.exp h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.exp p{margin:0 0 9px;line-height:1.65}
+.src{font-size:12px;color:var(--dim);padding-top:9px;border-top:1px solid var(--line)}
+.src b{color:var(--ink);font-weight:600}
+.note{margin-top:9px;font-size:12.5px;color:var(--warn);background:var(--warn-bg);padding:8px 11px;
+ border-radius:7px;line-height:1.5}
+.nav{display:flex;gap:8px;margin-top:14px;align-items:center}
+
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.meter{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:70px}
+.meter i{display:block;height:100%;background:var(--accent)}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:6px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px}
+.kpi b{display:block;font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi span{font-size:11.5px;color:var(--dim)}
+.empty{text-align:center;padding:56px 20px;color:var(--dim)}
+.hint{font-size:11.5px;color:var(--faint);text-align:center;padding:14px 0 0}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+ padding:1px 5px;font:600 10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.row input{width:auto;flex:1;min-width:180px}
+@media(max-width:600px){.wrap{padding:0 11px 70px}.stem{font-size:15px}
+ .tabs button{padding:6px 7px;font-size:13px}.who span.em{display:none}}
+</style></head><body>
+
+<!-- ============ SIGN IN ============ -->
+<div id="gate" class="gate">
+  <div class="gatebox">
+    <h1>PSMMC Neurology QBank</h1>
+    <p class="lede">Private revision bank for Prince Sultan Military Medical City neurology residents. Access is by invitation only.</p>
+    <label for="email">Your email address</label>
+    <input id="email" type="email" autocomplete="email" placeholder="name@example.com" autofocus>
+    <button id="send" class="primary">Email me a sign-in link</button>
+    <div id="gatemsg" class="msg info hide"></div>
+    <div class="priv">No password needed. We email you a link that signs you in.
+      Only addresses added by the administrator can receive one.</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="wrap hide">
+  <header>
+    <div class="top">
+      <h1>Neurology QBank</h1>
+      <div class="who"><span class="em" id="uemail"></span><button id="signout">Sign out</button></div>
+    </div>
+    <div class="tabs">
+      <button data-tab="practice" class="on">Practice</button>
+      <button data-tab="progress">My progress</button>
+      <button data-tab="admin" id="tabAdmin" class="hide">Residents</button>
+      <button data-tab="reports" id="tabReports" class="hide">Reports<span id="repBadge"></span></button>
+    </div>
+
+    <div id="practiceBar">
+      <div class="bar">
+        <select id="fTrack"></select>
+        <select id="fYear"></select>
+        <select id="fTopic"></select>
+        <input type="search" id="fSearch" placeholder="Search stems…">
+        <span class="spacer"></span>
+        <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
+        <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
+        <button id="bReview" title="Questions where the recall was ambiguous or sources disagreed">Needs check</button>
+        <button id="bShuffle" title="Randomise order">Shuffle</button>
+      </div>
+      <div class="pbar"><i id="prog"></i></div>
+      <div class="stats">
+        <span class="stat">Question <b id="sPos">0</b> of <b id="sTot">0</b></span>
+        <span class="stat good">Correct <b id="sOk">0</b></span>
+        <span class="stat bad">Wrong <b id="sBad">0</b></span>
+        <span class="stat">Score <b id="sPct">—</b></span>
+        <span class="stat">Answered overall <b id="sSeen">0</b></span>
+      </div>
+    </div>
+  </header>
+
+  <div id="viewPractice"></div>
+  <div id="viewProgress" class="hide"></div>
+  <div id="viewAdmin" class="hide"></div>
+  <div id="viewReports" class="hide"></div>
+
+  <div class="hint" id="kbhint">
+    <kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> or <kbd>1</kbd>–<kbd>4</kbd> to answer ·
+    <kbd>N</kbd> / <kbd>→</kbd> next · <kbd>P</kbd> / <kbd>←</kbd> previous
+  </div>
+</div>
+
+<script type="module">
+// Vendored locally on purpose: a hospital network that blocks public CDNs would
+// otherwise take the whole site down. No third-party runtime dependency.
+import { createClient } from './supabase.js';
+
+const SUPABASE_URL = 'https://jnwbcfwtlnrupkthbluh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_Lc8toRDfrYJIlqPTyB7_xA_dFym0V5-';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                 .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let ME = null, PROFILE = null, ALL = [], ANSWERS = new Map();
+// answer + explanation + source, held ONLY for questions this user has answered.
+// The browser never receives the key for an unanswered question.
+let KEYS = new Map();
+let MY_REPORTS = new Map();
+const state = { list: [], i: 0, shuffle: false, wrongOnly: false, unseen: false,
+                reviewOnly: false, tab: 'practice' };
+
+// ---------------------------------------------------------------- sign in
+function gmsg(text, kind='info'){
+  const el = $('#gatemsg');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+  el.classList.remove('hide');
+}
+
+$('#send').onclick = async () => {
+  const email = $('#email').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gmsg('Please enter a valid email address.','err'); return; }
+  $('#send').disabled = true;
+  gmsg('Sending…');
+
+  // Never leave the button dead if the network stalls - a resident on a slow or
+  // filtered hospital connection must always get an answer.
+  let timedOut = false;
+  const withTimeout = (pr, ms) => Promise.race([
+    pr,
+    new Promise(res => setTimeout(() => { timedOut = true; res(null); }, ms))
+  ]);
+
+  try {
+    await withTimeout(sb.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin }
+    }), 12000);
+  } catch (_) { /* fall through - the reply below is deliberately uniform */ }
+
+  if (timedOut){
+    gmsg('Could not reach the sign-in service. Check your connection and try again.', 'err');
+  } else {
+    // Deliberately identical whether or not the address is on the list: telling a
+    // stranger "that email isn't approved" would confirm who is on the roster.
+    gmsg('If that address is approved for this bank, a sign-in link is on its way. '
+       + 'Check your inbox, and your spam folder.', 'good');
+  }
+  $('#send').disabled = false;
+};
+$('#email').addEventListener('keydown', e => { if (e.key === 'Enter') $('#send').click(); });
+
+$('#signout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+// ---------------------------------------------------------------- boot
+// Both of these can fire for the same session. Without a single guard they race:
+// two concurrent loads interleave into a doubled list, and the filter dropdowns
+// get built while the array is still empty.
+let BOOTED = false;
+sb.auth.onAuthStateChange((_e, session) => {
+  if (session?.user) start(session.user);
+});
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session?.user) start(session.user);
+})();
+
+async function start(user){
+  if (BOOTED) return;
+  BOOTED = true;
+  ME = user;
+  history.replaceState(null, '', window.location.pathname);   // strip auth tokens from URL
+
+  const { data: prof, error: perr } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (perr || !prof){
+    gmsg('Your account is not active for this bank. Contact the administrator.', 'err');
+    await sb.auth.signOut();
+    return;
+  }
+  PROFILE = prof;
+  sb.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', user.id).then(()=>{});
+
+  $('#gate').classList.add('hide');
+  $('#app').classList.remove('hide');
+  $('#uemail').textContent = prof.email;
+  if (prof.role === 'admin'){
+    $('#tabAdmin').classList.remove('hide');
+    $('#tabReports').classList.remove('hide');
+    refreshReportBadge();
+    setInterval(refreshReportBadge, 120000);   // quiet poll while the tab is open
+  }
+
+  await Promise.all([loadQuestions(), loadAnswers(), loadMyReports()]);
+  buildFilters();
+  apply();
+}
+
+async function loadQuestions(){
+  const page = 1000; const acc = [];
+  for (let from = 0; ; from += page){
+    const { data, error } = await sb.from('questions')
+      .select('uid,n,year,years,track,tracks,topic,stem,options,flags,rebuilt,needs_review,repeat_count')
+      .order('year', { ascending:false }).order('n', { ascending:true })
+      .range(from, from + page - 1);
+    if (error){ console.error('question load failed', error); break; }
+    acc.push(...data);
+    if (data.length < page) break;
+  }
+  ALL = acc;
+}
+async function loadAnswers(){
+  ANSWERS = new Map(); KEYS = new Map();
+  const { data, error } = await sb.rpc('my_answers');
+  if (error){ console.error(error); return; }
+  (data || []).forEach(a => {
+    ANSWERS.set(a.question_uid, { question_uid:a.question_uid, chosen:a.chosen, correct:a.correct });
+    KEYS.set(a.question_uid, { answer:a.answer, explanation:a.explanation,
+                               source:a.source, changed:a.changed });
+  });
+}
+
+// ---------------------------------------------------------------- tabs
+$$('.tabs button').forEach(b => b.onclick = () => {
+  state.tab = b.dataset.tab;
+  $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  const p = state.tab === 'practice';
+  $('#practiceBar').classList.toggle('hide', !p);
+  $('#kbhint').classList.toggle('hide', !p);
+  $('#viewPractice').classList.toggle('hide', !p);
+  $('#viewProgress').classList.toggle('hide', state.tab !== 'progress');
+  $('#viewAdmin').classList.toggle('hide', state.tab !== 'admin');
+  $('#viewReports').classList.toggle('hide', state.tab !== 'reports');
+  if (state.tab === 'progress') renderProgress();
+  if (state.tab === 'admin') renderAdmin();
+  if (state.tab === 'reports') renderReports();
+});
+
+// ---------------------------------------------------------------- filters
+function buildFilters(){
+  const opt = (v,l) => { const o = document.createElement('option'); o.value=v; o.textContent=l; return o; };
+  const cnt = k => ALL.reduce((m,q)=>(m[q[k]]=(m[q[k]]||0)+1, m), {});
+  const tr = cnt('track'), yr = cnt('year'), tp = cnt('topic');
+  // rebuild from scratch so a re-run can never duplicate or half-fill the lists
+  ['#fTrack','#fYear','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
+  const TORDER = ['Part 1','Part 2','Promotion'];
+  const tracks = Object.keys(tr).sort((a,b) => {
+    const ia = TORDER.indexOf(a), ib = TORDER.indexOf(b);
+    return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
+  });
+  $('#fTrack').append(opt('','All tracks'), ...tracks.map(t=>opt(t,`${t} (${tr[t]})`)));
+  $('#fYear').append(opt('','All years'),
+    ...Object.keys(yr).sort((a,b)=>b-a).map(y=>opt(y,`${y} (${yr[y]})`)));
+  $('#fTopic').append(opt('','All topics'), ...Object.keys(tp).sort().map(t=>opt(t,`${t} (${tp[t]})`)));
+  if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
+}
+function apply(){
+  const tr=$('#fTrack').value, yr=$('#fYear').value, tp=$('#fTopic').value,
+        s=$('#fSearch').value.trim().toLowerCase();
+  let l = ALL.filter(q => {
+    if (tr && q.track !== tr) return false;
+    if (yr && String(q.year) !== yr) return false;
+    if (tp && q.topic !== tp) return false;
+    if (state.wrongOnly && ANSWERS.get(q.uid)?.correct !== false) return false;
+    if (state.unseen && ANSWERS.has(q.uid)) return false;
+    if (state.reviewOnly && !q.needs_review) return false;
+    if (s){
+      const hay = (q.stem + ' ' + q.topic + ' ' + Object.values(q.options).join(' ')).toLowerCase();
+      if (!hay.includes(s)) return false;
+    }
+    return true;
+  });
+  if (state.shuffle) for (let i=l.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [l[i],l[j]]=[l[j],l[i]]; }
+  state.list = l; state.i = 0; render();
+}
+['fTrack','fYear','fTopic'].forEach(id => $('#'+id).onchange = apply);
+let deb; $('#fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(apply, 180); };
+$('#bShuffle').onclick = function(){ state.shuffle=!state.shuffle; this.classList.toggle('on',state.shuffle); apply(); };
+$('#bWrong').onclick  = function(){ state.wrongOnly=!state.wrongOnly; if(state.wrongOnly){state.unseen=false;$('#bUnseen').classList.remove('on');}
+                                    this.classList.toggle('on',state.wrongOnly); apply(); };
+$('#bUnseen').onclick = function(){ state.unseen=!state.unseen; if(state.unseen){state.wrongOnly=false;$('#bWrong').classList.remove('on');}
+                                    this.classList.toggle('on',state.unseen); apply(); };
+$('#bReview').onclick = function(){ state.reviewOnly=!state.reviewOnly;
+                                    this.classList.toggle('on',state.reviewOnly); apply(); };
+
+// ---------------------------------------------------------------- practice
+function render(){
+  const q = state.list[state.i];
+  let ok=0, bad=0;
+  ANSWERS.forEach(a => a.correct ? ok++ : bad++);
+  $('#sTot').textContent = state.list.length;
+  $('#sPos').textContent = state.list.length ? state.i+1 : 0;
+  $('#sOk').textContent = ok; $('#sBad').textContent = bad;
+  $('#sPct').textContent = (ok+bad) ? Math.round(ok/(ok+bad)*100)+'%' : '—';
+  $('#sSeen').textContent = ANSWERS.size + ' / ' + ALL.length;
+  $('#prog').style.width = state.list.length ? ((state.i+1)/state.list.length*100)+'%' : '0';
+
+  const app = $('#viewPractice');
+  if (!q){ app.innerHTML = '<div class="empty"><p>No questions match these filters.</p></div>'; return; }
+
+  const prev = ANSWERS.get(q.uid);
+  const key  = KEYS.get(q.uid) || {};
+  let tags = `<span class="tag yr">${q.year}</span><span class="tag">${esc(q.track)}</span>`
+           + `<span class="tag">${esc(q.topic)}</span>`;
+  if ((q.years||[]).length > 1)
+    tags += `<span class="tag rep">repeated ${q.years.length}× · ${q.years.join(', ')}</span>`;
+  (q.flags||[]).forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
+  if (q.needs_review) tags += '<span class="tag flag">check this one</span>';
+  tags += `<span class="num">${esc(q.uid)}</span>`;
+
+  let h = `<div class="card"><div class="qhead">${tags}</div><p class="stem">${esc(q.stem)}</p><div class="opts">`;
+  for (const L of ['A','B','C','D']){
+    let cls='opt', mark='';
+    if (prev){
+      if (L === key.answer){ cls+=' correct'; mark='<span class="mark">Correct</span>'; }
+      else if (L === prev.chosen){ cls+=' wrong'; mark='<span class="mark">Your answer</span>'; }
+      else cls+=' muted';
+    }
+    const rb = prev && (q.rebuilt||[]).includes(L) ? '<span class="rb">reconstructed</span>' : '';
+    h += `<button class="${cls}" data-l="${L}"${prev?' disabled':''}>`
+       + `<span class="L">${L}</span><span>${esc(q.options[L])}${rb}</span>${mark}</button>`;
+  }
+  h += '</div>';
+  if (prev){
+    h += `<div class="exp"><h4>Explanation</h4><p>${esc(key.explanation)}</p>`
+       + `<div class="src"><b>Source:</b> ${esc(key.source)}</div></div>`;
+    if (key.changed) h += `<div class="note"><b>Answer corrected during review.</b> ${esc(key.changed)}</div>`;
+    if (q.needs_review)
+      h += '<div class="note"><b>Treat this answer with caution.</b> The original recall was '
+         + 'ambiguous or published sources disagree. Verify it against a primary source before '
+         + 'committing it to memory.</div>';
+    if ((q.flags||[]).includes('image-dependent'))
+      h += '<div class="note">The original exam item showed an image; the finding is described in the stem.</div>';
+  }
+  h += '<div class="nav"><button id="bPrev">← Previous</button>'
+     + '<button id="bNext" class="on">Next →</button>'
+     + '<span class="spacer"></span>'
+     + '<button id="bReport" title="Tell the administrator this item looks wrong">'
+     + (MY_REPORTS.has(q.uid) ? '✓ Reported' : 'Report a problem') + '</button>'
+     + '</div><div id="repForm"></div></div>';
+  app.innerHTML = h;
+
+  app.querySelectorAll('.opt').forEach(b => b.onclick = () => choose(q, b.dataset.l));
+  $('#bPrev').onclick = prev_; $('#bNext').onclick = next_;
+  $('#bReport').onclick = () => reportForm(q);
+}
+async function choose(q, L){
+  if (ANSWERS.has(q.uid) || q._pending) return;
+  q._pending = true;
+  // The server decides right/wrong and only then hands back the explanation.
+  const { data, error } = await sb.rpc('answer_question', { q_uid: q.uid, chosen: L });
+  q._pending = false;
+  if (error){
+    const msg = /Too many/.test(error.message)
+      ? 'You are answering unusually fast. Pause a moment and try again.'
+      : 'Could not record that answer. Check your connection and try again.';
+    alertBar(msg);
+    return;
+  }
+  ANSWERS.set(q.uid, { question_uid:q.uid, chosen:L, correct:data.correct });
+  KEYS.set(q.uid, { answer:data.answer, explanation:data.explanation,
+                    source:data.source, changed:data.changed });
+  render();
+}
+
+function reportForm(q){
+  const box = $('#repForm');
+  if (box.dataset.open === q.uid){ box.innerHTML=''; box.dataset.open=''; return; }
+  box.dataset.open = q.uid;
+  const mine = MY_REPORTS.get(q.uid);
+  box.innerHTML =
+    '<div class="exp" style="border-left-color:var(--warn)">'
+  + '<h4 style="color:var(--warn)">Report a problem with this question</h4>'
+  + '<div class="row"><select id="repCat">'
+  + ['wrong answer','question unclear','wrong explanation','typo','other']
+      .map(c => `<option value="${c}"${mine && mine.category===c?' selected':''}>${c}</option>`).join('')
+  + '</select></div>'
+  + `<div class="row"><input id="repNote" placeholder="What looks wrong? (optional, but helpful)" value="${esc(mine?mine.note||'':'')}"></div>`
+  + '<button id="repSend" class="primary">Send report</button> '
+  + '<button id="repCancel">Cancel</button>'
+  + '<div id="repMsg" style="font-size:12.5px;color:var(--dim);margin-top:9px"></div></div>';
+  $('#repCancel').onclick = () => { box.innerHTML=''; box.dataset.open=''; };
+  $('#repSend').onclick = async () => {
+    $('#repSend').disabled = true;
+    const cat = $('#repCat').value, note = $('#repNote').value.trim();
+    const { error } = await sb.rpc('report_question', { q_uid:q.uid, cat, note });
+    if (error){
+      $('#repMsg').textContent = /Too many/.test(error.message)
+        ? 'Too many reports in a short time. Try again later.'
+        : 'Could not send that report. Try again.';
+      $('#repSend').disabled = false;
+      return;
+    }
+    MY_REPORTS.set(q.uid, { category:cat, note });
+    box.innerHTML = '<div class="note">Thank you — sent to the administrator for review.</div>';
+    box.dataset.open = '';
+    const btn = $('#bReport'); if (btn) btn.textContent = '✓ Reported';
+  };
+}
+
+function alertBar(msg){
+  let el = document.getElementById('alertbar');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'alertbar';
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:99;'
+      + 'background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);padding:10px 15px;'
+      + 'border-radius:9px;font-size:13px;max-width:90vw';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(alertBar._t);
+  alertBar._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+function next_(){ if (state.i < state.list.length-1){ state.i++; render(); scrollTo(0,0); } }
+function prev_(){ if (state.i > 0){ state.i--; render(); scrollTo(0,0); } }
+addEventListener('keydown', e => {
+  if (state.tab !== 'practice') return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const q = state.list[state.i]; if (!q) return;
+  const k = e.key.toUpperCase();
+  if (k.length===1 && 'ABCD'.includes(k)){ choose(q,k); e.preventDefault(); }
+  else if (k.length===1 && '1234'.includes(k)){ choose(q,'ABCD'[+k-1]); e.preventDefault(); }
+  else if (k==='N' || e.key==='ArrowRight'){ next_(); e.preventDefault(); }
+  else if (k==='P' || e.key==='ArrowLeft'){ prev_(); e.preventDefault(); }
+});
+
+// ---------------------------------------------------------------- my progress
+function renderProgress(){
+  const by = (key) => {
+    const m = {};
+    ALL.forEach(q => {
+      const k = q[key];
+      m[k] = m[k] || { total:0, done:0, ok:0 };
+      m[k].total++;
+      const a = ANSWERS.get(q.uid);
+      if (a){ m[k].done++; if (a.correct) m[k].ok++; }
+    });
+    return m;
+  };
+  let ok=0, bad=0; ANSWERS.forEach(a => a.correct ? ok++ : bad++);
+  const done = ok + bad;
+
+  const tbl = (m, label) => {
+    const rows = Object.entries(m)
+      .sort((a,b) => (a[1].done?a[1].ok/a[1].done:2) - (b[1].done?b[1].ok/b[1].done:2))
+      .map(([k,v]) => {
+        const pct = v.done ? Math.round(v.ok/v.done*100) : null;
+        return `<tr><td>${esc(k)}</td>
+          <td class="num">${v.done}/${v.total}</td>
+          <td class="num">${pct===null?'—':pct+'%'}</td>
+          <td style="width:110px"><div class="meter"><i style="width:${pct||0}%;background:${
+            pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div></td></tr>`;
+      }).join('');
+    return `<div class="card"><h3 style="margin:0 0 10px;font-size:14px">${label}</h3>
+      <table><thead><tr><th>${label}</th><th class="num">Done</th><th class="num">Score</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  };
+
+  $('#viewProgress').innerHTML = `
+    <div class="grid">
+      <div class="kpi"><b>${done}</b><span>answered of ${ALL.length}</span></div>
+      <div class="kpi"><b>${done?Math.round(ok/done*100):0}%</b><span>overall score</span></div>
+      <div class="kpi"><b>${ok}</b><span>correct</span></div>
+      <div class="kpi"><b>${bad}</b><span>wrong</span></div>
+    </div>
+    ${tbl(by('topic'),'Topic')}
+    ${tbl(by('year'),'Year')}
+    ${tbl(by('track'),'Track')}
+    <div class="card"><button id="resetProg">Clear all my answers</button>
+      <span style="font-size:12px;color:var(--dim);margin-left:10px">Starts you over. Cannot be undone.</span></div>`;
+  $('#resetProg').onclick = async () => {
+    if (!confirm('Delete all your saved answers and start over?')) return;
+    await sb.from('attempts').delete().eq('user_id', ME.id);
+    ANSWERS = new Map(); renderProgress(); apply();
+  };
+}
+
+
+// ---------------------------------------------------------------- reports (admin)
+async function refreshReportBadge(){
+  const { count } = await sb.from('reports').select('id', { count:'exact', head:true })
+                            .eq('status','open');
+  const b = $('#repBadge');
+  if (!b) return;
+  if (count){
+    b.textContent = ' ' + count;
+    b.style.cssText = 'background:var(--bad);color:#fff;border-radius:9px;padding:1px 6px;'
+                    + 'font-size:11px;font-weight:700;margin-left:5px';
+  } else { b.textContent=''; b.style.cssText=''; }
+}
+
+async function renderReports(){
+  const v = $('#viewReports');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  const { data, error } = await sb.rpc('admin_reports');
+  if (error){ v.innerHTML = '<div class="empty">Could not load reports.</div>'; return; }
+  const rows = data || [];
+  const open = rows.filter(r => r.status === 'open');
+
+  if (!rows.length){
+    v.innerHTML = '<div class="grid"><div class="kpi"><b>0</b><span>reports so far</span></div></div>'
+      + '<div class="empty">No one has reported a problem yet.<br>'
+      + 'Residents see a <b>Report a problem</b> button under every question.</div>';
+    return;
+  }
+
+  v.innerHTML = `
+    <div class="grid">
+      <div class="kpi"><b>${open.length}</b><span>open</span></div>
+      <div class="kpi"><b>${rows.length - open.length}</b><span>dealt with</span></div>
+      <div class="kpi"><b>${new Set(rows.map(r=>r.question_uid)).size}</b><span>questions flagged</span></div>
+    </div>` + rows.map(r => `
+    <div class="card" style="${r.status==='open'?'border-left:3px solid var(--warn)':'opacity:.65'}">
+      <div class="qhead">
+        <span class="tag yr">${r.year}</span>
+        <span class="tag">${esc(r.track)}</span>
+        <span class="tag">${esc(r.topic)}</span>
+        <span class="tag flag">${esc(r.category)}</span>
+        ${r.n_reports > 1 ? `<span class="tag rep">${r.n_reports} residents flagged this</span>` : ''}
+        ${r.status!=='open' ? `<span class="tag">${esc(r.status)}</span>` : ''}
+        <span class="num">${esc(r.question_uid)}</span>
+      </div>
+      <p class="stem" style="font-size:14px">${esc(r.stem)}</p>
+      ${r.note ? `<div class="note" style="color:var(--ink);background:var(--panel2)">"${esc(r.note)}"</div>` : ''}
+      <div style="font-size:12px;color:var(--dim);margin-top:9px">
+        ${esc(r.reporter || 'unknown')} · ${new Date(r.created_at).toLocaleString()}
+      </div>
+      <div class="nav">
+        <button data-key="${esc(r.question_uid)}">Show current answer</button>
+        ${r.status==='open' ? `<button data-done="${r.id}" class="primary">Mark resolved</button>
+                               <button data-drop="${r.id}">Dismiss</button>` : ''}
+      </div>
+      <div id="k${r.id}"></div>
+    </div>`).join('');
+
+  v.querySelectorAll('[data-key]').forEach(b => b.onclick = async () => {
+    const { data: k } = await sb.rpc('admin_question_key', { q_uid: b.dataset.key });
+    const host = b.closest('.card').querySelector('div[id^="k"]');
+    host.innerHTML = k ? `<div class="exp"><h4>Current answer: ${esc(k.answer)}</h4>`
+      + `<p>${esc(k.explanation)}</p><div class="src"><b>Source:</b> ${esc(k.source)}</div></div>`
+      : '<div class="note">Could not load.</div>';
+  });
+  const setStatus = async (id, status) => {
+    await sb.from('reports').update({ status, resolved_at: new Date().toISOString() }).eq('id', id);
+    refreshReportBadge(); renderReports();
+  };
+  v.querySelectorAll('[data-done]').forEach(b => b.onclick = () => setStatus(b.dataset.done,'resolved'));
+  v.querySelectorAll('[data-drop]').forEach(b => b.onclick = () => setStatus(b.dataset.drop,'dismissed'));
+}
+
+// ---------------------------------------------------------------- admin
+async function renderAdmin(){
+  const v = $('#viewAdmin');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  const [{ data: people }, { data: allow }, { data: att }] = await Promise.all([
+    sb.from('profiles').select('id,email,full_name,role,created_at,last_seen_at'),
+    sb.from('allowed_emails').select('email,role,full_name,added_at').order('added_at'),
+    sb.from('attempts').select('user_id,correct,question_uid')
+  ]);
+
+  const stat = {};
+  (att||[]).forEach(a => {
+    stat[a.user_id] = stat[a.user_id] || { done:0, ok:0 };
+    stat[a.user_id].done++; if (a.correct) stat[a.user_id].ok++;
+  });
+  const byEmail = {};
+  (people||[]).forEach(p => byEmail[p.email.toLowerCase()] = p);
+
+  const rows = (allow||[]).map(a => {
+    const p = byEmail[a.email.toLowerCase()];
+    const s = p ? (stat[p.id] || { done:0, ok:0 }) : null;
+    const pct = s && s.done ? Math.round(s.ok/s.done*100) : null;
+    const status = p ? (p.last_seen_at ? 'active' : 'signed up') : 'not signed in yet';
+    return `<tr${p ? ` data-uid="${p.id}" style="cursor:pointer"` : ''}>
+      <td>${esc(a.full_name || '—')}<div style="font-size:11.5px;color:var(--dim)">${esc(a.email)}</div></td>
+      <td>${esc(a.role)}</td>
+      <td style="color:var(--dim);font-size:12px">${status}</td>
+      <td class="num">${s ? s.done : 0}</td>
+      <td class="num">${pct===null ? '—' : pct+'%'}</td>
+      <td style="width:100px"><div class="meter"><i style="width:${pct||0}%;background:${
+        pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div></td>
+      <td><button data-rm="${esc(a.email)}" ${a.role==='admin'?'disabled':''}>Remove</button></td>
+    </tr>`;
+  }).join('');
+
+  const totalDone = Object.values(stat).reduce((s,x)=>s+x.done,0);
+  v.innerHTML = `
+    <div class="grid">
+      <div class="kpi"><b>${(allow||[]).length}</b><span>on the allowlist</span></div>
+      <div class="kpi"><b>${(people||[]).length}</b><span>have signed in</span></div>
+      <div class="kpi"><b>${totalDone}</b><span>questions answered by all</span></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px;font-size:14px">Add a resident</h3>
+      <div class="row">
+        <input id="newEmail" type="email" placeholder="name@example.com">
+        <input id="newName" placeholder="Full name (optional)">
+        <button id="addBtn" class="primary">Add</button>
+      </div>
+      <div id="addMsg" style="font-size:12.5px;color:var(--dim)"></div>
+      <div style="font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5">
+        Only addresses listed below can sign in. Adding someone here does not email them —
+        send them the site link and they request their own sign-in link.
+      </div>
+    </div>
+    <div id="residentDetail"></div>
+    <div class="card">
+      <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">Click any resident for their topic breakdown and wrong answers.</div>
+      <table><thead><tr><th>Resident</th><th>Role</th><th>Status</th>
+        <th class="num">Answered</th><th class="num">Score</th><th></th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>
+    </div>`;
+
+  $('#addBtn').onclick = async () => {
+    const email = $('#newEmail').value.trim().toLowerCase();
+    const name  = $('#newName').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ $('#addMsg').textContent='Enter a valid email address.'; return; }
+    const { error } = await sb.from('allowed_emails')
+      .upsert({ email, full_name: name || null, role: 'resident' }, { onConflict: 'email' });
+    $('#addMsg').textContent = error ? ('Could not add: ' + error.message) : (email + ' added.');
+    if (!error){ $('#newEmail').value=''; $('#newName').value=''; renderAdmin(); }
+  };
+  v.querySelectorAll('[data-rm]').forEach(b => b.onclick = async (e) => {
+    e.stopPropagation();
+    const email = b.dataset.rm;
+    if (!confirm('Remove ' + email + '? They lose access immediately.')) return;
+    await sb.from('allowed_emails').delete().eq('email', email);
+    renderAdmin();
+  });
+  v.querySelectorAll('tr[data-uid]').forEach(tr => tr.onclick = () => residentDetail(tr.dataset.uid));
+}
+
+async function residentDetail(uid){
+  const host = $('#residentDetail');
+  if (host.dataset.open === uid){ host.innerHTML=''; host.dataset.open=''; return; }
+  host.dataset.open = uid;
+  host.innerHTML = '<div class="card"><div class="empty">Loading…</div></div>';
+  const { data: d, error } = await sb.rpc('admin_resident_detail', { target: uid });
+  if (error || !d){ host.innerHTML = '<div class="card"><div class="empty">Could not load.</div></div>'; return; }
+
+  const bar = pct => `<div class="meter"><i style="width:${pct||0}%;background:${
+    pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div>`;
+  const topics = (d.by_topic||[]).map(t =>
+    `<tr><td>${esc(t.topic)}</td><td class="num">${t.done}</td>
+     <td class="num">${t.pct===null?'—':t.pct+'%'}</td><td style="width:110px">${bar(t.pct)}</td></tr>`).join('');
+  const years = (d.by_year||[]).map(t =>
+    `<tr><td>${t.year}</td><td class="num">${t.done}</td>
+     <td class="num">${t.pct===null?'—':t.pct+'%'}</td><td style="width:110px">${bar(t.pct)}</td></tr>`).join('');
+  const wrong = (d.wrong||[]).map(w =>
+    `<tr><td><span class="tag yr">${w.year}</span> <span class="tag">${esc(w.topic)}</span>
+     <div style="margin-top:5px">${esc(w.stem)}…</div></td>
+     <td class="num" style="color:var(--bad)">chose ${esc(w.chose)}</td></tr>`).join('');
+  const pct = d.answered ? Math.round(100*d.correct/d.answered) : 0;
+
+  host.innerHTML = `<div class="card" style="border-color:var(--accent)">
+    <div class="qhead"><b style="font-size:15px">${esc(d.name || d.email || 'Resident')}</b>
+      <span class="tag">${esc(d.email||'')}</span>
+      <span class="num">${d.last_seen ? 'last seen ' + new Date(d.last_seen).toLocaleDateString() : 'never signed in'}</span></div>
+    <div class="grid">
+      <div class="kpi"><b>${d.answered}</b><span>answered of ${ALL.length}</span></div>
+      <div class="kpi"><b>${pct}%</b><span>overall</span></div>
+      <div class="kpi"><b>${d.answered - d.correct}</b><span>wrong</span></div>
+    </div>
+    ${topics ? `<h3 style="font-size:13px;margin:14px 0 8px">Weakest topics first</h3>
+      <table><tbody>${topics}</tbody></table>` : '<div class="empty">Nothing answered yet.</div>'}
+    ${years ? `<h3 style="font-size:13px;margin:16px 0 8px">By year</h3>
+      <table><tbody>${years}</tbody></table>` : ''}
+    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (most recent 60)</h3>
+      <table><tbody>${wrong}</tbody></table>` : ''}
+    <div class="nav"><button id="closeDetail">Close</button></div>
+  </div>`;
+  $('#closeDetail').onclick = () => { host.innerHTML=''; host.dataset.open=''; };
+  host.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+</script>
+</body></html>
