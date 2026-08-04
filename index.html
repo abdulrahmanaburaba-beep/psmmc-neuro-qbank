@@ -305,7 +305,19 @@ async function start(user){
     setInterval(refreshReportBadge, 120000);   // quiet poll while the tab is open
   }
 
-  await Promise.all([loadQuestions(), loadAnswers(), loadMyReports()]);
+  // Each loader fails on its own. Previously one rejection here skipped both
+  // buildFilters() and apply() entirely, leaving a signed-in resident with empty
+  // Track / Year / Topic dropdowns and no question list, with nothing on screen
+  // to say why. A broken report history must never cost you the question bank.
+  const safe = (fn, label) => {
+    try { return Promise.resolve(fn()).catch(e => console.error(label + ' failed', e)); }
+    catch (e) { console.error(label + ' failed', e); return Promise.resolve(); }
+  };
+  await Promise.all([
+    safe(loadQuestions, 'questions'),
+    safe(loadAnswers,   'answers'),
+    safe(loadMyReports, 'reports')
+  ]);
   buildFilters();
   apply();
 }
@@ -332,6 +344,19 @@ async function loadAnswers(){
     KEYS.set(a.question_uid, { answer:a.answer, explanation:a.explanation,
                                source:a.source, changed:a.changed });
   });
+}
+// Was called from start() but never defined, so start() threw a ReferenceError
+// before it reached buildFilters() - which is why every filter dropdown rendered
+// empty while the question count still looked correct.
+async function loadMyReports(){
+  MY_REPORTS = new Map();
+  if (!ME) return;
+  const { data, error } = await sb.from('reports')
+    .select('question_uid,category,note')
+    .eq('user_id', ME.id);
+  if (error){ console.error('own reports load failed', error); return; }
+  (data || []).forEach(r =>
+    MY_REPORTS.set(r.question_uid, { category:r.category, note:r.note }));
 }
 
 // ---------------------------------------------------------------- tabs
