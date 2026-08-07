@@ -127,6 +127,16 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .hint{font-size:11.5px;color:var(--faint);text-align:center;padding:14px 0 0}
 kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
  padding:1px 5px;font:600 10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.examhdr{position:sticky;top:0;z-index:20;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:10px 13px;margin-bottom:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.clock{font-variant-numeric:tabular-nums;font-size:21px;font-weight:700;letter-spacing:.5px}
+.clock.warn{color:var(--warn)} .clock.bad{color:var(--bad)}
+.navgrid{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.qbtn{width:31px;height:28px;padding:0;font-size:11.5px;border-radius:6px}
+.qbtn.done{border-color:var(--accent);color:var(--accent)}
+.qbtn.flag{border-color:var(--warn);color:var(--warn)}
+.qbtn.here{background:var(--accent);border-color:var(--accent);color:#08131f;font-weight:700}
+.band{display:inline-block;padding:5px 13px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid}
 .qimg{margin:0 0 14px;position:relative}
 .qimg img{max-width:100%;max-height:460px;border-radius:10px;border:1px solid var(--line);display:block;background:var(--panel2)}
 .qimg .imgmsg{font-size:12px;color:var(--dim);padding:8px 0}
@@ -176,6 +186,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <div class="tabs">
       <button data-tab="practice" class="on">Practice</button>
       <button data-tab="progress">My progress</button>
+      <button data-tab="exam">Exam</button>
       <button data-tab="admin" id="tabAdmin" class="hide">Residents</button>
       <button data-tab="qedit" id="tabQuestions" class="hide">Questions</button>
       <button data-tab="reports" id="tabReports" class="hide">Reports<span id="repBadge"></span></button>
@@ -206,6 +217,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
   <div id="viewPractice"></div>
   <div id="viewProgress" class="hide"></div>
+  <div id="viewExam" class="hide"></div>
   <div id="viewAdmin" class="hide"></div>
   <div id="viewQuestions" class="hide"></div>
   <div id="viewReports" class="hide"></div>
@@ -362,7 +374,11 @@ async function loadQuestions(){
   const page = 1000; const acc = [];
   for (let from = 0; ; from += page){
     const { data, error } = await sb.from('questions')
-      .select('uid,n,year,years,track,tracks,topic,stem,stem_no_image,image_path,options,flags,rebuilt,needs_review,repeat_count')
+      // `stem` is deliberately NOT requested. It is the administrator's original
+      // wording and still contains the sentence that gives an imaging finding
+      // away; the SELECT grant on it has been withdrawn from residents.
+      // stem_no_image is the resident-visible text and is always populated.
+      .select('uid,n,year,years,track,tracks,topic,stem_no_image,image_path,options,flags,rebuilt,needs_review,repeat_count')
       .order('year', { ascending:false }).order('n', { ascending:true })
       .range(from, from + page - 1);
     if (error){ console.error('question load failed', error); break; }
@@ -405,10 +421,12 @@ $$('.tabs button').forEach(b => b.onclick = () => {
   $('#kbhint').classList.toggle('hide', !p);
   $('#viewPractice').classList.toggle('hide', !p);
   $('#viewProgress').classList.toggle('hide', state.tab !== 'progress');
+  $('#viewExam').classList.toggle('hide', state.tab !== 'exam');
   $('#viewAdmin').classList.toggle('hide', state.tab !== 'admin');
   $('#viewQuestions').classList.toggle('hide', state.tab !== 'qedit');
   $('#viewReports').classList.toggle('hide', state.tab !== 'reports');
   if (state.tab === 'progress') renderProgress();
+  if (state.tab === 'exam') renderExam();
   if (state.tab === 'admin') renderAdmin();
   if (state.tab === 'qedit') renderQuestions();
   if (state.tab === 'reports') renderReports();
@@ -443,7 +461,7 @@ function apply(){
     if (state.unseen && ANSWERS.has(q.uid)) return false;
     if (state.reviewOnly && !q.needs_review) return false;
     if (s){
-      const hay = (q.stem + ' ' + q.topic + ' ' + Object.values(q.options).join(' ')).toLowerCase();
+      const hay = (q.stem_no_image + ' ' + q.topic + ' ' + Object.values(q.options).join(' ')).toLowerCase();
       if (!hay.includes(s)) return false;
     }
     return true;
@@ -490,7 +508,7 @@ function render(){
   // sentence removed. The original stem is never overwritten, so detaching the
   // image restores the old wording immediately.
   const hasImg    = !!q.image_path;
-  const shownStem = (hasImg && q.stem_no_image) ? q.stem_no_image : q.stem;
+  const shownStem = q.stem_no_image || '';
 
   let h = `<div class="card"><div class="qhead">${tags}</div><p class="stem">${esc(shownStem)}</p>`;
   if (hasImg)
@@ -516,6 +534,7 @@ function render(){
       h += '<div class="exp" style="border-left-color:var(--ok)">'
          + '<h4 style="color:var(--ok)">What the image shows</h4>'
          + `<p>${esc(key.image_finding)}</p></div>`;
+    if (prev.chosen === '-') h += '<div class="note">You left this one blank in a timed paper, so it scored zero.</div>';
     if (key.changed) h += `<div class="note"><b>Answer corrected during review.</b> ${esc(key.changed)}</div>`;
     if (q.needs_review)
       h += '<div class="note"><b>Treat this answer with caution.</b> The original recall was '
@@ -524,9 +543,14 @@ function render(){
     if (!hasImg && (q.flags||[]).includes('image-dependent'))
       h += '<div class="note">The original exam item showed an image; the finding is described in the stem.</div>';
   }
+  // Administrator-only shortcut. Rendered for nobody else, and even if the
+  // markup were forced in, every write behind it is refused server-side.
+  const iAmAdmin = !!(PROFILE && PROFILE.role === 'admin');
   h += '<div class="nav"><button id="bPrev">← Previous</button>'
      + '<button id="bNext" class="on">Next →</button>'
      + '<span class="spacer"></span>'
+     + (iAmAdmin ? `<button id="bPic" title="Attach or replace the picture for this question">`
+                 + (hasImg ? 'Change picture' : '+ Add picture') + '</button> ' : '')
      + '<button id="bReport" title="Tell the administrator this item looks wrong">'
      + (MY_REPORTS.has(q.uid) ? '✓ Reported' : 'Report a problem') + '</button>'
      + '</div><div id="repForm"></div></div>';
@@ -543,6 +567,7 @@ function render(){
 
   app.querySelectorAll('.opt').forEach(b => b.onclick = () => choose(q, b.dataset.l));
   $('#bPrev').onclick = prev_; $('#bNext').onclick = next_;
+  if (iAmAdmin && $('#bPic')) $('#bPic').onclick = () => openEditor(q.uid, true);
   $('#bReport').onclick = () => reportForm(q);
 }
 async function choose(q, L){
@@ -960,6 +985,363 @@ async function residentDetail(uid){
   host.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+// ==================================================================== exam mode
+// Question counts are the published SCFHS blueprint figures. SCFHS does not
+// publish the time allowed for these papers, so the default is one minute per
+// question - the usual pacing - and every field is editable, so the exact time
+// your programme uses can be set here.
+const PAPERS = {
+  promotion: { name:'Promotion exam', n:100, min:100, track:'Promotion', blueprint:false,
+    note:'One paper of not fewer than 100 single-best-answer MCQs, four options, one correct.' },
+  part1: { name:'Part 1 written', n:150, min:150, track:'Part 1', blueprint:true,
+    note:'One paper of 150 single-best-answer MCQs, drawn here to the published Part 1 blueprint weighting.' },
+  part2: { name:'Final written — one paper', n:125, min:125, track:'Part 2', blueprint:false,
+    note:'The final written is two papers of 100–125 MCQs each; this sits one of them.' },
+  custom: { name:'Custom paper', n:50, min:50, track:'', blueprint:false, note:'' }
+};
+
+// The eight SCFHS Part 1 domains and their published weights, mapped onto the
+// topics used in this bank. Topics outside the blueprint (neuroanatomy,
+// neuropharmacology, neurogenetics, neuroradiology, statistics) are held back
+// and used only to top a paper up if a domain runs short.
+const BLUEPRINT = [
+  ['Cerebrovascular disease',                  16, ['Vascular & Stroke']],
+  ['Epilepsy, sleep & paediatric',             16, ['Epilepsy & EEG','Sleep & Autonomic','Paediatric Neurology']],
+  ['Neuromuscular & related',                  16, ['Neuromuscular — Nerve','Neuromuscular — NMJ & Muscle','Neurophysiology (EMG/NCS/EP)']],
+  ['Demyelinating, MS & spinal cord',          11, ['Demyelinating & Neuroimmunology','Spine & Spinal Cord']],
+  ['Movement disorders & neuro-ophthalmology', 11, ['Movement Disorders','Neuro-ophthalmology','Neuro-otology & Vestibular']],
+  ['Dementia, neoplasia & paraneoplasia',      11, ['Cognitive & Behavioural Neurology','Neuro-oncology','Neuropathology']],
+  ['Pain, headache & systemic neurology',      11, ['Headache & Facial Pain','General & Systemic Neurology','Neurocritical Care & Trauma']],
+  ['CNS infection',                             8, ['Neuroinfectious Disease']]
+];
+
+// SCFHS standard setting, from the promotion blueprint.
+function bandOf(pct){
+  if (pct <  50) return { txt:'Clear fail',      col:'var(--bad)'  };
+  if (pct <  60) return { txt:'Borderline fail', col:'var(--bad)'  };
+  if (pct <  70) return { txt:'Borderline pass', col:'var(--warn)' };
+  return             { txt:'Clear pass',      col:'var(--ok)'   };
+}
+
+let EXAM = null;   // { opts, list, chosen:Map, flags:Set, i, endsAt, timer, result, short }
+
+const shuf = a => { for (let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
+function clock(ms){
+  if (ms < 0) ms = 0;
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor(s%3600/60), ss = s%60;
+  const p = n => String(n).padStart(2,'0');
+  return h ? `${h}:${p(m)}:${p(ss)}` : `${p(m)}:${p(ss)}`;
+}
+
+function pickPaper(opts){
+  let pool = ALL.filter(q => !opts.track || q.track === opts.track);
+  if (opts.unseenOnly) pool = pool.filter(q => !ANSWERS.has(q.uid));
+  if (!opts.blueprint) return { list: shuf(pool.slice()).slice(0, opts.n), short: [] };
+
+  const used = new Set(), picked = [], short = [];
+  BLUEPRINT.forEach(([name, pct, topics]) => {
+    const want = Math.round(opts.n * pct / 100);
+    const take = shuf(pool.filter(q => topics.includes(q.topic) && !used.has(q.uid))).slice(0, want);
+    take.forEach(q => used.add(q.uid));
+    picked.push(...take);
+    if (take.length < want) short.push(`${name}: ${take.length} of ${want}`);
+  });
+  const rest = shuf(pool.filter(q => !used.has(q.uid)));
+  while (picked.length < opts.n && rest.length) picked.push(rest.pop());
+  return { list: shuf(picked), short };
+}
+
+function renderExam(){
+  if (!EXAM)             return examSetup();
+  if (EXAM.result)       return examResults();
+  return examRun();
+}
+
+function examSetup(){
+  const v = $('#viewExam');
+  const counts = {};
+  ALL.forEach(q => counts[q.track] = (counts[q.track]||0) + 1);
+  const p = PAPERS[(EXAM && EXAM.opts && EXAM.opts.paper) || 'promotion'];
+
+  v.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:15px">Sit a timed paper</h3>
+      <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:14px">
+        No explanation, no right-or-wrong, and no going back to a marked question until the clock stops —
+        the same conditions as the real paper. Blank answers score zero, and you still get the explanation afterwards.
+      </div>
+      <div class="fld"><label for="exPaper">Paper</label>
+        <select id="exPaper">${Object.entries(PAPERS).map(([k,x]) =>
+          `<option value="${k}"${k===((EXAM&&EXAM.opts&&EXAM.opts.paper)||'promotion')?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+      <div id="exNote" style="font-size:11.5px;color:var(--faint);margin:-4px 0 12px;line-height:1.55">${esc(p.note)}</div>
+      <div class="three">
+        <div class="fld"><label for="exN">Questions</label><input id="exN" type="number" min="5" max="250" value="${p.n}"></div>
+        <div class="fld"><label for="exMin">Minutes</label><input id="exMin" type="number" min="5" max="360" value="${p.min}"></div>
+        <div class="fld"><label for="exTrack">Draw from</label>
+          <select id="exTrack">
+            <option value="">Everything (${ALL.length})</option>
+            ${['Promotion','Part 1','Part 2'].filter(t=>counts[t]).map(t =>
+              `<option value="${t}"${t===p.track?' selected':''}>${t} (${counts[t]})</option>`).join('')}
+          </select></div>
+      </div>
+      <label style="display:block;font-size:12.5px;margin-bottom:7px">
+        <input type="checkbox" id="exBp" ${p.blueprint?'checked':''} style="width:auto;margin-right:7px">
+        Weight the paper to the SCFHS Part 1 blueprint (stroke 16%, epilepsy/sleep/paediatric 16%, neuromuscular 16%, demyelinating &amp; cord 11%, movement &amp; neuro-ophth 11%, dementia &amp; neoplasia 11%, pain/headache/systemic 11%, CNS infection 8%)</label>
+      <label style="display:block;font-size:12.5px;margin-bottom:14px">
+        <input type="checkbox" id="exUnseen" style="width:auto;margin-right:7px">
+        Only questions I have never answered</label>
+      <div id="exWarn" style="font-size:12px;color:var(--warn);margin-bottom:10px"></div>
+      <button id="exStart" class="primary">Start the paper</button>
+    </div>`;
+
+  const sync = () => {
+    const k = $('#exPaper').value, x = PAPERS[k];
+    $('#exNote').textContent = x.note;
+    $('#exN').value = x.n; $('#exMin').value = x.min;
+    $('#exTrack').value = x.track; $('#exBp').checked = x.blueprint;
+    preview();
+  };
+  const preview = () => {
+    const o = readOpts();
+    let pool = ALL.filter(q => !o.track || q.track === o.track);
+    if (o.unseenOnly) pool = pool.filter(q => !ANSWERS.has(q.uid));
+    $('#exWarn').textContent = pool.length < o.n
+      ? `Only ${pool.length} questions match that selection, so the paper will be ${pool.length} long instead of ${o.n}.` : '';
+  };
+  const readOpts = () => ({
+    paper: $('#exPaper').value,
+    n: Math.max(5, Math.min(250, +$('#exN').value || 100)),
+    min: Math.max(5, Math.min(360, +$('#exMin').value || 100)),
+    track: $('#exTrack').value,
+    blueprint: $('#exBp').checked,
+    unseenOnly: $('#exUnseen').checked
+  });
+  $('#exPaper').onchange = sync;
+  ['exN','exMin','exTrack','exBp','exUnseen'].forEach(id => $('#'+id).onchange = preview);
+  preview();
+  $('#exStart').onclick = () => startExam(readOpts());
+}
+
+function startExam(opts){
+  const { list, short } = pickPaper(opts);
+  if (!list.length){ alertBar('No questions match that selection.'); return; }
+  EXAM = { opts, list, chosen: new Map(), flags: new Set(), i: 0, short,
+           endsAt: Date.now() + opts.min * 60000, timer: null, result: null };
+  EXAM.timer = setInterval(examTick, 1000);
+  addEventListener('beforeunload', examGuard);
+  examRun();
+}
+function examGuard(e){ if (EXAM && !EXAM.result){ e.preventDefault(); e.returnValue = ''; } }
+
+function examTick(){
+  if (!EXAM || EXAM.result) return;
+  const left = EXAM.endsAt - Date.now();
+  const el = $('#exClock');
+  if (el){
+    el.textContent = clock(left);
+    el.className = 'clock' + (left < 60000 ? ' bad' : left < 300000 ? ' warn' : '');
+  }
+  if (left <= 0) finishExam(true);
+}
+
+function examRun(){
+  const v = $('#viewExam'), q = EXAM.list[EXAM.i], n = EXAM.list.length;
+  const left = EXAM.endsAt - Date.now();
+  const hasImg = !!q.image_path;
+
+  const nav = EXAM.list.map((x,i) => {
+    const c = ['qbtn'];
+    if (EXAM.chosen.has(x.uid)) c.push('done');
+    if (EXAM.flags.has(x.uid))  c.push('flag');
+    if (i === EXAM.i)           c.push('here');
+    return `<button class="${c.join(' ')}" data-go="${i}">${i+1}</button>`;
+  }).join('');
+
+  let h = `
+  <div class="examhdr">
+    <span class="clock" id="exClock">${clock(left)}</span>
+    <span style="font-size:13px;color:var(--dim)">Question <b style="color:var(--fg)">${EXAM.i+1}</b> of ${n}
+      &middot; ${EXAM.chosen.size} answered &middot; ${EXAM.flags.size} flagged</span>
+    <span class="spacer"></span>
+    <button id="exFinish" class="primary">Finish and mark</button>
+  </div>
+  <div class="card">
+    <div class="qhead"><span class="tag">${esc(q.track||'')}</span><span class="tag">${esc(q.topic||'')}</span>
+      <span class="num">${EXAM.i+1} / ${n}</span></div>
+    <p class="stem">${esc(q.stem_no_image || '')}</p>`;
+  if (hasImg) h += `<div class="qimg"><img data-qimg="${esc(q.image_path)}" alt="Image for this question"><div class="imgmsg">Loading image…</div></div>`;
+  h += '<div class="opts">';
+  for (const L of ['A','B','C','D']){
+    const on = EXAM.chosen.get(q.uid) === L;
+    h += `<button class="opt${on?' correct':''}" data-l="${L}"><span class="L">${L}</span>`
+       + `<span>${esc(q.options[L])}</span>${on?'<span class="mark">Chosen</span>':''}</button>`;
+  }
+  h += `</div>
+    <div class="nav">
+      <button id="exPrev"${EXAM.i===0?' disabled':''}>← Previous</button>
+      <button id="exNext" class="on"${EXAM.i===n-1?' disabled':''}>Next →</button>
+      <button id="exClear">Clear answer</button>
+      <span class="spacer"></span>
+      <button id="exFlag" class="${EXAM.flags.has(q.uid)?'on':''}">${EXAM.flags.has(q.uid)?'✓ Flagged':'Flag for review'}</button>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:11.5px;color:var(--faint);margin-bottom:6px">Answered, <span style="color:var(--warn)">flagged</span>, and where you are.</div>
+    <div class="navgrid">${nav}</div>
+  </div>`;
+  v.innerHTML = h;
+
+  const img = v.querySelector('img[data-qimg]');
+  if (img) signedImage(img.dataset.qimg).then(u => {
+    const note = img.parentElement.querySelector('.imgmsg');
+    if (!u){ note.textContent = 'Image could not be loaded.'; return; }
+    img.onload = () => note.remove(); img.src = u;
+  });
+
+  v.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    EXAM.chosen.set(q.uid, b.dataset.l);
+    if (EXAM.i < EXAM.list.length - 1){ EXAM.i++; scrollTo(0,0); }
+    examRun();
+  });
+  $('#exClear').onclick = () => { EXAM.chosen.delete(q.uid); examRun(); };
+  $('#exPrev').onclick  = () => { if (EXAM.i>0){ EXAM.i--; scrollTo(0,0); examRun(); } };
+  $('#exNext').onclick  = () => { if (EXAM.i<EXAM.list.length-1){ EXAM.i++; scrollTo(0,0); examRun(); } };
+  $('#exFlag').onclick  = () => { EXAM.flags.has(q.uid) ? EXAM.flags.delete(q.uid) : EXAM.flags.add(q.uid); examRun(); };
+  $('#exFinish').onclick = () => finishExam(false);
+  v.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { EXAM.i = +b.dataset.go; scrollTo(0,0); examRun(); });
+}
+
+async function finishExam(auto){
+  if (!EXAM || EXAM.busy || EXAM.result) return;
+  const blank = EXAM.list.length - EXAM.chosen.size;
+  if (!auto && blank && !confirm(blank + ' question' + (blank>1?'s are':' is') + ' still blank.\n\nBlank answers score zero. Finish anyway?')) return;
+  EXAM.busy = true;
+  clearInterval(EXAM.timer);
+  const used = EXAM.opts.min * 60000 - Math.max(0, EXAM.endsAt - Date.now());
+  $('#viewExam').innerHTML = '<div class="card"><div class="empty">Marking your paper…</div></div>';
+
+  const payload = EXAM.list.map(q => ({ uid: q.uid, chosen: EXAM.chosen.get(q.uid) || null }));
+  const { data, error } = await sb.rpc('submit_exam', { answers: payload });
+  if (error){
+    EXAM.busy = false;
+    EXAM.timer = setInterval(examTick, 1000);
+    alertBar(/Too many/.test(error.message)
+      ? 'You have answered a lot of questions this hour. Wait a little and finish again — nothing is lost.'
+      : 'Could not mark the paper: ' + error.message);
+    examRun();
+    return;
+  }
+
+  // Fold the paper into normal progress so Practice and My progress agree.
+  (data.items || []).forEach(it => {
+    ANSWERS.set(it.uid, { question_uid: it.uid, chosen: it.chosen, correct: it.correct });
+    KEYS.set(it.uid, { answer: it.answer, explanation: it.explanation, source: it.source,
+                       changed: it.changed, image_finding: it.image_finding });
+  });
+  EXAM.result = { ...data, usedMs: used, autoSubmitted: !!auto };
+  EXAM.busy = false;
+  removeEventListener('beforeunload', examGuard);
+  examResults();
+}
+
+function examResults(){
+  const v = $('#viewExam'), r = EXAM.result, items = r.items || [];
+  const pct = r.n ? Math.round(1000 * r.correct / r.n) / 10 : 0;
+  const b = bandOf(pct);
+  const blank = items.filter(i => i.chosen === '-').length;
+
+  const byTopic = {};
+  items.forEach(i => {
+    const t = byTopic[i.topic] || (byTopic[i.topic] = { done:0, ok:0 });
+    t.done++; if (i.correct) t.ok++;
+  });
+  const rows = Object.entries(byTopic)
+    .map(([t,s]) => ({ t, ...s, pct: Math.round(100*s.ok/s.done) }))
+    .sort((a,b2) => a.pct - b2.pct)
+    .map(x => `<tr><td>${esc(x.t)}</td><td class="num">${x.ok} / ${x.done}</td>
+      <td class="num">${x.pct}%</td><td style="width:110px"><div class="meter"><i style="width:${x.pct}%;background:${
+        x.pct<60?'var(--bad)':x.pct<80?'var(--warn)':'var(--ok)'}"></i></div></td></tr>`).join('');
+
+  const review = items.map((it, n) => {
+    const q = EXAM.list.find(x => x.uid === it.uid) || {};
+    const mark = it.correct ? '<span class="pill ok">correct</span>'
+              : it.chosen === '-' ? '<span class="pill dim">left blank</span>'
+              : '<span class="pill bad">wrong</span>';
+    let s = `<div class="card" style="border-left:3px solid ${it.correct?'var(--ok)':'var(--bad)'}">
+      <div class="qhead">${mark}<span class="tag">${esc(it.topic||'')}</span><span class="num">${n+1} · ${esc(it.uid)}</span></div>
+      <p class="stem" style="font-size:14.5px">${esc(q.stem_no_image || '')}</p>`;
+    if (q.image_path) s += `<div class="qimg"><img data-qimg="${esc(q.image_path)}" alt=""><div class="imgmsg">Loading image…</div></div>`;
+    s += '<div class="opts">';
+    for (const L of ['A','B','C','D']){
+      let cls = 'opt', m = '';
+      if (L === it.answer){ cls += ' correct'; m = '<span class="mark">Correct</span>'; }
+      else if (L === it.chosen){ cls += ' wrong'; m = '<span class="mark">You chose</span>'; }
+      else cls += ' muted';
+      s += `<button class="${cls}" disabled><span class="L">${L}</span><span>${esc((q.options||{})[L]||'')}</span>${m}</button>`;
+    }
+    s += `</div><div class="exp"><h4>Explanation</h4><p>${esc(it.explanation)}</p>`
+       + `<div class="src"><b>Source:</b> ${esc(it.source)}</div></div>`;
+    if (q.image_path && it.image_finding)
+      s += `<div class="exp" style="border-left-color:var(--ok)"><h4 style="color:var(--ok)">What the image shows</h4><p>${esc(it.image_finding)}</p></div>`;
+    return s + '</div>';
+  }).join('');
+
+  v.innerHTML = `
+    <div class="card" style="border-color:${b.col}">
+      ${r.autoSubmitted ? '<div class="note" style="margin-top:0">Time ran out — the paper was marked as it stood.</div>' : ''}
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <div style="font-size:38px;font-weight:800;line-height:1;color:${b.col}">${pct}%</div>
+        <div><span class="band" style="color:${b.col};border-color:${b.col}">${b.txt}</span>
+          <div style="font-size:12px;color:var(--dim);margin-top:6px">${r.correct} of ${r.n} correct${
+            blank ? ` · ${blank} left blank` : ''} · ${clock(r.usedMs)} used of ${EXAM.opts.min} min</div></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--faint);line-height:1.6">
+        SCFHS bands: under 50% clear fail · 50–59.4% borderline fail · 60–69.4% borderline pass · 70% and above clear pass.
+        Promotion to the next level needs at least a borderline pass.
+      </div>
+      ${EXAM.short && EXAM.short.length ? `<div class="note">The bank could not fill every blueprint domain: ${esc(EXAM.short.join('; '))}. The paper was topped up from the rest of the pool.</div>` : ''}
+      <div class="nav" style="margin-top:14px">
+        <button id="exAgain" class="primary">Sit another paper</button>
+        <span class="spacer"></span>
+        <button id="exToggle">Show every question with its explanation</button>
+      </div>
+    </div>
+    <div class="card"><h3 style="margin:0 0 10px;font-size:14px">Weakest topics first</h3>
+      <table><tbody>${rows}</tbody></table></div>
+    <div id="exReview" class="hide">${review}</div>`;
+
+  $('#exAgain').onclick = () => { EXAM = null; examSetup(); scrollTo(0,0); };
+  $('#exToggle').onclick = () => {
+    const box = $('#exReview'), open = !box.classList.contains('hide');
+    box.classList.toggle('hide', open);
+    $('#exToggle').textContent = open ? 'Show every question with its explanation' : 'Hide the question-by-question review';
+    if (!open) box.querySelectorAll('img[data-qimg]').forEach(im => {
+      if (im.src) return;
+      signedImage(im.dataset.qimg).then(u => { const nt = im.parentElement.querySelector('.imgmsg');
+        if (!u){ nt.textContent = 'Image could not be loaded.'; return; } im.onload = () => nt.remove(); im.src = u; });
+    });
+  };
+}
+
+// Keyboard, exam only. The practice handler bails out on any tab but Practice.
+addEventListener('keydown', e => {
+  if (state.tab !== 'exam' || !EXAM || EXAM.result) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const q = EXAM.list[EXAM.i]; if (!q) return;
+  const k = e.key.toUpperCase();
+  if (k.length === 1 && 'ABCD'.includes(k)){
+    EXAM.chosen.set(q.uid, k);
+    if (EXAM.i < EXAM.list.length - 1) EXAM.i++;
+    examRun(); e.preventDefault();
+  } else if (k.length === 1 && '1234'.includes(k)){
+    EXAM.chosen.set(q.uid, 'ABCD'[+k-1]);
+    if (EXAM.i < EXAM.list.length - 1) EXAM.i++;
+    examRun(); e.preventDefault();
+  } else if (k === 'N' || e.key === 'ArrowRight'){ if (EXAM.i < EXAM.list.length-1){ EXAM.i++; examRun(); } }
+  else if (k === 'P' || e.key === 'ArrowLeft'){ if (EXAM.i > 0){ EXAM.i--; examRun(); } }
+  else if (k === 'F'){ EXAM.flags.has(q.uid) ? EXAM.flags.delete(q.uid) : EXAM.flags.add(q.uid); examRun(); }
+});
+
 // ============================================================= questions (admin)
 // Nothing here is a security boundary. `authenticated` has no INSERT, UPDATE or
 // DELETE grant on public.questions at all; every write below goes through a
@@ -1027,12 +1409,13 @@ function renderQuestions(){
       <table><thead><tr><th>No.</th><th>Question</th><th>Track / year</th><th>Picture</th><th></th></tr></thead>
       <tbody>${shown.map(q => `<tr>
         <td class="num" style="white-space:nowrap">${esc(q.uid)}</td>
-        <td><div style="max-width:520px">${esc(String(q.stem||'').slice(0,150))}${(q.stem||'').length>150?'…':''}</div>
+        <td><div style="max-width:520px">${esc(String(q.stem_no_image||'').slice(0,150))}${(q.stem_no_image||'').length>150?'…':''}</div>
             <div style="font-size:11px;color:var(--faint);margin-top:3px">${esc(q.topic||'—')}${
               q.needs_review ? ' · <span style="color:var(--warn)">needs check</span>' : ''}</div></td>
         <td style="font-size:12px;white-space:nowrap">${esc(q.track||'—')}<div style="color:var(--dim)">${esc(String(q.year||'—'))}</div></td>
-        <td>${q.image_path ? '<span class="pill ok">yes</span>'
-              : ((q.flags||[]).includes('image-dependent') ? '<span class="pill warn">needed</span>' : '<span class="pill dim">—</span>')}</td>
+        <td style="white-space:nowrap">${q.image_path ? '<span class="pill ok">yes</span>'
+              : ((q.flags||[]).includes('image-dependent') ? '<span class="pill warn">needed</span>' : '<span class="pill dim">—</span>')}
+            <div style="margin-top:5px"><button data-pic="${esc(q.uid)}">${q.image_path ? 'Change' : '+ Picture'}</button></div></td>
         <td style="white-space:nowrap"><button data-edit="${esc(q.uid)}">Edit</button>
             <button data-del="${esc(q.uid)}">Delete</button></td>
       </tr>`).join('')}</tbody></table>
@@ -1046,14 +1429,21 @@ function renderQuestions(){
   $('#qRevOnly').onclick = () => { QFILTER.reviewOnly = !QFILTER.reviewOnly; renderQuestions(); };
   $('#qNew').onclick = () => openEditor(null);
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
+  v.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openEditor(b.dataset.pic, true));
   v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteQuestion(b.dataset.del));
   if (QDRAFT) drawEditor();
 }
 
-async function openEditor(uid){
+// focusPic: jump straight to the picture field. Used by the "+ Add picture"
+// buttons in the list and on the practice card.
+async function openEditor(uid, focusPic){
+  if (state.tab !== 'qedit'){
+    const tab = document.querySelector('.tabs [data-tab="qedit"]');
+    if (tab){ tab.click(); await new Promise(r => setTimeout(r, 30)); }
+  }
   const host = $('#qEditor');
   host.innerHTML = '<div class="card"><div class="empty">Loading…</div></div>';
-  if (!uid){ QDRAFT = { q: BLANK(), moved: new Set(), file: null }; drawEditor(); return; }
+  if (!uid){ QDRAFT = { q: BLANK(), moved: new Set(), file: null, focusPic:false }; drawEditor(); return; }
   const { data, error } = await sb.rpc('admin_get_question', { q_uid: uid });
   if (error || !data){ host.innerHTML = '<div class="card"><div class="empty">Could not load that question.</div></div>'; return; }
   const q = Object.assign(BLANK(), data);
@@ -1065,7 +1455,7 @@ async function openEditor(uid){
     const kept = new Set(splitSentences(q.stem_no_image || ''));
     splitSentences(q.stem).forEach((sent, i) => { if (!kept.has(sent)) moved.add(i); });
   }
-  QDRAFT = { q, moved, file: null };
+  QDRAFT = { q, moved, file: null, focusPic: !!focusPic };
   drawEditor();
 }
 
@@ -1175,7 +1565,16 @@ function drawEditor(){
   $('#qCancel').onclick = () => { QDRAFT = null; $('#qEditor').innerHTML = ''; };
   $('#qSave').onclick = saveQuestion;
   if (!isNew) $('#qDel').onclick = () => deleteQuestion(q.uid);
-  host.scrollIntoView({ behavior:'smooth', block:'start' });
+
+  if (QDRAFT.focusPic){
+    QDRAFT.focusPic = false;                       // once, not on every redraw
+    const f = $('#qFile');
+    f.scrollIntoView({ behavior:'smooth', block:'center' });
+    f.style.outline = '2px solid var(--accent)';
+    setTimeout(() => { if ($('#qFile')) $('#qFile').style.outline = ''; }, 2200);
+  } else {
+    host.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
 }
 
 // Pull whatever is on screen back into the draft, so redrawing the editor (after
@@ -1243,7 +1642,7 @@ async function saveQuestion(){
 async function deleteQuestion(uid){
   const q = ALL.find(x => x.uid === uid);
   if (!confirm('Delete ' + uid + ' permanently?\n\n'
-    + (q ? '"' + String(q.stem||'').slice(0,110) + '…"\n\n' : '')
+    + (q ? '"' + String(q.stem_no_image||'').slice(0,110) + '…"\n\n' : '')
     + 'Every resident\'s attempt at this question, and any reports on it, are deleted with it. This cannot be undone.')) return;
   const { data, error } = await sb.rpc('admin_delete_question', { q_uid: uid });
   if (error){ alertBar('Could not delete: ' + error.message); return; }
