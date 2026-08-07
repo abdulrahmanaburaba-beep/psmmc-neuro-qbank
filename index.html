@@ -1349,7 +1349,10 @@ addEventListener('keydown', e => {
 // tab is a courtesy, not a lock.
 
 let QDRAFT = null;                                   // { q, moved:Set, file:File|null }
-const QFILTER = { s:'', track:'', topic:'', imgOnly:false, reviewOnly:false };
+const QFILTER = { s:'', track:'', topic:'', imgOnly:false, needsPic:false, reviewOnly:false };
+// "needs picture" means the original exam item showed an image and none has been
+// attached yet - the worklist of what is still to do.
+const wantsPic = q => !q.image_path && (q.flags||[]).includes('image-dependent');
 const BLANK = () => ({ uid:'', year:new Date().getFullYear(), track:'', topic:'', stem:'',
                        options:{A:'',B:'',C:'',D:''}, answer:'A', explanation:'', source:'',
                        needs_review:false, image_path:'', stem_no_image:'', image_finding:'' });
@@ -1374,13 +1377,14 @@ function renderQuestions(){
     if (QFILTER.track && q.track !== QFILTER.track) return false;
     if (QFILTER.topic && q.topic !== QFILTER.topic) return false;
     if (QFILTER.imgOnly    && !q.image_path)   return false;
+    if (QFILTER.needsPic   && !wantsPic(q))    return false;
     if (QFILTER.reviewOnly && !q.needs_review) return false;
     if (s && !((q.uid + ' ' + q.stem + ' ' + (q.topic||'')).toLowerCase().includes(s))) return false;
     return true;
   });
   const shown = list.slice(0, 150);
   const withImg  = ALL.filter(q => q.image_path).length;
-  const needsImg = ALL.filter(q => !q.image_path && (q.flags||[]).includes('image-dependent')).length;
+  const needsImg = ALL.filter(wantsPic).length;
 
   const opts = (arr, cur) => ['<option value="">All</option>']
     .concat(arr.map(x => `<option value="${esc(x)}"${x===cur?' selected':''}>${esc(x)}</option>`)).join('');
@@ -1397,7 +1401,8 @@ function renderQuestions(){
         <input type="search" id="qSearch" placeholder="Search by number, stem or topic…" value="${esc(QFILTER.s)}">
         <select id="qTrack" style="flex:0 0 auto;width:130px">${opts(tracks, QFILTER.track)}</select>
         <select id="qTopic" style="flex:0 0 auto;width:170px">${opts(topics, QFILTER.topic)}</select>
-        <button id="qImgOnly" class="${QFILTER.imgOnly?'on':''}">Has picture</button>
+        <button id="qImgOnly" class="${QFILTER.imgOnly?'on':''}" title="Questions that already have a picture attached">Has picture (${withImg})</button>
+        <button id="qNeedsPic" class="${QFILTER.needsPic?'on':''}" title="The original exam item showed an image and none has been attached yet">Needs picture (${needsImg})</button>
         <button id="qRevOnly" class="${QFILTER.reviewOnly?'on':''}">Needs check</button>
         <span class="spacer"></span>
         <button id="qNew" class="primary">+ New question</button>
@@ -1425,8 +1430,11 @@ function renderQuestions(){
   let t; $('#qSearch').oninput = e => { clearTimeout(t); t = setTimeout(() => { QFILTER.s = e.target.value; renderQuestions(); }, 200); };
   $('#qTrack').onchange = e => { QFILTER.track = e.target.value; renderQuestions(); };
   $('#qTopic').onchange = e => { QFILTER.topic = e.target.value; renderQuestions(); };
-  $('#qImgOnly').onclick = () => { QFILTER.imgOnly = !QFILTER.imgOnly; renderQuestions(); };
-  $('#qRevOnly').onclick = () => { QFILTER.reviewOnly = !QFILTER.reviewOnly; renderQuestions(); };
+  // Mutually exclusive: a question cannot both have a picture and still need one,
+  // so turning one on releases the other rather than showing an empty list.
+  $('#qImgOnly').onclick  = () => { QFILTER.imgOnly  = !QFILTER.imgOnly;  if (QFILTER.imgOnly)  QFILTER.needsPic = false; renderQuestions(); };
+  $('#qNeedsPic').onclick = () => { QFILTER.needsPic = !QFILTER.needsPic; if (QFILTER.needsPic) QFILTER.imgOnly  = false; renderQuestions(); };
+  $('#qRevOnly').onclick  = () => { QFILTER.reviewOnly = !QFILTER.reviewOnly; renderQuestions(); };
   $('#qNew').onclick = () => openEditor(null);
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
   v.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openEditor(b.dataset.pic, true));
