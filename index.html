@@ -434,6 +434,11 @@ async function start(user){
     showDeviceWait(DEVICE_STATE);
     return;
   }
+  // An account may be registered to two devices but used on only one at a time.
+  // Loading the page takes the account; whichever device did have it finds out
+  // within ten seconds and stops.
+  await claimLease();
+  startHeartbeat();
 
   $('#gate').classList.add('hide');
   $('#app').classList.remove('hide');
@@ -461,6 +466,62 @@ async function start(user){
   ]);
   buildFilters();
   apply();
+}
+
+// The account can be open on one device at a time. This page holds it while it
+// is open, and checks in every ten seconds — a single dropped request on a slow
+// hospital connection therefore costs nothing, because the server only lets the
+// account go after thirty quiet seconds.
+let BEAT = null;
+async function claimLease(){
+  try { const { data } = await sb.rpc('claim_lease'); return data; }
+  catch (e) { return null; }
+}
+function startHeartbeat(){
+  clearInterval(BEAT);
+  BEAT = setInterval(async () => {
+    try {
+      const { data, error } = await sb.rpc('lease_beat');
+      if (error || !data) return;                 // a blip; the next beat settles it
+      if (data.enforced && data.held === false){
+        clearInterval(BEAT); BEAT = null;
+        showDisplaced(data.other);
+      }
+    } catch (e) { /* offline: the next beat will say */ }
+  }, 10000);
+}
+
+// Another device took the account. Say so plainly rather than failing quietly,
+// and above all do not lose a paper: it is written back to this device first, so
+// coming back here brings it up ready to be marked.
+function showDisplaced(other){
+  BOOTED = false;
+  const who = other || 'another device';
+  if (typeof EXAM !== 'undefined' && EXAM && !EXAM.result){
+    clearInterval(EXAM.timer); EXAM.timer = null;
+    EXAM.expired = true;
+    EXAM.failed = 'Your account was opened on ' + who + ', so this paper could not be marked there and then.';
+    saveExam();
+  }
+  removeEventListener('beforeunload', examGuard);
+  $('#app').classList.add('hide');
+  $('#gate').classList.remove('hide');
+  $('#gate').innerHTML = `
+    <div class="gatebox">
+      <h1>Saudi Neurology QBank</h1>
+      <p class="lede">Your account has been opened on ${esc(who)}.</p>
+      <div class="msg info" style="text-align:left;line-height:1.65">
+        An account can only be used on one device at a time, so this one has stopped.
+        If that was you, carry on there — or take the account back here.
+        <br><br>If it was not you, tell Dr Abdulrahman.
+      </div>
+      <button id="backHere" class="primary">Use it here instead</button>
+      <button id="dispOut" style="margin-top:8px">Sign out</button>
+      <div class="priv">Nothing is lost. Your progress is saved, and any paper you were sitting
+        is still on this device waiting to be marked.</div>
+    </div>`;
+  $('#backHere').onclick = async () => { await claimLease(); location.reload(); };
+  $('#dispOut').onclick  = async () => { await sb.auth.signOut(); location.reload(); };
 }
 
 // Shown instead of the bank when this browser is not one of the account's
