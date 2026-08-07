@@ -757,9 +757,19 @@ async function choose(q, L){
   const { data, error } = await sb.rpc('answer_question', { q_uid: q.uid, chosen: L });
   q._pending = false;
   if (error){
-    const msg = /Too many/.test(error.message)
-      ? 'You are answering unusually fast. Pause a moment and try again.'
-      : 'Could not record that answer. Check your connection and try again.';
+    // The server writes a specific reason for anything to do with devices or the
+    // account being open elsewhere. Papering over it with "check your connection"
+    // sends a resident chasing their wifi for a problem their wifi does not have.
+    const m = String(error.message || '');
+    let msg;
+    if (/Too many/.test(m))
+      msg = 'You are answering unusually fast. Pause a moment and try again.';
+    else if (/^not authorised$/i.test(m))
+      msg = 'Your access to the bank is not active at the moment. Check with Dr Abdulrahman.';
+    else if (/device|opened on|approved for your account/i.test(m))
+      msg = m;
+    else
+      msg = 'Could not record that answer. Check your connection and try again.';
     alertBar(msg);
     return;
   }
@@ -1034,6 +1044,8 @@ async function renderDevicePanel(){
         ${chip(data.enforced ? 'enforcing · ' + data.limit + ' devices per account'
                              : 'watching only — nothing is blocked',
                data.enforced ? 'var(--ok)' : 'var(--warn)')}
+        <select id="devLimit" title="How many devices one account may use" style="width:104px;padding:4px 6px;font-size:12px">${
+          [1,2,3,4].map(n => `<option value="${n}"${n === data.limit ? ' selected' : ''}>${n} device${n>1?'s':''}</option>`).join('')}</select>
         <button id="devEnforce" class="${data.enforced ? '' : 'primary'}">${
           data.enforced ? 'Stop enforcing' : 'Start enforcing'}</button>
         <button id="devRefresh">Refresh</button>
@@ -1049,6 +1061,13 @@ async function renderDevicePanel(){
     </div>`;
 
   $('#devRefresh').onclick = renderDevicePanel;
+  $('#devLimit').onchange = async () => {
+    const { error } = await sb.rpc('admin_set_config',
+      { p_key: 'device_limit', p_value: $('#devLimit').value });
+    if (error){ alertBar('Could not change that: ' + error.message); return; }
+    alertBar('An account may now use ' + $('#devLimit').value + ' device(s).');
+    renderDevicePanel();
+  };
   $('#devEnforce').onclick = async () => {
     const turningOn = !data.enforced;
     if (turningOn && !confirm(
