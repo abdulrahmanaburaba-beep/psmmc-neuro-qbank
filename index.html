@@ -237,8 +237,41 @@ import { createClient } from './supabase.js';
 
 const SUPABASE_URL = 'https://jnwbcfwtlnrupkthbluh.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Lc8toRDfrYJIlqPTyB7_xA_dFym0V5-';
+
+// A name this browser hands back on every request. Deliberately NOT a hardware
+// fingerprint: two browsers on one laptop count as two devices, which is the
+// behaviour that catches a password passed around a study group. The server
+// decides what to do with it; this side only remembers it.
+function deviceKey(){
+  let k = null;
+  try { k = localStorage.getItem('qbank.device'); } catch (e) {}
+  if (!/^[a-f0-9]{32}$/.test(k || '')){
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    k = Array.from(b, x => x.toString(16).padStart(2,'0')).join('');
+    try { localStorage.setItem('qbank.device', k); } catch (e) {}
+  }
+  return k;
+}
+const DEVICE = deviceKey();
+let DEVICE_STATE = null;
+
+function deviceLabel(){
+  const ua = navigator.userAgent;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad'
+           : /Android/.test(ua) ? 'Android' : /Macintosh|Mac OS/.test(ua) ? 'Mac'
+           : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Unknown device';
+  const br = /Edg\//.test(ua) ? 'Edge' : /OPR\/|Opera/.test(ua) ? 'Opera'
+           : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Firefox|FxiOS/.test(ua) ? 'Firefox'
+           : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  return os + ' · ' + br;
+}
+
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  // Travels with every request, including the RPCs, so the database can decide
+  // for itself which device is asking rather than trusting anything on screen.
+  global: { headers: { 'x-device': DEVICE } }
 });
 
 const $  = s => document.querySelector(s);
@@ -306,6 +339,23 @@ function gmsg(text, kind='info'){
 $('#send').onclick = async () => {
   const email = $('#email').value.trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gmsg('Please enter a valid email address.','err'); return; }
+
+  // Two links per address per hour. A shared mailbox gives itself away by asking
+  // for links constantly, so every request is also recorded server-side where it
+  // cannot be cleared; this counter is only the polite front door.
+  const rk = 'qbank.links.' + email.toLowerCase();
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
+  hist = hist.filter(t => Date.now() - t < 3600000);
+  if (hist.length >= 2){
+    gmsg('Two sign-in links have already been sent to that address in the last hour. '
+       + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    return;
+  }
+  hist.push(Date.now());
+  try { localStorage.setItem(rk, JSON.stringify(hist)); } catch (e) {}
+  sb.rpc('log_link_request', { p_email: email }).then(()=>{}, ()=>{});
+
   $('#send').disabled = true;
   gmsg('Sending…');
 
@@ -371,6 +421,20 @@ async function start(user){
   PROFILE = prof;
   sb.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', user.id).then(()=>{});
 
+  // Register this browser. The database decides whether it is allowed in; this
+  // page only reports the answer it gets.
+  try {
+    const { data: dev, error: derr } = await sb.rpc('touch_device',
+      { p_key: DEVICE, p_label: deviceLabel() });
+    if (derr) console.error('device check failed', derr);
+    DEVICE_STATE = dev || null;
+  } catch (e) { console.error('device check failed', e); }
+  if (DEVICE_STATE && DEVICE_STATE.enforced
+      && DEVICE_STATE.status !== 'active' && prof.role !== 'admin'){
+    showDeviceWait(DEVICE_STATE);
+    return;
+  }
+
   $('#gate').classList.add('hide');
   $('#app').classList.remove('hide');
   $('#uemail').textContent = prof.email;
@@ -397,6 +461,35 @@ async function start(user){
   ]);
   buildFilters();
   apply();
+}
+
+// Shown instead of the bank when this browser is not one of the account's
+// approved devices. Deliberately calm and specific: the honest resident who has
+// just bought a new phone should know exactly what to do, and the person who has
+// been handed someone else's link should understand that it will not work.
+function showDeviceWait(d){
+  BOOTED = false;                       // let a later approval boot the app properly
+  $('#app').classList.add('hide');
+  $('#gate').classList.remove('hide');
+  $('#gate').innerHTML = `
+    <div class="gatebox">
+      <h1>Saudi Neurology QBank</h1>
+      <p class="lede">This device is not one of the ${d.limit} approved for your account.</p>
+      <div class="msg info" style="text-align:left;line-height:1.65">
+        Your account already has ${d.active_devices} device${d.active_devices===1?'':'s'} in use.
+        An account is for one person, so a new device has to be approved before it can
+        open the bank.<br><br>
+        Send Dr Abdulrahman a message saying you are on a new device
+        (<b>${esc(deviceLabel())}</b>) and he can approve it. If you have stopped using an
+        old phone or laptop, say so and he will retire it.
+      </div>
+      <button id="devRecheck" class="primary">I have been approved — try again</button>
+      <button id="devOut" style="margin-top:8px">Sign out</button>
+      <div class="priv">Nothing you have answered is lost. Your progress, and any exam paper
+        still waiting to be marked, are all kept.</div>
+    </div>`;
+  $('#devRecheck').onclick = () => location.reload();
+  $('#devOut').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 }
 
 async function loadQuestions(){
@@ -817,6 +910,109 @@ function subStatus(a){
   return { k:'active', cls:'pill ok', txt:days + ' d left' };
 }
 
+// ------------------------------------------------------ devices and sharing
+// Everything here is a signal, not a verdict. Two devices in one household look
+// exactly like two people sharing a login. The job of this panel is to put the
+// evidence in front of you and to make the third device wait for your say-so.
+const FLAG_TONE = { concurrent:'var(--bad)', shared_device:'var(--bad)',
+                    pending_device:'var(--warn)', ip_spread:'var(--warn)',
+                    many_devices:'var(--warn)', link_storm:'var(--warn)' };
+const DEV_TONE  = { active:'var(--ok)', pending:'var(--warn)', refused:'var(--bad)' };
+
+async function renderDevicePanel(){
+  const box = $('#devicePanel');
+  if (!box) return;
+  box.innerHTML = '<div class="card"><div class="empty">Checking devices…</div></div>';
+  const { data, error } = await sb.rpc('admin_sharing_report');
+  if (error){
+    box.innerHTML = `<div class="card"><div class="empty">Could not load device activity: ${esc(error.message)}</div></div>`;
+    return;
+  }
+  const accounts = (data.accounts || []);
+  const flagged  = accounts.filter(a => (a.flags || []).length);
+  const waiting  = accounts.reduce((n, a) => n + (a.n_pending || 0), 0);
+  const when = t => t ? new Date(t).toLocaleString('en-GB',
+    { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+
+  const chip = (txt, tone) => `<span style="display:inline-block;padding:2px 8px;border-radius:99px;
+    font-size:11px;border:1px solid ${tone};color:${tone};margin:0 4px 4px 0">${esc(txt)}</span>`;
+
+  const devRow = d => `
+    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;
+                padding:7px 0;border-top:1px solid var(--line)">
+      <b style="font-size:12.5px;min-width:120px">${esc(d.label || 'Unnamed device')}</b>
+      ${chip(d.status, DEV_TONE[d.status] || 'var(--line)')}
+      <span style="font-size:11.5px;color:var(--faint)">last used ${when(d.last_seen_at)}
+        · ${esc(d.last_ip || 'no address')} · ${d.seen_count} visit${d.seen_count===1?'':'s'}</span>
+      <span class="spacer" style="flex:1"></span>
+      ${d.status !== 'active' ? `<button data-dev="${d.id}" data-to="active">Approve</button>` : ''}
+      ${d.status !== 'refused' ? `<button data-dev="${d.id}" data-to="refused">Retire</button>` : ''}
+    </div>`;
+
+  const acct = a => `
+    <div style="padding:12px 0;border-top:2px solid var(--line)">
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <b style="font-size:13.5px">${esc(a.name || a.email)}</b>
+        <span style="font-size:11.5px;color:var(--dim)">${esc(a.email)}</span>
+        <span class="spacer" style="flex:1"></span>
+        <button data-forget="${a.user_id}">Forget all devices</button>
+      </div>
+      <div style="margin:6px 0 2px">${(a.flags||[]).map(f =>
+        chip(f.text + (f.at ? ' · ' + when(f.at) : ''), FLAG_TONE[f.code] || 'var(--warn)')).join('')}</div>
+      ${(a.devices||[]).map(devRow).join('')}
+    </div>`;
+
+  const list = (flagged.length ? flagged : accounts).map(acct).join('')
+    || '<div class="empty">No devices have registered yet.</div>';
+
+  box.innerHTML = `
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px">
+        <h3 style="margin:0;font-size:14px">Devices and sharing signals</h3>
+        <span class="spacer" style="flex:1"></span>
+        ${chip(data.enforced ? 'enforcing · ' + data.limit + ' devices per account'
+                             : 'watching only — nothing is blocked',
+               data.enforced ? 'var(--ok)' : 'var(--warn)')}
+        <button id="devEnforce" class="${data.enforced ? '' : 'primary'}">${
+          data.enforced ? 'Stop enforcing' : 'Start enforcing'}</button>
+        <button id="devRefresh">Refresh</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:4px">
+        ${waiting ? `<b style="color:var(--warn)">${waiting} device${waiting===1?'':'s'} waiting for you.</b> ` : ''}
+        The first ${data.limit} devices an account uses are let in automatically; anything after that waits here.
+        <b>Approve</b> lets a device in, <b>Retire</b> shuts it out and frees a slot, and
+        <b>Forget all devices</b> gives a resident a clean start after a new phone.
+        ${flagged.length ? '' : 'Nothing is flagged at the moment — showing every account that has registered a device.'}
+      </div>
+      ${list}
+    </div>`;
+
+  $('#devRefresh').onclick = renderDevicePanel;
+  $('#devEnforce').onclick = async () => {
+    const turningOn = !data.enforced;
+    if (turningOn && !confirm(
+      'Start enforcing the device limit?\n\n'
+      + 'From now on a resident on a third device cannot open the bank until you approve it here. '
+      + 'Everyone already registered keeps working. You are never locked out yourself.')) return;
+    const { error } = await sb.rpc('admin_set_config',
+      { p_key: 'device_enforcement', p_value: turningOn ? 'on' : 'off' });
+    if (error){ alertBar('Could not change that: ' + error.message); return; }
+    alertBar(turningOn ? 'Device limit is now being enforced.' : 'Device limit is no longer enforced — signals are still recorded.');
+    renderDevicePanel();
+  };
+  box.querySelectorAll('[data-dev]').forEach(b => b.onclick = async () => {
+    const { error } = await sb.rpc('admin_set_device', { p_id: b.dataset.dev, p_status: b.dataset.to });
+    if (error){ alertBar(error.message); return; }
+    renderDevicePanel();
+  });
+  box.querySelectorAll('[data-forget]').forEach(b => b.onclick = async () => {
+    if (!confirm('Forget every device on this account?\n\nThe next two devices they use are let in automatically. Use this when someone has genuinely changed phone or laptop.')) return;
+    const { error } = await sb.rpc('admin_forget_devices', { p_user: b.dataset.forget });
+    if (error){ alertBar(error.message); return; }
+    renderDevicePanel();
+  });
+}
+
 async function renderAdmin(){
   const v = $('#viewAdmin');
   v.innerHTML = '<div class="empty">Loading…</div>';
@@ -898,6 +1094,7 @@ async function renderAdmin(){
       </div>
     </div>
     <div id="residentDetail"></div>
+    <div id="devicePanel"></div>
     <div class="card">
       <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
         Click a resident's name for their topic breakdown and wrong answers.
@@ -910,6 +1107,8 @@ async function renderAdmin(){
         <tbody>${rows}</tbody></table>
       </div>
     </div>`;
+
+  renderDevicePanel();
 
   const emailOf = el => el.closest('tr').dataset.email;
   const note = (msg, bad) => { const m = $('#addMsg'); m.style.color = bad ? 'var(--bad)' : 'var(--dim)'; m.textContent = msg; };
