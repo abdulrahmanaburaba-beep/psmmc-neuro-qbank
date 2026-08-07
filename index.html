@@ -1095,7 +1095,9 @@ function pickPaper(opts){
 
 function renderExam(){
   if (!EXAM && restoreExam())
-    alertBar('Picked up the paper you had running — ' + clock(EXAM.endsAt - Date.now()) + ' left.');
+    alertBar(EXAM.failed
+      ? 'Picked up the paper you sat earlier — it is still waiting to be marked.'
+      : 'Picked up the paper you had running — ' + clock(EXAM.endsAt - Date.now()) + ' left.');
   if (!EXAM)       return examSetup();
   if (EXAM.result) return examResults();
   if (EXAM.failed) return examFailed(EXAM.failed);
@@ -1182,6 +1184,7 @@ function startExam(opts){
 // call finishExam every second forever against a rate limit it can never clear.
 function examFailed(msg){
   EXAM.failed = msg;
+  saveExam();                       // so the card survives a reload, not just this tab
   $('#viewExam').innerHTML = `
     <div class="card" style="border-color:var(--warn)">
       <h3 style="margin:0 0 8px;font-size:15px;color:var(--warn)">Your paper is finished but not yet marked</h3>
@@ -1211,7 +1214,8 @@ function saveExam(){
     localStorage.setItem(examKey(), JSON.stringify({
       opts: EXAM.opts, uids: EXAM.list.map(q => q.uid),
       chosen: [...EXAM.chosen], flags: [...EXAM.flags],
-      i: EXAM.i, endsAt: EXAM.endsAt, short: EXAM.short
+      i: EXAM.i, endsAt: EXAM.endsAt, short: EXAM.short,
+      failed: EXAM.failed || null, expired: !!EXAM.expired
     }));
   } catch (e) { /* private mode or quota: the paper simply is not resumable */ }
 }
@@ -1219,13 +1223,20 @@ function clearExam(){ try { localStorage.removeItem(examKey()); } catch (e) {} }
 function restoreExam(){
   let s; try { s = JSON.parse(localStorage.getItem(examKey()) || 'null'); } catch (e) { return false; }
   if (!s || !s.uids || !s.endsAt) return false;
-  if (s.endsAt - Date.now() <= 0){ clearExam(); return false; }   // it ran out while away
+  // A paper that was sat but could not be marked is kept whatever the clock now
+  // says, and even if the bank has moved under it. The answers are the valuable
+  // part, and the server marks whatever of the paper still exists.
+  const spent = s.endsAt - Date.now() <= 0;
+  if (spent && !s.failed){ clearExam(); return false; }            // it ran out while away
   const byUid = new Map(ALL.map(q => [q.uid, q]));
   const list = s.uids.map(u => byUid.get(u)).filter(Boolean);
-  if (list.length !== s.uids.length){ clearExam(); return false; } // bank changed under it
+  if (!list.length){ clearExam(); return false; }
+  if (list.length !== s.uids.length && !s.failed){ clearExam(); return false; } // bank changed under it
   EXAM = { opts: s.opts, list, chosen: new Map(s.chosen), flags: new Set(s.flags),
            i: Math.min(s.i || 0, list.length - 1), short: s.short || [],
-           endsAt: s.endsAt, timer: setInterval(examTick, 1000), result: null };
+           endsAt: s.endsAt, result: null,
+           failed: s.failed || null, expired: !!s.expired || spent,
+           timer: (s.failed || spent) ? null : setInterval(examTick, 1000) };
   addEventListener('beforeunload', examGuard);
   return true;
 }
@@ -1510,6 +1521,7 @@ function renderQuestions(){
         <button id="qNeedsPic" class="${QFILTER.needsPic?'on':''}" title="The original exam item showed an image and none has been attached yet">Needs picture (${needsImg})</button>
         <button id="qRevOnly" class="${QFILTER.reviewOnly?'on':''}">Needs check</button>
         <span class="spacer"></span>
+        <button id="qBackup" title="Save every question, answer, explanation and the allowlist to a file on this device">Download backup</button>
         <button id="qNew" class="primary">+ New question</button>
       </div>
       <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
@@ -1541,6 +1553,7 @@ function renderQuestions(){
   $('#qNeedsPic').onclick = () => { QFILTER.needsPic = !QFILTER.needsPic; if (QFILTER.needsPic) QFILTER.imgOnly  = false; renderQuestions(); };
   $('#qRevOnly').onclick  = () => { QFILTER.reviewOnly = !QFILTER.reviewOnly; renderQuestions(); };
   $('#qNew').onclick = () => openEditor(null);
+  $('#qBackup').onclick = downloadBackup;
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
   v.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openEditor(b.dataset.pic, true));
   v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteQuestion(b.dataset.del));
@@ -1550,6 +1563,32 @@ function renderQuestions(){
     const box = $('#qSearch');
     box.focus();
     try { box.setSelectionRange(caret, caret); } catch (e) {}
+  }
+}
+
+// The free Supabase plan has no point-in-time recovery, so the recovery point
+// is whenever this was last pressed. Everything comes back in one admin-only
+// call and is written straight to disk; nothing passes through anyone else.
+async function downloadBackup(){
+  const b = $('#qBackup');
+  const was = b.textContent;
+  b.disabled = true; b.textContent = 'Preparing…';
+  try {
+    const { data, error } = await sb.rpc('admin_export_bank');
+    if (error) throw error;
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    const blob = new Blob([JSON.stringify(data)], { type:'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `saudi-neuro-qbank-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    const c = (data && data.counts) || {};
+    alertBar(`Backup saved — ${c.questions || 0} questions, ${c.allowed_emails || 0} members, ${c.attempts || 0} attempts.`);
+  } catch (e) {
+    alertBar('Backup failed: ' + (e.message || e));
+  } finally {
+    b.disabled = false; b.textContent = was;
   }
 }
 
