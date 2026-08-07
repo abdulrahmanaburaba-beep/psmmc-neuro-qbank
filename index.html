@@ -127,7 +127,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .hint{font-size:11.5px;color:var(--faint);text-align:center;padding:14px 0 0}
 kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
  padding:1px 5px;font:600 10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
-.examhdr{position:sticky;top:0;z-index:20;background:var(--panel);border:1px solid var(--line);
+/* z-index below the app header, which is also sticky at top:0 - equal values
+   let the clock bar paint over the title and the Sign out button. */
+.examhdr{position:sticky;top:0;z-index:15;background:var(--panel);border:1px solid var(--line);
   border-radius:11px;padding:10px 13px;margin-bottom:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .clock{font-variant-numeric:tabular-nums;font-size:21px;font-weight:700;letter-spacing:.5px}
 .clock.warn{color:var(--warn)} .clock.bad{color:var(--bad)}
@@ -254,14 +256,41 @@ let MY_REPORTS = new Map();
 // URL, so a picture cannot be reached by anyone who is not signed in, and the
 // path in the database is not a guessable public address. Cached per session so
 // paging back and forth does not re-sign the same file.
+// The cache records when each URL dies. A 150-minute paper outlives a 3600s
+// signature, so caching the bare string meant an image opened in minute 3 and
+// revisited in minute 95 silently 404'd.
+const IMG_TTL = 3600;
 const IMG_URL = new Map();
-async function signedImage(path){
+async function signedImage(path, force){
   if (!path) return null;
-  if (IMG_URL.has(path)) return IMG_URL.get(path);
-  const { data, error } = await sb.storage.from('question-images').createSignedUrl(path, 3600);
+  const hit = IMG_URL.get(path);
+  if (hit && !force && hit.exp - Date.now() > 60000) return hit.url;
+  const { data, error } = await sb.storage.from('question-images').createSignedUrl(path, IMG_TTL);
   if (error || !data || !data.signedUrl){ console.error('signed url failed', error); return null; }
-  IMG_URL.set(path, data.signedUrl);
+  IMG_URL.set(path, { url: data.signedUrl, exp: Date.now() + IMG_TTL * 1000 });
   return data.signedUrl;
+}
+
+// One place that draws a question image, so the error path can never be
+// forgotten on one of the four screens that show one.
+function drawImage(root){
+  const el = root && root.querySelector('img[data-qimg]');
+  if (!el) return;
+  const path = el.dataset.qimg;
+  const note = el.parentElement.querySelector('.imgmsg');
+  const say  = t => { if (note) note.textContent = t; };
+  let retried = false;
+  const paint = url => {
+    if (!url){ say('Image could not be loaded.'); return; }
+    el.onload  = () => { if (note) note.remove(); };
+    el.onerror = () => {
+      if (retried){ say('Image could not be loaded.'); return; }
+      retried = true; say('Refreshing image…');
+      signedImage(path, true).then(paint);          // signature expired mid-session
+    };
+    el.src = url;
+  };
+  signedImage(path).then(paint);
 }
 const state = { list: [], i: 0, shuffle: false, wrongOnly: false, unseen: false,
                 reviewOnly: false, tab: 'practice' };
@@ -498,8 +527,12 @@ function render(){
   const key  = KEYS.get(q.uid) || {};
   let tags = `<span class="tag yr">${q.year}</span><span class="tag">${esc(q.track)}</span>`
            + `<span class="tag">${esc(q.topic)}</span>`;
-  if ((q.years||[]).length > 1)
-    tags += `<span class="tag rep">repeated ${q.years.length}× · ${q.years.join(', ')}</span>`;
+  // A question can repeat within a single year as well as across years, and
+  // repeat_count catches both. Keying the tag off years.length alone hid the
+  // repeat on roughly a third of the bank - exactly the highest-yield items.
+  const reps = Math.max(q.repeat_count || 1, (q.years||[]).length);
+  if (reps > 1)
+    tags += `<span class="tag rep">repeated ${reps}×${(q.years||[]).length > 1 ? ' · ' + q.years.join(', ') : ''}</span>`;
   (q.flags||[]).forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
   if (q.needs_review) tags += '<span class="tag flag">check this one</span>';
   tags += `<span class="num">${esc(q.uid)}</span>`;
@@ -556,14 +589,7 @@ function render(){
      + '</div><div id="repForm"></div></div>';
   app.innerHTML = h;
 
-  const imgEl = app.querySelector('img[data-qimg]');
-  if (imgEl) signedImage(imgEl.dataset.qimg).then(url => {
-    const box = imgEl.parentElement, note = box.querySelector('.imgmsg');
-    if (!url){ note.textContent = 'Image could not be loaded.'; return; }
-    imgEl.onload  = () => note.remove();
-    imgEl.onerror = () => { note.textContent = 'Image could not be loaded.'; };
-    imgEl.src = url;
-  });
+  drawImage(app);
 
   app.querySelectorAll('.opt').forEach(b => b.onclick = () => choose(q, b.dataset.l));
   $('#bPrev').onclick = prev_; $('#bNext').onclick = next_;
@@ -893,12 +919,18 @@ async function renderAdmin(){
     const name  = $('#newName').value.trim();
     const dur   = +$('#newDur').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ note('Enter a valid email address.', true); return; }
+    // Refuse rather than upsert. An upsert on an address already on the list
+    // silently blanked their name and reset their role to 'resident' - which,
+    // typed against your own address, would have demoted you.
+    if ((allow||[]).some(a => a.email.toLowerCase() === email)){
+      note(email + ' is already on the list — change their dates on their own row below.', true);
+      return;
+    }
     // subscribed_at defaults to today in the database, so the clock starts the
     // moment you add them - which is what "date of subscription is when I add
     // them" means.
     const { error } = await sb.from('allowed_emails')
-      .upsert({ email, full_name: name || null, role: 'resident', duration_months: dur },
-              { onConflict: 'email' });
+      .insert({ email, full_name: name || null, role: 'resident', duration_months: dur });
     if (error){ note('Could not add: ' + error.message, true); return; }
     note(email + ' added — ' + dur + ' month' + (dur>1?'s':'') + ' from today.');
     $('#newEmail').value=''; $('#newName').value=''; renderAdmin();
@@ -1038,22 +1070,35 @@ function pickPaper(opts){
   if (opts.unseenOnly) pool = pool.filter(q => !ANSWERS.has(q.uid));
   if (!opts.blueprint) return { list: shuf(pool.slice()).slice(0, opts.n), short: [] };
 
+  // Largest-remainder apportionment. Rounding each domain independently makes
+  // them sum to 152 for a 150-question paper and 126 for a 125 - so the paper
+  // came out longer than the time allowed for it. Floor everything, then hand
+  // the leftover places to the domains with the largest fractions, which keeps
+  // the blueprint proportions and lands exactly on n.
+  const exact = BLUEPRINT.map(([, pct]) => opts.n * pct / 100);
+  const want  = exact.map(Math.floor);
+  let spare = opts.n - want.reduce((a, b) => a + b, 0);
+  exact.map((e, i) => [e - want[i], i]).sort((a, b) => b[0] - a[0])
+       .forEach(([, i]) => { if (spare > 0){ want[i]++; spare--; } });
+
   const used = new Set(), picked = [], short = [];
-  BLUEPRINT.forEach(([name, pct, topics]) => {
-    const want = Math.round(opts.n * pct / 100);
-    const take = shuf(pool.filter(q => topics.includes(q.topic) && !used.has(q.uid))).slice(0, want);
+  BLUEPRINT.forEach(([name, , topics], i) => {
+    const take = shuf(pool.filter(q => topics.includes(q.topic) && !used.has(q.uid))).slice(0, want[i]);
     take.forEach(q => used.add(q.uid));
     picked.push(...take);
-    if (take.length < want) short.push(`${name}: ${take.length} of ${want}`);
+    if (take.length < want[i]) short.push(`${name}: ${take.length} of ${want[i]}`);
   });
   const rest = shuf(pool.filter(q => !used.has(q.uid)));
   while (picked.length < opts.n && rest.length) picked.push(rest.pop());
-  return { list: shuf(picked), short };
+  return { list: shuf(picked).slice(0, opts.n), short };
 }
 
 function renderExam(){
-  if (!EXAM)             return examSetup();
-  if (EXAM.result)       return examResults();
+  if (!EXAM && restoreExam())
+    alertBar('Picked up the paper you had running — ' + clock(EXAM.endsAt - Date.now()) + ' left.');
+  if (!EXAM)       return examSetup();
+  if (EXAM.result) return examResults();
+  if (EXAM.failed) return examFailed(EXAM.failed);
   return examRun();
 }
 
@@ -1129,12 +1174,64 @@ function startExam(opts){
            endsAt: Date.now() + opts.min * 60000, timer: null, result: null };
   EXAM.timer = setInterval(examTick, 1000);
   addEventListener('beforeunload', examGuard);
+  saveExam();
   examRun();
+}
+
+// The clock has already run out, so the ticker must not be restarted - it would
+// call finishExam every second forever against a rate limit it can never clear.
+function examFailed(msg){
+  EXAM.failed = msg;
+  $('#viewExam').innerHTML = `
+    <div class="card" style="border-color:var(--warn)">
+      <h3 style="margin:0 0 8px;font-size:15px;color:var(--warn)">Your paper is finished but not yet marked</h3>
+      <p style="font-size:13.5px;line-height:1.6;margin:0 0 12px">${esc(msg)}</p>
+      <p style="font-size:12px;color:var(--faint);line-height:1.6;margin:0 0 14px">
+        Every answer you gave is still held on this device, and this page will offer to mark it again
+        even if you close it and come back.</p>
+      <div class="nav"><button id="exRetry" class="primary">Mark my paper</button>
+        <span class="spacer"></span>
+        <button id="exAbandon">Throw this paper away</button></div>
+    </div>`;
+  $('#exRetry').onclick = () => { EXAM.failed = null; finishExam(true); };
+  $('#exAbandon').onclick = () => {
+    if (!confirm('Throw the paper away without marking it? Your answers will be lost.')) return;
+    clearInterval(EXAM.timer); clearExam(); removeEventListener('beforeunload', examGuard);
+    EXAM = null; examSetup();
+  };
 }
 function examGuard(e){ if (EXAM && !EXAM.result){ e.preventDefault(); e.returnValue = ''; } }
 
-function examTick(){
+// A paper survives a reload, a flat battery, or iOS discarding a backgrounded
+// tab. endsAt is an absolute time, so the clock resumes where it really is.
+const examKey = () => 'qbank.exam.' + (ME ? ME.id : 'anon');
+function saveExam(){
   if (!EXAM || EXAM.result) return;
+  try {
+    localStorage.setItem(examKey(), JSON.stringify({
+      opts: EXAM.opts, uids: EXAM.list.map(q => q.uid),
+      chosen: [...EXAM.chosen], flags: [...EXAM.flags],
+      i: EXAM.i, endsAt: EXAM.endsAt, short: EXAM.short
+    }));
+  } catch (e) { /* private mode or quota: the paper simply is not resumable */ }
+}
+function clearExam(){ try { localStorage.removeItem(examKey()); } catch (e) {} }
+function restoreExam(){
+  let s; try { s = JSON.parse(localStorage.getItem(examKey()) || 'null'); } catch (e) { return false; }
+  if (!s || !s.uids || !s.endsAt) return false;
+  if (s.endsAt - Date.now() <= 0){ clearExam(); return false; }   // it ran out while away
+  const byUid = new Map(ALL.map(q => [q.uid, q]));
+  const list = s.uids.map(u => byUid.get(u)).filter(Boolean);
+  if (list.length !== s.uids.length){ clearExam(); return false; } // bank changed under it
+  EXAM = { opts: s.opts, list, chosen: new Map(s.chosen), flags: new Set(s.flags),
+           i: Math.min(s.i || 0, list.length - 1), short: s.short || [],
+           endsAt: s.endsAt, timer: setInterval(examTick, 1000), result: null };
+  addEventListener('beforeunload', examGuard);
+  return true;
+}
+
+function examTick(){
+  if (!EXAM || EXAM.result || EXAM.expired) return;
   const left = EXAM.endsAt - Date.now();
   const el = $('#exClock');
   if (el){
@@ -1145,6 +1242,7 @@ function examTick(){
 }
 
 function examRun(){
+  saveExam();                       // every mutation ends here, so this is the one hook needed
   const v = $('#viewExam'), q = EXAM.list[EXAM.i], n = EXAM.list.length;
   const left = EXAM.endsAt - Date.now();
   const hasImg = !!q.image_path;
@@ -1191,12 +1289,7 @@ function examRun(){
   </div>`;
   v.innerHTML = h;
 
-  const img = v.querySelector('img[data-qimg]');
-  if (img) signedImage(img.dataset.qimg).then(u => {
-    const note = img.parentElement.querySelector('.imgmsg');
-    if (!u){ note.textContent = 'Image could not be loaded.'; return; }
-    img.onload = () => note.remove(); img.src = u;
-  });
+  drawImage(v);
 
   v.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     EXAM.chosen.set(q.uid, b.dataset.l);
@@ -1224,11 +1317,17 @@ async function finishExam(auto){
   const { data, error } = await sb.rpc('submit_exam', { answers: payload });
   if (error){
     EXAM.busy = false;
-    EXAM.timer = setInterval(examTick, 1000);
-    alertBar(/Too many/.test(error.message)
-      ? 'You have answered a lot of questions this hour. Wait a little and finish again — nothing is lost.'
-      : 'Could not mark the paper: ' + error.message);
-    examRun();
+    const why = /Too many/.test(error.message)
+      ? 'You have answered a lot of questions in the past hour, so the marking was refused. Wait a few minutes and press Mark my paper.'
+      : 'Could not mark the paper: ' + error.message;
+    if (auto){
+      EXAM.expired = true;              // clock is spent - never restart the ticker
+      examFailed(why);
+    } else {
+      EXAM.timer = setInterval(examTick, 1000);
+      alertBar(why);
+      examRun();
+    }
     return;
   }
 
@@ -1239,7 +1338,9 @@ async function finishExam(auto){
                        changed: it.changed, image_finding: it.image_finding });
   });
   EXAM.result = { ...data, usedMs: used, autoSubmitted: !!auto };
+  EXAM.failed = null;
   EXAM.busy = false;
+  clearExam();
   removeEventListener('beforeunload', examGuard);
   examResults();
 }
@@ -1315,10 +1416,8 @@ function examResults(){
     const box = $('#exReview'), open = !box.classList.contains('hide');
     box.classList.toggle('hide', open);
     $('#exToggle').textContent = open ? 'Show every question with its explanation' : 'Hide the question-by-question review';
-    if (!open) box.querySelectorAll('img[data-qimg]').forEach(im => {
-      if (im.src) return;
-      signedImage(im.dataset.qimg).then(u => { const nt = im.parentElement.querySelector('.imgmsg');
-        if (!u){ nt.textContent = 'Image could not be loaded.'; return; } im.onload = () => nt.remove(); im.src = u; });
+    if (!open) box.querySelectorAll('.qimg').forEach(fig => {
+      if (!fig.querySelector('img[data-qimg]').src) drawImage(fig);
     });
   };
 }
@@ -1370,6 +1469,11 @@ function renderQuestions(){
   if (!PROFILE || PROFILE.role !== 'admin'){
     v.innerHTML = '<div class="empty">Administrators only.</div>'; return;
   }
+  // This rebuilds the whole view, editor included. Without this line, typing in
+  // the search box while the editor is open silently threw away the edit.
+  captureForm();
+  const hadFocus = document.activeElement && document.activeElement.id === 'qSearch';
+  const caret = hadFocus ? document.activeElement.selectionStart : null;
   const tracks = [...new Set(ALL.map(q=>q.track).filter(Boolean))].sort();
   const topics = [...new Set(ALL.map(q=>q.topic).filter(Boolean))].sort();
   const s = QFILTER.s.trim().toLowerCase();
@@ -1379,7 +1483,8 @@ function renderQuestions(){
     if (QFILTER.imgOnly    && !q.image_path)   return false;
     if (QFILTER.needsPic   && !wantsPic(q))    return false;
     if (QFILTER.reviewOnly && !q.needs_review) return false;
-    if (s && !((q.uid + ' ' + q.stem + ' ' + (q.topic||'')).toLowerCase().includes(s))) return false;
+    // stem is ungranted and never loaded; stem_no_image is the text that exists.
+    if (s && !((q.uid + ' ' + (q.stem_no_image||'') + ' ' + (q.topic||'')).toLowerCase().includes(s))) return false;
     return true;
   });
   const shown = list.slice(0, 150);
@@ -1439,7 +1544,13 @@ function renderQuestions(){
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
   v.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openEditor(b.dataset.pic, true));
   v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteQuestion(b.dataset.del));
-  if (QDRAFT) drawEditor();
+  if (QDRAFT) drawEditor(true);        // quiet: do not yank the page while typing
+  // innerHTML above destroyed the search box mid-typing; put the cursor back.
+  if (hadFocus){
+    const box = $('#qSearch');
+    box.focus();
+    try { box.setSelectionRange(caret, caret); } catch (e) {}
+  }
 }
 
 // focusPic: jump straight to the picture field. Used by the "+ Add picture"
@@ -1458,16 +1569,19 @@ async function openEditor(uid, focusPic){
   q.options = q.options || { A:'',B:'',C:'',D:'' };
   // Rebuild which sentences were previously lifted out, so re-opening an edited
   // question shows the same chips highlighted rather than a blank slate.
+  // Keyed by the sentence TEXT, not its position. Indices went stale the moment
+  // the stem was edited, which silently moved the wrong sentence and left the
+  // give-away one on screen.
   const moved = new Set();
   if (q.image_finding){
     const kept = new Set(splitSentences(q.stem_no_image || ''));
-    splitSentences(q.stem).forEach((sent, i) => { if (!kept.has(sent)) moved.add(i); });
+    splitSentences(q.stem).forEach(sent => { if (!kept.has(sent)) moved.add(sent); });
   }
   QDRAFT = { q, moved, file: null, focusPic: !!focusPic };
   drawEditor();
 }
 
-function drawEditor(){
+function drawEditor(quiet){
   const host = $('#qEditor'); if (!QDRAFT) { host.innerHTML=''; return; }
   const q = QDRAFT.q, isNew = !q.uid;
   const sents = splitSentences(q.stem);
@@ -1475,7 +1589,7 @@ function drawEditor(){
   const topics = [...new Set(ALL.map(x=>x.topic).filter(Boolean))].sort();
 
   const imgBlock = q.image_path
-    ? `<div class="qimg"><img id="qImgPreview" alt="Attached picture"><div class="imgmsg">Loading…</div></div>
+    ? `<div class="qimg"><img id="qImgPreview" data-qimg="${esc(q.image_path)}" alt="Picture attached to ${esc(q.uid||'this question')}"><div class="imgmsg">Loading…</div></div>
        <div class="row"><span style="font-size:11.5px;color:var(--dim)">${esc(q.image_path)}</span>
          <span class="spacer"></span><button id="qImgRemove">Remove picture</button></div>`
     : (QDRAFT.file
@@ -1492,9 +1606,9 @@ function drawEditor(){
         The original stem is never overwritten, so removing the picture restores it.
       </div>
       ${sents.map((sent,i) =>
-        `<button class="sent${QDRAFT.moved.has(i)?' moved':''}" data-sent="${i}">${
-          QDRAFT.moved.has(i)?'→ moved to the explanation: ':''}${esc(sent)}</button>`).join('')}
-      ${QDRAFT.moved.size ? '' : '<div style="font-size:11.5px;color:var(--faint);margin-top:6px">Nothing moved yet — the stem is shown exactly as written.</div>'}
+        `<button class="sent${QDRAFT.moved.has(sent)?' moved':''}" data-sent="${i}">${
+          QDRAFT.moved.has(sent)?'→ moved to the explanation: ':''}${esc(sent)}</button>`).join('')}
+      ${sents.some(s => QDRAFT.moved.has(s)) ? '' : '<div style="font-size:11.5px;color:var(--faint);margin-top:6px">Nothing moved yet — the stem is shown exactly as written.</div>'}
     </div>` : '';
 
   host.innerHTML = `
@@ -1549,13 +1663,9 @@ function drawEditor(){
   </div>`;
 
   if (q.image_path){
-    const img = $('#qImgPreview');
-    signedImage(q.image_path).then(u => {
-      const note = img.parentElement.querySelector('.imgmsg');
-      if (!u){ note.textContent = 'Could not load the picture.'; return; }
-      img.onload = () => note.remove(); img.src = u;
-    });
+    drawImage(host);
     $('#qImgRemove').onclick = () => {
+      captureForm();                       // keep whatever has been typed so far
       QDRAFT.q.image_path = ''; QDRAFT.file = null; QDRAFT.moved.clear(); drawEditor();
     };
   }
@@ -1566,9 +1676,10 @@ function drawEditor(){
     QDRAFT.file = f; captureForm(); drawEditor();
   };
   host.querySelectorAll('[data-sent]').forEach(b => b.onclick = () => {
-    const i = +b.dataset.sent;
-    QDRAFT.moved.has(i) ? QDRAFT.moved.delete(i) : QDRAFT.moved.add(i);
-    captureForm(); drawEditor();
+    captureForm();                                   // read the stem as it is NOW
+    const s = splitSentences(QDRAFT.q.stem)[+b.dataset.sent];
+    if (s !== undefined) QDRAFT.moved.has(s) ? QDRAFT.moved.delete(s) : QDRAFT.moved.add(s);
+    drawEditor();
   });
   $('#qCancel').onclick = () => { QDRAFT = null; $('#qEditor').innerHTML = ''; };
   $('#qSave').onclick = saveQuestion;
@@ -1580,7 +1691,7 @@ function drawEditor(){
     f.scrollIntoView({ behavior:'smooth', block:'center' });
     f.style.outline = '2px solid var(--accent)';
     setTimeout(() => { if ($('#qFile')) $('#qFile').style.outline = ''; }, 2200);
-  } else {
+  } else if (!quiet) {
     host.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 }
@@ -1609,20 +1720,38 @@ async function saveQuestion(){
 
   const sents = splitSentences(q.stem);
   const hasPicture = !!(q.image_path || QDRAFT.file);
-  const kept  = sents.filter((_,i) => !QDRAFT.moved.has(i)).join(' ');
-  const moved = sents.filter((_,i) =>  QDRAFT.moved.has(i)).join(' ');
+  // Recomputed against the stem as it stands now, so a sentence that was moved
+  // and then edited away simply stops counting rather than corrupting the split.
+  const movedNow = sents.filter(s => QDRAFT.moved.has(s));
+  const kept  = sents.filter(s => !QDRAFT.moved.has(s)).join(' ');
+  const moved = movedNow.join(' ');
+
+  // Attaching the picture without lifting a sentence out leaves the finding
+  // spelled out above the image, which gives the answer away.
+  if (hasPicture && !movedNow.length &&
+      !confirm('You have attached a picture but not moved any sentence out of the question.\n\n'
+             + 'If the stem still describes what the image shows, residents get the answer for free.\n\n'
+             + 'Save it like this anyway?')){
+    btn.disabled = false; msg.textContent = '';
+    return;
+  }
 
   const payload = {
     uid: q.uid || null, year: q.year, track: q.track, topic: q.topic,
     stem: q.stem, options: q.options, answer: q.answer,
     explanation: q.explanation, source: q.source, needs_review: q.needs_review,
     image_path: q.image_path || null,
-    stem_no_image: (hasPicture && QDRAFT.moved.size) ? kept  : null,
-    image_finding: (hasPicture && QDRAFT.moved.size) ? moved : null
+    // Never send null here. A database trigger repairs it, but the intent
+    // belongs in the payload: stem_no_image is what residents read.
+    stem_no_image: (hasPicture && movedNow.length) ? kept  : q.stem,
+    image_finding: (hasPicture && movedNow.length) ? moved : null
   };
 
   let { data: uid, error } = await sb.rpc('admin_save_question', { p: payload });
   if (error) return fail(error.message);
+  // Claim the assigned number immediately. Without this, a failed picture upload
+  // followed by a second Save created a fresh duplicate question every time.
+  QDRAFT.q.uid = uid; payload.uid = uid;
 
   // A new question has no number until it is saved, and the picture is filed
   // under that number - so upload happens on the second pass, then we save once
@@ -1633,10 +1762,11 @@ async function saveQuestion(){
     const path = uid + '/' + Date.now() + '-' + safe;
     const up = await sb.storage.from('question-images')
       .upload(path, QDRAFT.file, { upsert: true, contentType: QDRAFT.file.type });
-    if (up.error) return fail('The question saved, but the picture did not upload: ' + up.error.message);
-    payload.uid = uid; payload.image_path = path;
+    if (up.error) return fail('The question saved as ' + uid + ', but the picture did not upload: ' + up.error.message);
+    payload.image_path = path;
     const again = await sb.rpc('admin_save_question', { p: payload });
     if (again.error) return fail('The picture uploaded but could not be attached: ' + again.error.message);
+    QDRAFT.q.image_path = path; QDRAFT.file = null;
     IMG_URL.delete(path);
   }
 
