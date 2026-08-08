@@ -1106,9 +1106,9 @@ async function openPay(email, why){
         : 'Full access to every question, with answers and explanations.'}</p>
       <div class="two" style="margin-bottom:10px">
         <div><label for="payFirst">First name</label>
-          <input id="payFirst" maxlength="60" placeholder="Abdulrahman" value="${esc(first)}"></div>
+          <input id="payFirst" maxlength="60" placeholder="First name" value="${esc(first)}"></div>
         <div><label for="payLast">Last name</label>
-          <input id="payLast" maxlength="60" placeholder="Aburaba" value="${esc(last)}"></div>
+          <input id="payLast" maxlength="60" placeholder="Last name" value="${esc(last)}"></div>
       </div>
       <label for="payEmail">Your email address</label>
       <input id="payEmail" type="email" maxlength="200" placeholder="name@example.com" value="${esc(email||'')}">
@@ -1246,12 +1246,16 @@ async function renderPayPanel(){
       <td>${p.active ? '<span class="pill ok">on sale</span>' : '<span class="pill dim">hidden</span>'}</td>
     </tr>`).join('');
 
-  const applied = (pays||[]).filter(p => p.applied_at).length;
-  const takings = (pays||[]).filter(p => p.applied_at)
+  // Practice payments must never be counted as money. They are taken with a test key
+  // and land in the same ledger, so the total only ever adds up the live ones.
+  const applied = (pays||[]).filter(p => p.applied_at && p.mode !== 'test').length;
+  const takings = (pays||[]).filter(p => p.applied_at && p.mode !== 'test')
                             .reduce((s,p) => s + Number(p.amount||0), 0);
+  const nTest = (pays||[]).filter(p => p.mode === 'test').length;
   const payRows = (pays||[]).slice(0, 60).map(p => `
     <tr>
-      <td style="font-size:12px">${esc((p.created_at||'').slice(0,16).replace('T',' '))}</td>
+      <td style="font-size:12px">${esc((p.created_at||'').slice(0,16).replace('T',' '))}
+        ${p.mode === 'test' ? '<span class="pill warn" style="margin-left:4px">practice</span>' : ''}</td>
       <td style="font-size:12px">${esc(p.email)}</td>
       <td class="num">${esc(String(p.amount ?? '—'))} ${esc(p.currency||'')}</td>
       <td>${p.applied_at
@@ -1277,8 +1281,11 @@ async function renderPayPanel(){
       + 'Subscribe or Renew button appears anywhere on the site. Open them once your Tap '
       + 'keys are in place and you have made one real test payment.</div>'}
     <div style="font-size:11.5px;color:var(--faint);margin-bottom:10px">
-      ${applied} payment${applied===1?'':'s'} received, ${esc(money(takings, (plans&&plans[0]&&plans[0].currency)||'SAR'))} in total.
+      ${applied} real payment${applied===1?'':'s'} received, ${esc(money(takings, (plans&&plans[0]&&plans[0].currency)||'SAR'))} in total.
       Renewing early never loses time — a new period starts the day the old one ends.
+      ${nTest ? '<br><b>' + nTest + ' practice payment' + (nTest===1?'':'s') + '</b> taken with a test key '
+              + 'are shown below but not counted, and not real money. '
+              + '<button id="clearTest" style="font-size:11px;padding:2px 8px;margin-left:4px">Remove practice data</button>' : ''}
     </div>
     <div style="overflow-x:auto;margin-bottom:14px">
       <table><thead><tr><th>Plan</th><th class="num">Months</th><th class="num">Price</th>
@@ -1292,6 +1299,18 @@ async function renderPayPanel(){
   </div>`;
 
   $('#payRefresh').onclick = renderPayPanel;
+
+  // Clearing up after a rehearsal. Only touches people whose access came from a test
+  // payment and nothing else — anyone you added by hand, or who has really paid, stays.
+  if ($('#clearTest')) $('#clearTest').onclick = async () => {
+    if (!confirm('Remove the practice payments, and the people whose access came only '
+      + 'from one?\n\nReal payments, and anyone you added yourself, are not touched.')) return;
+    const { data, error } = await sb.rpc('admin_clear_test_payments');
+    if (error){ alertBar('Could not clear that: ' + error.message); return; }
+    alertBar('Removed ' + (data.payments_removed||0) + ' practice payment(s) and '
+           + (data.people_removed||0) + ' test account(s).');
+    renderPayPanel(); renderAdmin();
+  };
 
   // Confirms the Tap key is in place and accepted, before any real money depends on
   // it. It reports on the key without ever returning it.
