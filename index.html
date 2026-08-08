@@ -1081,6 +1081,11 @@ async function renderSubCard(){
 async function openPay(email, why){
   const plans = await loadPlans();
   if (!plans.length){ alertBar('Plans could not be loaded. Please try again shortly.'); return; }
+  // A renewal already has a name on the roster, so it is prefilled and not asked for
+  // again. A new registration must give one, or the roster fills with bare addresses.
+  const known = (why === 'renew' && PROFILE && PROFILE.full_name) ? PROFILE.full_name : '';
+  const first = known.split(' ')[0] || '';
+  const last  = known.split(' ').slice(1).join(' ');
 
   const box = document.createElement('div');
   box.id = 'payOverlay';
@@ -1099,8 +1104,17 @@ async function openPay(email, why){
       <p class="lede">${why === 'renew'
         ? 'Renewing early costs you nothing — the new period starts the day your current one ends.'
         : 'Full access to every question, with answers and explanations.'}</p>
+      <div class="two" style="margin-bottom:10px">
+        <div><label for="payFirst">First name</label>
+          <input id="payFirst" maxlength="60" placeholder="Abdulrahman" value="${esc(first)}"></div>
+        <div><label for="payLast">Last name</label>
+          <input id="payLast" maxlength="60" placeholder="Aburaba" value="${esc(last)}"></div>
+      </div>
       <label for="payEmail">Your email address</label>
       <input id="payEmail" type="email" maxlength="200" placeholder="name@example.com" value="${esc(email||'')}">
+      ${why === 'renew' ? '' : '<div class="priv" style="margin-top:8px;padding-top:0;border:0">'
+        + 'Your access is created automatically the moment the payment goes through — '
+        + 'then request a sign-in link with this same address.</div>'}
       <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">${cards}</div>
       <div id="payMsg" class="msg info hide"></div>
       <button id="payCancel" style="width:100%;margin-top:4px">Cancel</button>
@@ -1119,12 +1133,18 @@ async function openPay(email, why){
 
   box.querySelectorAll('.payplan').forEach(b => b.onclick = async () => {
     const addr = box.querySelector('#payEmail').value.trim();
+    const fn = box.querySelector('#payFirst').value.trim();
+    const ln = box.querySelector('#payLast').value.trim();
+    if (why !== 'renew' && (!fn || !ln)){
+      say('Please give your first and last name — they go on your account.', 'err'); return;
+    }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)){ say('Please enter a valid email address.', 'err'); return; }
     box.querySelectorAll('.payplan').forEach(x => x.disabled = true);
     say('Opening the payment page…');
     try {
       // Only the plan code goes over the wire. The amount is decided server-side.
-      const out = await callFn('tap-create-charge', { email: addr, plan: b.dataset.plan });
+      const out = await callFn('tap-create-charge',
+        { email: addr, plan: b.dataset.plan, first: fn, last: ln });
       try { localStorage.setItem('qbank.payEmail', addr); } catch (e) {}
       location.href = out.url;
     } catch (e) {
@@ -1247,10 +1267,12 @@ async function renderPayPanel(){
       <span class="pill ${selfServe?'warn':'dim'}">${selfServe
         ? 'anyone who pays is let in' : 'only people you have added can pay'}</span>
       <span class="spacer" style="flex:1"></span>
+      <button id="tapCheck">Check Tap connection</button>
       <button id="liveToggle" class="${live?'':'primary'}">${live ? 'Close payments' : 'Open payments'}</button>
       <button id="ssToggle">${selfServe ? 'Stop letting strangers buy' : 'Let anyone buy access'}</button>
       <button id="payRefresh">Refresh</button>
     </div>
+    <div id="tapCheckOut"></div>
     ${live ? '' : '<div class="note" style="margin-bottom:10px">Payments are closed, so no '
       + 'Subscribe or Renew button appears anywhere on the site. Open them once your Tap '
       + 'keys are in place and you have made one real test payment.</div>'}
@@ -1270,6 +1292,56 @@ async function renderPayPanel(){
   </div>`;
 
   $('#payRefresh').onclick = renderPayPanel;
+
+  // Confirms the Tap key is in place and accepted, before any real money depends on
+  // it. It reports on the key without ever returning it.
+  $('#tapCheck').onclick = async () => {
+    const out = $('#tapCheckOut');
+    out.innerHTML = '<div class="note">Checking…</div>';
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      const r = await fetch(FN + 'tap-selftest', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY,
+                   Authorization: 'Bearer ' + (session ? session.access_token : '') },
+        body: '{}'
+      });
+      const j = await r.json();
+      if (j.error){ out.innerHTML = '<div class="note">' + esc(j.error) + '</div>'; return; }
+      out.innerHTML = '<div class="exp" style="border-left-color:'
+        + (j.ready ? 'var(--ok)' : 'var(--warn)') + '">'
+        + '<h4 style="color:' + (j.ready ? 'var(--ok)' : 'var(--warn)') + '">'
+        + (j.ready ? 'Ready to take payments' : 'Not ready yet') + '</h4>'
+        + (j.checks||[]).map(c => '<p style="margin:0 0 6px"><b>'
+            + (c.ok ? '✓' : '✗') + ' ' + esc(c.name) + '</b> — ' + esc(c.detail) + '</p>').join('')
+        + (j.live ? '<div class="note" style="margin-top:8px"><b>This is a live key.</b> '
+            + 'Any payment made from now on charges a real card.</div>' : '')
+        + '</div>';
+    } catch (e) {
+      out.innerHTML = '<div class="note">Could not run the check: ' + esc(e.message) + '</div>';
+    }
+  };
+
+  // Only shown when a webhook has actually failed its signature check, because that
+  // is the one part of the Tap integration that cannot be proven until Tap sends a
+  // real one. Everything needed to correct the format is in here.
+  try {
+    const { data: hooks } = await sb.rpc('admin_webhook_log');
+    const bad = (hooks||[]).filter(h => !h.ok);
+    if (bad.length){
+      const h = bad[0];
+      box.insertAdjacentHTML('beforeend', '<div class="card">'
+        + '<h3 style="margin:0 0 8px;font-size:14px;color:var(--warn)">A payment notice failed its signature check</h3>'
+        + '<div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">'
+        + esc(bad.length) + ' of the last ' + esc((hooks||[]).length) + '. The payment itself is not lost — '
+        + 'it still applies when the resident lands back on the site. Show this to Claude and it can be corrected.</div>'
+        + '<pre style="font-size:11px;overflow:auto;background:var(--panel2);padding:10px;border-radius:8px">'
+        + esc(JSON.stringify({ at: h.at, charge: h.charge_id, fields: h.fields,
+                               received: h.received_hash, computed: h.computed_hash }, null, 1))
+        + '</pre></div>');
+    }
+  } catch (e) { /* the log is a convenience, never a blocker */ }
+
   $('#liveToggle').onclick = async () => {
     const next = live ? 'off' : 'on';
     const { error } = await sb.rpc('admin_set_config', { p_key:'payments_live', p_value: next });
