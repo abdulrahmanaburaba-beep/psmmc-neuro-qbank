@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://jnwbcfwtlnrupkthbluh.supabase.co https://o4511874742812672.ingest.de.sentry.io; img-src 'self' data: https://jnwbcfwtlnrupkthbluh.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <script>if (window.top !== window.self) { window.top.location = window.self.location; }</script>
 <title>Saudi Neurology QBank</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235b9dff'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Helvetica,Arial' font-weight='bold' fill='%23fff' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="./logo.svg" type="image/svg+xml">
 <style>
 :root{
   --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
@@ -50,12 +50,12 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
  background:radial-gradient(60% 55% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%)}
 .land{width:100%;max-width:940px;position:relative}
 .landtop{display:flex;align-items:center;gap:15px;margin-bottom:28px}
-.mark{flex:none;width:56px;height:56px;border-radius:15px;display:grid;place-items:center;
- background:linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #7c4dff));
- color:#fff;font-weight:700;font-size:26px;letter-spacing:-.02em;overflow:hidden;
- box-shadow:0 8px 26px -10px color-mix(in srgb, var(--accent) 75%, transparent)}
-.mark img{width:78%;height:78%;object-fit:contain;display:block;filter:brightness(0) invert(1)}
-.mark svg{display:block;opacity:.95}
+/* The mark is the logo itself, painted with a mask rather than placed as an image, so
+   one monochrome file works on both the dark and the light theme without a second
+   asset and without a filter hack. */
+.mark{flex:none;width:58px;height:58px;background:var(--accent);
+ -webkit-mask:url(./logo.svg) center/contain no-repeat;
+ mask:url(./logo.svg) center/contain no-repeat}
 .landtop h1{margin:0;font-size:23px;letter-spacing:-.025em;
  background:linear-gradient(100deg, var(--ink), color-mix(in srgb, var(--ink) 55%, var(--accent)));
  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
@@ -219,19 +219,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <div id="gate" class="gate">
  <div class="land">
   <div class="landtop">
-    <!-- LOGO GOES HERE. Placeholder until the Cerebropilot mark is dropped in: replace
-         the <svg> below with the real one and give it fill="currentColor" so it follows
-         the light and dark themes. Deliberately not <img src="logo.svg"> — a file that
-         is not there yet would 404 on every visit and clutter the error log. -->
-    <div class="mark" aria-label="Cerebropilot">
-      <svg viewBox="0 0 64 64" width="34" height="34" fill="none" stroke="currentColor"
-           stroke-width="3" stroke-linecap="round" aria-hidden="true">
-        <circle cx="32" cy="32" r="24"/>
-        <path d="M32 6v52M6 32h52" stroke-width="2.5"/>
-        <path d="M32 18c-5 0-8 3-8 7s2 5 2 7-2 3-2 6 3 6 8 6"/>
-        <path d="M32 18c5 0 8 3 8 7s-2 5-2 7 2 3 2 6-3 6-8 6"/>
-      </svg>
-    </div>
+    <div class="mark" role="img" aria-label="Cerebropilot"></div>
     <div>
       <h1>Saudi Neurology QBank</h1>
       <p>Board revision for neurology residents, by Cerebropilot</p>
@@ -282,16 +270,19 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       faster — it tells us exactly which one you meant.</p>
 
     <h3>About the questions</h3>
-    <p>This bank is compiled from a range of neurology references, review material and past-paper
-      recalls, cross-checked against standard textbooks and current guidelines. Explanations cite
-      the source they rest on. Where a recall was ambiguous, or published sources disagree, the
-      question is marked <b>check this one</b> rather than presented as settled.</p>
+    <p>The Part 1, Part 2 and Promotion papers here are written to <b>resemble</b> the real
+      examinations in style, level and blueprint. They are <b>not</b> the SCFHS question bank and
+      nothing in them is copied from it. What you get is the common, important, general neurology
+      a resident is expected to know — compiled from multiple neurology references and
+      cross-checked against standard textbooks and current guidelines, with each explanation
+      citing the source it rests on. Where published sources disagree, a question is marked
+      <b>check this one</b> rather than presented as settled.</p>
 
     <h3>Disclaimer</h3>
-    <p>For exam revision and education only. It is not clinical guidance and must not be used to
-      make decisions about a patient — verify anything you intend to act on against a primary
-      source. No question is reproduced from any official examination paper, and no guarantee of
-      exam success is offered or implied.</p>
+    <p>For exam revision only, and <b>not a substitute for clinical reading</b>. This is not
+      clinical guidance and must not be used to make decisions about a patient — verify anything
+      you intend to act on against a primary source. Practising on questions of a similar standard
+      is preparation, not a prediction: no guarantee of exam success is offered or implied.</p>
     <p><b>Independent.</b> Saudi Neurology QBank is not affiliated with, endorsed by, or produced
       by the Saudi Commission for Health Specialties or any training programme or hospital.</p>
 
@@ -325,7 +316,6 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <div id="practiceBar">
       <div class="bar">
         <select id="fTrack"></select>
-        <select id="fYear"></select>
         <select id="fTopic"></select>
         <input type="search" id="fSearch" placeholder="Search stems…" maxlength="120">
         <span class="spacer"></span>
@@ -362,14 +352,16 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     Need help? <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
     <a href="#" id="aboutLink">About &amp; disclaimer</a>
     <div id="aboutBox" class="hide">
-      <p><b>About the questions.</b> Compiled from a range of neurology references, review
-        material and past-paper recalls, cross-checked against standard textbooks and current
-        guidelines. Where a recall was ambiguous or sources disagree, the question is marked
-        <b>check this one</b> rather than presented as settled.</p>
-      <p><b>Disclaimer.</b> For exam revision and education only. Not clinical guidance, and not
-        to be used to make decisions about a patient — verify anything you intend to act on
-        against a primary source. No question is reproduced from any official examination paper,
-        and no guarantee of exam success is offered or implied.</p>
+      <p><b>About the questions.</b> The Part 1, Part 2 and Promotion papers are written to
+        <b>resemble</b> the real examinations in style, level and blueprint. They are <b>not</b>
+        the SCFHS question bank and nothing is copied from it — this is the common, important,
+        general neurology a resident is expected to know, compiled from multiple references and
+        cross-checked against standard textbooks and current guidelines. Where sources disagree,
+        a question is marked <b>check this one</b> rather than presented as settled.</p>
+      <p><b>Disclaimer.</b> For exam revision only, and <b>not a substitute for clinical
+        reading</b>. Not clinical guidance, and not to be used to make decisions about a patient —
+        verify anything you intend to act on against a primary source. No guarantee of exam
+        success is offered or implied.</p>
       <p><b>Independent.</b> Not affiliated with, endorsed by, or produced by the Saudi Commission
         for Health Specialties or any training programme or hospital.</p>
       <p>Owned and operated by <b>Cerebropilot</b>, Riyadh · Commercial Registration 7054697367 ·
@@ -918,26 +910,23 @@ $$('.tabs button').forEach(b => b.onclick = () => {
 function buildFilters(){
   const opt = (v,l) => { const o = document.createElement('option'); o.value=v; o.textContent=l; return o; };
   const cnt = k => ALL.reduce((m,q)=>(m[q[k]]=(m[q[k]]||0)+1, m), {});
-  const tr = cnt('track'), yr = cnt('year'), tp = cnt('topic');
+  const tr = cnt('track'), tp = cnt('topic');
   // rebuild from scratch so a re-run can never duplicate or half-fill the lists
-  ['#fTrack','#fYear','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
+  ['#fTrack','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
   const TORDER = ['Part 1','Part 2','Promotion'];
   const tracks = Object.keys(tr).sort((a,b) => {
     const ia = TORDER.indexOf(a), ib = TORDER.indexOf(b);
     return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
   });
   $('#fTrack').append(opt('','All tracks'), ...tracks.map(t=>opt(t,`${t} (${tr[t]})`)));
-  $('#fYear').append(opt('','All years'),
-    ...Object.keys(yr).sort((a,b)=>b-a).map(y=>opt(y,`${y} (${yr[y]})`)));
   $('#fTopic').append(opt('','All topics'), ...Object.keys(tp).sort().map(t=>opt(t,`${t} (${tp[t]})`)));
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
 }
 function apply(){
-  const tr=$('#fTrack').value, yr=$('#fYear').value, tp=$('#fTopic').value,
+  const tr=$('#fTrack').value, tp=$('#fTopic').value,
         s=$('#fSearch').value.trim().toLowerCase();
   let l = ALL.filter(q => {
     if (tr && q.track !== tr) return false;
-    if (yr && String(q.year) !== yr) return false;
     if (tp && q.topic !== tp) return false;
     if (state.wrongOnly && ANSWERS.get(q.uid)?.correct !== false) return false;
     if (state.unseen && ANSWERS.has(q.uid)) return false;
@@ -951,7 +940,7 @@ function apply(){
   if (state.shuffle) for (let i=l.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [l[i],l[j]]=[l[j],l[i]]; }
   state.list = l; state.i = 0; render();
 }
-['fTrack','fYear','fTopic'].forEach(id => $('#'+id).onchange = apply);
+['fTrack','fTopic'].forEach(id => $('#'+id).onchange = apply);
 let deb; $('#fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(apply, 180); };
 $('#bShuffle').onclick = function(){ state.shuffle=!state.shuffle; this.classList.toggle('on',state.shuffle); apply(); };
 $('#bWrong').onclick  = function(){ state.wrongOnly=!state.wrongOnly; if(state.wrongOnly){state.unseen=false;$('#bUnseen').classList.remove('on');}
@@ -1019,9 +1008,8 @@ function render(){
       else if (L === prev.chosen){ cls+=' wrong'; mark='<span class="mark">Your answer</span>'; }
       else cls+=' muted';
     }
-    const rb = prev && (q.rebuilt||[]).includes(L) ? '<span class="rb">reconstructed</span>' : '';
     h += `<button class="${cls}" data-l="${L}"${prev?' disabled':''}>`
-       + `<span class="L">${L}</span><span>${esc(q.options[L])}${rb}</span>${mark}</button>`;
+       + `<span class="L">${L}</span><span>${esc(q.options[L])}</span>${mark}</button>`;
   }
   h += '</div>';
   if (prev){
