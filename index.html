@@ -554,8 +554,10 @@ const CLUE_RX = [
   // imaging and neurophysiology, and what they showed
   /\b(?:MRI|CT|CTA|MRA|MRV|DWI|FLAIR|T1|T2|SWI|GRE|PET|EEG|EMG|NCS|nerve conduction studies|LP|lumbar puncture|ultrasound|angiogram|angiography)\b/g,
   /\b(?:restricted diffusion|(?:T2|FLAIR) hyperintens\w+|hypodens\w+|hyperdens\w+|enhancement|enhancing|ring[- ]enhancing|oligoclonal bands?|albuminocytologic(?:al)? dissociation|xanthochromia|pleocytosis|periodic (?:lateralised )?epileptiform discharges|PLEDs|triphasic waves|burst suppression|conduction block|decrement(?:al response)?|increment(?:al response)?|denervation|myotonic discharges)\b/gi,
-  // negatives change the answer as much as positives
-  /\b(?:no|without|denies|absent|normal|unremarkable|negative for|spar(?:ed|ing)|painless|afebrile)\s+[a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,2}/gi,
+  // Negatives change the answer as much as positives. The lookahead stops the phrase at
+  // a conjunction, so "no fever and no sensory level" comes out as two clean negatives
+  // rather than one clause ending on a dangling "and no".
+  /\b(?:no|without|denies|absent|normal|unremarkable|negative for|spar(?:ed|ing)|painless|afebrile)(?:\s+(?!and\b|or\b|but\b|with\b|nor\b)[a-z][a-z-]*){1,3}/gi,
   // context that reframes everything
   /\b(?:pregnan(?:t|cy)|post[- ]partum|immunocompromised|HIV|transplant|alcohol(?:ic|ism)?|malnourish\w+|bariatric|diabet(?:es|ic)|hypertensi(?:on|ve)|smoker|recent (?:travel|infection|diarrhoea|diarrhea|vaccination|surgery)|family history|known case of)\b/gi,
 ];
