@@ -126,7 +126,10 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
 /* ---------- chrome ---------- */
 header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 0 0}
 .top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em}
+.top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em;
+ display:flex;align-items:center;gap:9px}
+/* The same masked logo as the landing page, at header size. One file, both places. */
+.brandmark.sm{width:26px;height:26px}
 .who{margin-left:auto;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px}
 .tabs{display:flex;gap:4px;margin-bottom:10px}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
@@ -333,7 +336,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <div id="app" class="wrap hide">
   <header>
     <div class="top">
-      <h1>Saudi Neurology</h1>
+      <h1><span class="brandmark sm" role="img" aria-label="Cerebropilot"></span>CerebroBank</h1>
       <div class="who"><span class="em" id="uemail"></span><button id="signout">Sign out</button></div>
     </div>
     <div class="tabs">
@@ -348,6 +351,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <div id="practiceBar">
       <div class="bar">
         <select id="fTrack"></select>
+        <select id="fYear" title="The year a paper was sat. A question that came back in a later year appears under every year it was asked."></select>
         <select id="fTopic"></select>
         <input type="search" id="fSearch" placeholder="Search stems…" maxlength="120">
         <span class="spacer"></span>
@@ -925,26 +929,37 @@ $$('.tabs button').forEach(b => b.onclick = () => {
 });
 
 // ---------------------------------------------------------------- filters
+// Every year a question was actually sat, not just the year it was filed under.
+// 275 questions in the bank came back in a later paper, so keying the year filter off
+// q.year alone would drop them from the earlier year - 98 of 2023's 365, for instance,
+// and they are the repeats, which are the highest-yield questions there are. Same
+// mistake the "repeated x2" tag made before it was fixed to read repeat_count.
+const yearsOf = q => ((q.years && q.years.length) ? q.years : [q.year]).map(String);
+
 function buildFilters(){
   const opt = (v,l) => { const o = document.createElement('option'); o.value=v; o.textContent=l; return o; };
   const cnt = k => ALL.reduce((m,q)=>(m[q[k]]=(m[q[k]]||0)+1, m), {});
   const tr = cnt('track'), tp = cnt('topic');
+  const yr = ALL.reduce((m,q) => { new Set(yearsOf(q)).forEach(y => m[y]=(m[y]||0)+1); return m; }, {});
   // rebuild from scratch so a re-run can never duplicate or half-fill the lists
-  ['#fTrack','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
+  ['#fTrack','#fYear','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
   const TORDER = ['Part 1','Part 2','Promotion'];
   const tracks = Object.keys(tr).sort((a,b) => {
     const ia = TORDER.indexOf(a), ib = TORDER.indexOf(b);
     return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
   });
   $('#fTrack').append(opt('','All tracks'), ...tracks.map(t=>opt(t,`${t} (${tr[t]})`)));
+  $('#fYear').append(opt('','All years'),
+    ...Object.keys(yr).sort((a,b)=>b-a).map(y=>opt(y,`${y} (${yr[y]})`)));
   $('#fTopic').append(opt('','All topics'), ...Object.keys(tp).sort().map(t=>opt(t,`${t} (${tp[t]})`)));
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
 }
 function apply(){
-  const tr=$('#fTrack').value, tp=$('#fTopic').value,
+  const tr=$('#fTrack').value, yr=$('#fYear').value, tp=$('#fTopic').value,
         s=$('#fSearch').value.trim().toLowerCase();
   let l = ALL.filter(q => {
     if (tr && q.track !== tr) return false;
+    if (yr && !yearsOf(q).includes(yr)) return false;
     if (tp && q.topic !== tp) return false;
     if (state.wrongOnly && ANSWERS.get(q.uid)?.correct !== false) return false;
     if (state.unseen && ANSWERS.has(q.uid)) return false;
@@ -958,7 +973,7 @@ function apply(){
   if (state.shuffle) for (let i=l.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [l[i],l[j]]=[l[j],l[i]]; }
   state.list = l; state.i = 0; render();
 }
-['fTrack','fTopic'].forEach(id => $('#'+id).onchange = apply);
+['fTrack','fYear','fTopic'].forEach(id => $('#'+id).onchange = apply);
 let deb; $('#fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(apply, 180); };
 $('#bShuffle').onclick = function(){ state.shuffle=!state.shuffle; this.classList.toggle('on',state.shuffle); apply(); };
 $('#bWrong').onclick  = function(){ state.wrongOnly=!state.wrongOnly; if(state.wrongOnly){state.unseen=false;$('#bUnseen').classList.remove('on');}
@@ -985,7 +1000,13 @@ function render(){
 
   const prev = ANSWERS.get(q.uid);
   const key  = KEYS.get(q.uid) || {};
-  let tags = `<span class="tag yr">${q.year}</span><span class="tag">${esc(q.track)}</span>`
+  // When a year is being revised, the card shows that year rather than the one the
+  // question is filed under - a repeat sat in 2021 and again in 2025 is genuinely a
+  // 2021 question, and a card stamped 2025 while you are working through 2021 just
+  // looks like the filter is broken. The repeat tag below still names every year.
+  const pickedYear = ($('#fYear') && $('#fYear').value) || '';
+  const shownYear = (pickedYear && yearsOf(q).includes(pickedYear)) ? pickedYear : q.year;
+  let tags = `<span class="tag yr">${shownYear}</span><span class="tag">${esc(q.track)}</span>`
            + `<span class="tag">${esc(q.topic)}</span>`;
   // A question can repeat within a single year as well as across years, and
   // repeat_count catches both. Keying the tag off years.length alone hid the
@@ -1202,9 +1223,32 @@ function renderProgress(){
     ${tbl(by('year'),'Year')}
     ${tbl(by('track'),'Track')}
     <div class="card" id="subCard"></div>
-    <div class="card"><button id="resetProg">Clear all my answers</button>
-      <span style="font-size:12px;color:var(--dim);margin-left:10px">Starts you over. Cannot be undone.</span></div>`;
+    <div class="card">
+      <button id="resetWrong"${bad ? '' : ' disabled'}>Clear my ${bad} wrong answer${bad===1?'':'s'}</button>
+      <span style="font-size:12px;color:var(--dim);margin-left:10px">${bad
+        ? 'Puts those questions back as unanswered so you can sit them again. Your correct answers stay.'
+        : 'Nothing wrong to clear.'}</span>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+        <button id="resetProg">Clear all my answers</button>
+        <span style="font-size:12px;color:var(--dim);margin-left:10px">Starts you over. Cannot be undone.</span>
+      </div>
+    </div>`;
   renderSubCard();
+  // Working through the wrong list and then clearing it is how revision actually goes.
+  // Deleting only the wrong attempts returns those questions to unanswered, so they
+  // reappear under Unseen and drop out of Wrong only - and the score stops being
+  // dragged down by a mistake made in week one and fixed in week three.
+  $('#resetWrong').onclick = async () => {
+    const n = [...ANSWERS.values()].filter(a => a.correct === false).length;
+    if (!n) return;
+    if (!confirm(`Clear your ${n} wrong answer${n===1?'':'s'}? Those questions go back to unanswered. Correct answers are kept.`)) return;
+    const { error } = await sb.from('attempts').delete().eq('user_id', ME.id).eq('correct', false);
+    if (error){ alertBar('Those could not be cleared. Try again in a moment.'); return; }
+    ANSWERS.forEach((a, uid) => { if (a.correct === false) ANSWERS.delete(uid); });
+    // Wrong only would now be an empty screen with no explanation, so step out of it.
+    if (state.wrongOnly){ state.wrongOnly = false; $('#bWrong').classList.remove('on'); }
+    renderProgress(); apply();
+  };
   $('#resetProg').onclick = async () => {
     if (!confirm('Delete all your saved answers and start over?')) return;
     await sb.from('attempts').delete().eq('user_id', ME.id);
