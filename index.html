@@ -135,8 +135,14 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
  letter-spacing:0;font-weight:500}
 .num{margin-left:auto;color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
 .stem{font-size:15.5px;line-height:1.62;margin:0 0 14px;white-space:pre-wrap}
-.stem .clue{font-weight:680;color:var(--ink);
- background:linear-gradient(transparent 62%, color-mix(in srgb, var(--accent) 30%, transparent) 0)}
+/* A word is a target the moment the stem is drawn. No hover glow on touch devices,
+   where there is no hover and it only ever looks stuck. */
+.stem .w{cursor:pointer;border-radius:3px;padding:0 1px;margin:0 -1px;
+ transition:background .12s}
+@media (hover:hover){ .stem .w:hover{background:color-mix(in srgb, var(--accent) 16%, transparent)} }
+.stem .w.hl{font-weight:680;color:var(--ink);
+ background:linear-gradient(transparent 62%, color-mix(in srgb, var(--accent) 34%, transparent) 0)}
+@media (prefers-reduced-motion: reduce){ .stem .w{transition:none} }
 .opts{display:flex;flex-direction:column;gap:7px}
 .opt{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;background:var(--panel2);
  border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;line-height:1.5;
@@ -322,7 +328,6 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
         <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
         <button id="bReview" title="Questions where the recall was ambiguous or sources disagreed">Needs check</button>
-        <button id="bRapid" title="Pick out the discriminating features in the stem, so a long vignette can be read at a glance">Rapid review</button>
         <button id="bShuffle" title="Randomise order">Shuffle</button>
       </div>
       <div class="pbar"><i id="prog"></i></div>
@@ -345,7 +350,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
   <div class="hint" id="kbhint">
     <kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> or <kbd>1</kbd>–<kbd>4</kbd> to answer ·
-    <kbd>N</kbd> / <kbd>→</kbd> next · <kbd>P</kbd> / <kbd>←</kbd> previous
+    <kbd>N</kbd> / <kbd>→</kbd> next · <kbd>P</kbd> / <kbd>←</kbd> previous ·
+    tap any word in the stem to mark it
   </div>
 
   <div class="appfoot">
@@ -520,87 +526,63 @@ function drawImage(root){
   signedImage(path).then(paint);
 }
 const state = { list: [], i: 0, shuffle: false, wrongOnly: false, unseen: false,
-                reviewOnly: false, rapid: false, tab: 'practice' };
+                reviewOnly: false, tab: 'practice' };
 
-// ---------------------------------------------------------------- rapid review
-// Picks out the parts of a vignette that actually decide the answer, so a long stem
-// can be read at a glance on a second or third pass.
+// ------------------------------------------------------------- own highlighting
+// Tap any word in a stem to mark it, tap again to clear it. Which words matter is a
+// judgement — a sodium of 118 is the whole question in one place and scenery in
+// another — so the reader makes the call, not a rule written here.
 //
-// It marks the discriminators a neurologist reads for - who the patient is, how fast
-// it came on, the localising sign, the number that matters - and deliberately not the
-// filler. It never marks the lead-in question or anything in the options, because the
-// point is to speed up recognition, not to hand over the answer.
-//
-// Everything here is pattern matching on the stem. Nothing is sent anywhere, and a
-// question with no recognisable clue is simply left as it was.
-const CLUE_RX = [
-  // who: 45-year-old man, 3-month-old infant
-  /\b\d{1,3}[- ]?(?:year|month|week|day)[- ]?old\b(?:\s+(?:man|woman|boy|girl|male|female|infant|child|patient))?/gi,
-  // how fast, and when
-  /\b(?:sudden(?:ly)?|abrupt(?:ly)?|acute(?:ly)?|hyperacute|gradual(?:ly)?|insidious(?:ly)?|progressive(?:ly)?|rapidly progressive|stepwise|fluctuating|episodic|recurrent|relapsing|remitting|chronic|intermittent)\b/gi,
-  /\b(?:over|for|within|after|since)\s+(?:the\s+(?:past|last)\s+)?(?:a|an|one|two|three|four|five|six|several|\d{1,4})\s*(?:minute|hour|day|week|month|year)s?\b/gi,
-  /\b(?:on waking|in the morning|at night|nocturnal|towards the evening|worse (?:in the evening|at night|on waking|with (?:exercise|activity|heat))|better with rest|after exercise)\b/gi,
-  // the sign that localises it
-  /\b(?:fatigab(?:le|ility)|ptosis|diplopia|ophthalmoplegia|nystagmus|dysarthria|dysphagia|aphasia|dysphasia|apraxia|agnosia|neglect|papilloedema|anisocoria|(?:relative )?afferent pupillary defect|RAPD|facial (?:droop|weakness)|hemiparesis|hemiplegia|monoparesis|paraparesis|quadriparesis|tetraparesis|hemisensory|hemianopia|quadrantanopia|diplegia)\b/gi,
-  /\b(?:areflexia|hyporeflexia|hyperreflexia|areflexic|brisk reflexes|absent reflexes|(?:extensor|upgoing) plantars?|Babinski|clonus|spasticity|rigidity|cogwheel(?:ing)?|bradykinesia|resting tremor|intention tremor|postural tremor|myoclonus|chorea|dystonia|athetosis|fasciculations?|wasting|atrophy)\b/gi,
-  /\b(?:ataxia|ataxic|dysmetria|dysdiadochokinesia|Romberg(?:'s)? (?:sign|test)? ?(?:positive)?|broad[- ]based gait|festinating|steppage|waddling|antalgic)\b/gi,
-  /\b(?:ascending|descending|symmetrical?|asymmetrical?|bilateral|unilateral|proximal|distal|length[- ]dependent|stocking[- ]and[- ]glove|glove[- ]and[- ]stocking|dermatomal|radicular|saddle an(?:a)?esthesia|sensory level|crossed)\b/gi,
-  /\b(?:upper motor neuron|lower motor neuron|UMN|LMN|myopathic|neuropathic|demyelinating|axonal)\b/gi,
-  // the number that matters
-  // Longest unit first: `mg` would otherwise win the alternation and leave "/dL" stranded.
-  /\b\d+(?:\.\d+)?\s?(?:mg\/dL|g\/dL|ng\/mL|mmol\/L|IU\/L|U\/L|mEq\/L|cells?\/(?:µL|mm3|mm³|hpf)|\/µL|\/mm3|mm\s?Hg|mmHg|mmol|mEq|mcg|µg|mg|mL|ml|°C|bpm|Hz|ms|mV|µV|kg|cm|mm|g|L)\b/gi,
-  /\b(?:CSF|cerebrospinal fluid)[^.;]{0,60}?\b\d+(?:\.\d+)?\b/gi,
-  /\b(?:blood pressure|BP|temperature|pulse|heart rate|glucose|sodium|potassium|calcium|magnesium|creatine kinase|CK|ESR|CRP|INR|platelets?|haemoglobin|hemoglobin)\b(?:\s+(?:of|was|is))?\s*\d+(?:[\/.]\d+)?/gi,
-  // imaging and neurophysiology, and what they showed
-  /\b(?:MRI|CT|CTA|MRA|MRV|DWI|FLAIR|T1|T2|SWI|GRE|PET|EEG|EMG|NCS|nerve conduction studies|LP|lumbar puncture|ultrasound|angiogram|angiography)\b/g,
-  /\b(?:restricted diffusion|(?:T2|FLAIR) hyperintens\w+|hypodens\w+|hyperdens\w+|enhancement|enhancing|ring[- ]enhancing|oligoclonal bands?|albuminocytologic(?:al)? dissociation|xanthochromia|pleocytosis|periodic (?:lateralised )?epileptiform discharges|PLEDs|triphasic waves|burst suppression|conduction block|decrement(?:al response)?|increment(?:al response)?|denervation|myotonic discharges)\b/gi,
-  // Negatives change the answer as much as positives. The lookahead stops the phrase at
-  // a conjunction, so "no fever and no sensory level" comes out as two clean negatives
-  // rather than one clause ending on a dangling "and no".
-  /\b(?:no|without|denies|absent|normal|unremarkable|negative for|spar(?:ed|ing)|painless|afebrile)(?:\s+(?!and\b|or\b|but\b|with\b|nor\b)[a-z][a-z-]*){1,3}/gi,
-  // context that reframes everything
-  /\b(?:pregnan(?:t|cy)|post[- ]partum|immunocompromised|HIV|transplant|alcohol(?:ic|ism)?|malnourish\w+|bariatric|diabet(?:es|ic)|hypertensi(?:on|ve)|smoker|recent (?:travel|infection|diarrhoea|diarrhea|vaccination|surgery)|family history|known case of)\b/gi,
-];
+// Marks are kept on this device only, per question, and are never sent anywhere: they
+// are reading marks in a margin, not data about anyone. The store is capped so years
+// of revision cannot quietly fill localStorage.
+const HL_CAP = 400;
+let HL = {};
+try { HL = JSON.parse(localStorage.getItem('qbank.hl') || '{}') || {}; } catch (e) { HL = {}; }
 
-// The lead-in - "What is the most likely diagnosis?" - is never marked. It carries no
-// information and highlighting it only adds noise.
-const LEADIN_RX = /(?:what|which|the most likely|best|next step|most appropriate)[^.?]*\?\s*$/i;
-
-function markClues(text){
-  const src = String(text || '');
-  const lead = src.match(LEADIN_RX);
-  const body = lead ? src.slice(0, src.length - lead[0].length) : src;
-  const tail = lead ? lead[0] : '';
-
-  // Collect every match, then keep only the outermost when two overlap, so a span is
-  // never wrapped twice and the markup cannot nest into nonsense.
-  const hits = [];
-  for (const rx of CLUE_RX){
-    rx.lastIndex = 0;
-    let m;
-    while ((m = rx.exec(body)) !== null){
-      if (m[0].trim()) hits.push([m.index, m.index + m[0].length]);
-      if (m.index === rx.lastIndex) rx.lastIndex++;   // zero-width guard
-    }
-  }
-  if (!hits.length) return esc(src);
-  hits.sort((a,b) => a[0] - b[0] || b[1] - a[1]);
-  const keep = [];
-  for (const h of hits){
-    const last = keep[keep.length - 1];
-    if (last && h[0] < last[1]){ if (h[1] > last[1]) last[1] = h[1]; }
-    else keep.push(h.slice());
-  }
-
-  let out = '', at = 0;
-  for (const [s, e] of keep){
-    out += esc(body.slice(at, s)) + '<span class="clue">' + esc(body.slice(s, e)) + '</span>';
-    at = e;
-  }
-  out += esc(body.slice(at)) + esc(tail);
-  return out;
+function saveHL(){
+  try {
+    const keys = Object.keys(HL);
+    if (keys.length > HL_CAP) keys.slice(0, keys.length - HL_CAP).forEach(k => delete HL[k]);
+    localStorage.setItem('qbank.hl', JSON.stringify(HL));
+  } catch (e) { /* private browsing, or the quota is full: marks just do not persist */ }
 }
-window.__markClues = markClues;   // so the highlighter can be checked directly in tests
+
+// Words become spans; punctuation and spacing stay exactly as written, so the stem
+// still reads normally and copies cleanly.
+function wordyStem(text, uid){
+  const on = new Set(HL[uid] || []);
+  const rx = /[A-Za-z0-9][A-Za-z0-9'’\-\/.]*/g;
+  let out = '', at = 0, i = 0, m;
+  while ((m = rx.exec(String(text || ''))) !== null){
+    out += esc(String(text).slice(at, m.index))
+         + `<span class="w${on.has(i) ? ' hl' : ''}" data-w="${i}">${esc(m[0])}</span>`;
+    at = m.index + m[0].length;
+    i++;
+  }
+  return out + esc(String(text || '').slice(at));
+}
+
+// One listener for the whole page rather than one per word — a 60-word stem redrawn on
+// every question would otherwise mean thousands of handlers over a revision session.
+document.addEventListener('click', e => {
+  const w = e.target.closest && e.target.closest('.stem .w');
+  if (!w) return;
+  const uid = w.closest('.stem').dataset.hl;
+  if (!uid) return;
+  const i = +w.dataset.w;
+  const list = HL[uid] || [];
+  const at = list.indexOf(i);
+  if (at >= 0) list.splice(at, 1); else list.push(i);
+  if (list.length) HL[uid] = list; else delete HL[uid];
+  w.classList.toggle('hl');
+  // Marking a word must not redraw the card — that would scroll a long stem back to
+  // the top mid-read. So the one thing that depends on it is updated by hand.
+  const clear = document.getElementById('bClearHl');
+  if (clear) clear.classList.toggle('hide', !list.length);
+  saveHL();
+});
+
 
 // ---------------------------------------------------------------- sign in
 function gmsg(text, kind='info'){
@@ -951,16 +933,6 @@ $('#bUnseen').onclick = function(){ state.unseen=!state.unseen; if(state.unseen)
                                     this.classList.toggle('on',state.unseen); apply(); };
 $('#bReview').onclick = function(){ state.reviewOnly=!state.reviewOnly;
                                     this.classList.toggle('on',state.reviewOnly); apply(); };
-// Rapid review only changes how the stem is drawn, so it re-renders rather than
-// re-filtering — the question you are on stays put. Remembered between visits.
-try { state.rapid = localStorage.getItem('qbank.rapid') === '1'; } catch (e) {}
-$('#bRapid').classList.toggle('on', state.rapid);
-$('#bRapid').onclick = function(){
-  state.rapid = !state.rapid;
-  this.classList.toggle('on', state.rapid);
-  try { localStorage.setItem('qbank.rapid', state.rapid ? '1' : '0'); } catch (e) {}
-  render();
-};
 
 // ---------------------------------------------------------------- practice
 function render(){
@@ -1000,7 +972,7 @@ function render(){
   const shownStem = q.stem_no_image || '';
 
   let h = `<div class="card"><div class="qhead">${tags}</div>`
-        + `<p class="stem">${state.rapid ? markClues(shownStem) : esc(shownStem)}</p>`;
+        + `<p class="stem" data-hl="${esc(q.uid)}">${wordyStem(shownStem, q.uid)}</p>`;
   if (hasImg)
     h += `<div class="qimg"><img data-qimg="${esc(q.image_path)}" alt="Image for question ${esc(q.uid)}">`
        + `<div class="imgmsg">Loading image…</div></div>`;
@@ -1039,6 +1011,8 @@ function render(){
      + '<span class="spacer"></span>'
      + (iAmAdmin ? `<button id="bPic" title="Attach or replace the picture for this question">`
                  + (hasImg ? 'Change picture' : '+ Add picture') + '</button> ' : '')
+     + `<button id="bClearHl" class="${(HL[q.uid]||[]).length ? '' : 'hide'}"`
+     + ' title="Remove the words you marked in this stem">Clear marks</button> '
      + '<button id="bReport" title="Tell the administrator this item looks wrong">'
      + (MY_REPORTS.has(q.uid) ? '✓ Reported' : 'Report a problem') + '</button>'
      + '</div><div id="repForm"></div></div>';
@@ -1050,6 +1024,7 @@ function render(){
   $('#bPrev').onclick = prev_; $('#bNext').onclick = next_;
   if (iAmAdmin && $('#bPic')) $('#bPic').onclick = () => openEditor(q.uid, true);
   $('#bReport').onclick = () => reportForm(q);
+  if ($('#bClearHl')) $('#bClearHl').onclick = () => { delete HL[q.uid]; saveHL(); render(); };
 }
 async function choose(q, L){
   if (ANSWERS.has(q.uid) || q._pending) return;
