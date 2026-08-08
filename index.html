@@ -53,7 +53,7 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
 /* The mark is the logo itself, painted with a mask rather than placed as an image, so
    one monochrome file works on both the dark and the light theme without a second
    asset and without a filter hack. */
-.mark{flex:none;width:58px;height:58px;background:var(--accent);
+.brandmark{flex:none;width:58px;height:58px;background:var(--accent);
  -webkit-mask:url(./logo.svg) center/contain no-repeat;
  mask:url(./logo.svg) center/contain no-repeat}
 .landtop h1{margin:0;font-size:23px;letter-spacing:-.025em;
@@ -219,7 +219,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <div id="gate" class="gate">
  <div class="land">
   <div class="landtop">
-    <div class="mark" role="img" aria-label="Cerebropilot"></div>
+    <div class="brandmark" role="img" aria-label="Cerebropilot"></div>
     <div>
       <h1>Saudi Neurology QBank</h1>
       <p>Board revision for neurology residents, by Cerebropilot</p>
@@ -987,7 +987,9 @@ function render(){
   const reps = Math.max(q.repeat_count || 1, (q.years||[]).length);
   if (reps > 1)
     tags += `<span class="tag rep">repeated ${reps}×${(q.years||[]).length > 1 ? ' · ' + q.years.join(', ') : ''}</span>`;
-  (q.flags||[]).forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
+  // Anything describing how the item was rebuilt is for the editor, not the reader.
+  (q.flags||[]).filter(f => !/reconstruct|corrected|rebuilt/i.test(f))
+               .forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
   if (q.needs_review) tags += '<span class="tag flag">check this one</span>';
   tags += `<span class="num">${esc(q.uid)}</span>`;
 
@@ -1022,7 +1024,6 @@ function render(){
          + '<h4 style="color:var(--ok)">What the image shows</h4>'
          + `<p>${esc(key.image_finding)}</p></div>`;
     if (prev.chosen === '-') h += '<div class="note">You left this one blank in a timed paper, so it scored zero.</div>';
-    if (key.changed) h += `<div class="note"><b>Answer corrected during review.</b> ${esc(key.changed)}</div>`;
     if (q.needs_review)
       h += '<div class="note"><b>Treat this answer with caution.</b> The original recall was '
          + 'ambiguous or published sources disagree. Verify it against a primary source before '
@@ -1071,6 +1072,12 @@ async function choose(q, L){
     else
       msg = 'Could not record that answer. Check your connection and try again.';
     alertBar(msg);
+    return;
+  }
+  // A reply with neither data nor an error should not happen, but if it ever does the
+  // next line would throw on null and the resident would see nothing at all.
+  if (!data){
+    alertBar('That answer did not save. Try once more.');
     return;
   }
   ANSWERS.set(q.uid, { question_uid:q.uid, chosen:L, correct:data.correct });
