@@ -170,7 +170,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <h1>Saudi Neurology QBank</h1>
     <p class="lede">Private revision bank for Saudi neurology residents. Access is by invitation only.</p>
     <label for="email">Your email address</label>
-    <input id="email" type="email" autocomplete="email" placeholder="name@example.com" autofocus>
+    <input id="email" type="email" autocomplete="email" placeholder="name@example.com" maxlength="200" autofocus>
     <button id="send" class="primary">Email me a sign-in link</button>
     <div id="gatemsg" class="msg info hide"></div>
     <div class="priv">No password needed. We email you a link that signs you in.
@@ -199,7 +199,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <select id="fTrack"></select>
         <select id="fYear"></select>
         <select id="fTopic"></select>
-        <input type="search" id="fSearch" placeholder="Search stems…">
+        <input type="search" id="fSearch" placeholder="Search stems…" maxlength="120">
         <span class="spacer"></span>
         <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
         <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
@@ -819,7 +819,7 @@ function reportForm(q){
   + ['wrong answer','question unclear','wrong explanation','typo','other']
       .map(c => `<option value="${c}"${mine && mine.category===c?' selected':''}>${c}</option>`).join('')
   + '</select></div>'
-  + `<div class="row"><input id="repNote" placeholder="What looks wrong? (optional, but helpful)" value="${esc(mine?mine.note||'':'')}"></div>`
+  + `<div class="row"><input id="repNote" maxlength="1000" placeholder="What looks wrong? (optional, but helpful)" value="${esc(mine?mine.note||'':'')}"></div>`
   + '<button id="repSend" class="primary">Send report</button> '
   + '<button id="repCancel">Cancel</button>'
   + '<div id="repMsg" style="font-size:12.5px;color:var(--dim);margin-top:9px"></div></div>';
@@ -1187,8 +1187,8 @@ async function renderAdmin(){
     <div class="card">
       <h3 style="margin:0 0 10px;font-size:14px">Add a resident</h3>
       <div class="row">
-        <input id="newEmail" type="email" placeholder="name@example.com">
-        <input id="newName" placeholder="Full name (optional)">
+        <input id="newEmail" type="email" maxlength="200" placeholder="name@example.com">
+        <input id="newName" maxlength="120" placeholder="Full name (optional)">
         <select id="newDur" style="flex:0 0 auto;width:110px">${
           Array.from({length:12},(_,i)=>i+1).map(m=>
             `<option value="${m}"${m===2?' selected':''}>${m} month${m>1?'s':''}</option>`).join('')}</select>
@@ -1820,7 +1820,7 @@ function renderQuestions(){
     <div id="qEditor"></div>
     <div class="card">
       <div class="row">
-        <input type="search" id="qSearch" placeholder="Search by number, stem or topic…" value="${esc(QFILTER.s)}">
+        <input type="search" id="qSearch" maxlength="120" placeholder="Search by number, stem or topic…" value="${esc(QFILTER.s)}">
         <select id="qTrack" style="flex:0 0 auto;width:130px">${opts(tracks, QFILTER.track)}</select>
         <select id="qTopic" style="flex:0 0 auto;width:170px">${opts(topics, QFILTER.topic)}</select>
         <button id="qImgOnly" class="${QFILTER.imgOnly?'on':''}" title="Questions that already have a picture attached">Has picture (${withImg})</button>
@@ -1995,19 +1995,19 @@ function drawEditor(quiet){
 
     <div class="three">
       <div class="fld"><label for="fYearIn">Year</label><input id="fYearIn" type="number" min="1990" max="2100" value="${esc(String(q.year||''))}"></div>
-      <div class="fld"><label for="fTrackIn">Track</label><input id="fTrackIn" list="dlTracks" value="${esc(q.track||'')}" placeholder="Part 1 / Part 2 / Promotion"></div>
-      <div class="fld"><label for="fTopicIn">Topic</label><input id="fTopicIn" list="dlTopics" value="${esc(q.topic||'')}" placeholder="e.g. Vascular &amp; Stroke"></div>
+      <div class="fld"><label for="fTrackIn">Track</label><input id="fTrackIn" list="dlTracks" maxlength="60" value="${esc(q.track||'')}" placeholder="Part 1 / Part 2 / Promotion"></div>
+      <div class="fld"><label for="fTopicIn">Topic</label><input id="fTopicIn" list="dlTopics" maxlength="120" value="${esc(q.topic||'')}" placeholder="e.g. Vascular &amp; Stroke"></div>
     </div>
     <datalist id="dlTracks">${tracks.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
     <datalist id="dlTopics">${topics.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
 
     <div class="fld"><label for="fStem">Question stem</label>
-      <textarea id="fStem" placeholder="The clinical vignette…">${esc(q.stem||'')}</textarea></div>
+      <textarea id="fStem" maxlength="20000" placeholder="The clinical vignette…">${esc(q.stem||'')}</textarea></div>
 
     <div class="two">
       ${['A','B','C','D'].map(L =>
         `<div class="fld"><label for="fOpt${L}">Option ${L}</label>
-           <input id="fOpt${L}" value="${esc((q.options||{})[L] || '')}"></div>`).join('')}
+           <input id="fOpt${L}" maxlength="1500" value="${esc((q.options||{})[L] || '')}"></div>`).join('')}
     </div>
 
     <div class="two">
@@ -2020,9 +2020,9 @@ function drawEditor(quiet){
     </div>
 
     <div class="fld"><label for="fExp">Explanation</label>
-      <textarea id="fExp" placeholder="Why this answer, and why not the others. Localise it.">${esc(q.explanation||'')}</textarea></div>
+      <textarea id="fExp" maxlength="20000" placeholder="Why this answer, and why not the others. Localise it.">${esc(q.explanation||'')}</textarea></div>
     <div class="fld"><label for="fSrc">Source</label>
-      <input id="fSrc" value="${esc(q.source||'')}" placeholder="Guideline or textbook, with year and page"></div>
+      <input id="fSrc" maxlength="1000" value="${esc(q.source||'')}" placeholder="Guideline or textbook, with year and page"></div>
 
     <h3 style="margin:18px 0 8px;font-size:14px">Picture</h3>
     ${imgBlock}
