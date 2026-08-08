@@ -80,6 +80,24 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
  margin:0 0 6px;font-weight:600}
 .landfoot p{margin:0 0 12px;max-width:70ch}
 .landfoot a{color:var(--accent)}
+
+/* Ministry of Commerce registration badge - the same one shown on cerebropilot.com.
+   The emblem is inlined as a data URI: no extra request, no third-party host, and
+   img-src in the CSP above already allows data:. Declared once here, used by both
+   the landing footer and the in-app About panel. The white tile is deliberate -
+   the emblem is an official mark on white and must not be recoloured by the theme. */
+.crbadge{display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;
+ background:var(--panel);border:1px solid var(--line);border-radius:14px;
+ padding:12px 16px;margin:2px 0 12px;text-align:left;max-width:100%}
+.crbadge .seal{flex:none;width:54px;height:54px;border-radius:8px;
+ background:#fff url("data:image/webp;base64,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") center/44px 44px no-repeat}
+.crbadge .crtxt{font-size:12.5px;color:var(--dim);line-height:1.5}
+.crbadge .crno{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+ font-size:11.5px;color:var(--faint)}
+.crbadge .verify{font-weight:700;font-size:12.5px;white-space:nowrap;text-decoration:none;
+ color:var(--accent)}
+.crbadge .verify:hover{text-decoration:underline}
+@media(max-width:520px){.crbadge{gap:10px;padding:10px 12px}}
 .appfoot{text-align:center;font-size:11.5px;color:var(--faint);padding:22px 0 0;
  margin-top:18px;border-top:1px solid var(--line)}
 .appfoot a{color:var(--dim)}
@@ -292,13 +310,21 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <p><b>Independent.</b> Saudi Neurology QBank is not affiliated with, endorsed by, or produced
       by the Saudi Commission for Health Specialties or any training programme or hospital.</p>
 
-    <p style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line)">
-      Owned and operated by <b>Cerebropilot</b> (مؤسسة سيريبروبايلوت), Riyadh, Saudi Arabia ·
-      Commercial Registration 7054697367 ·
-      <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a> ·
-      <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a><br>
-      Payments are processed by Tap Payments. Card details are never entered on or stored by this site.
-    </p>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+      <h3>Registration</h3>
+      <div class="crbadge">
+        <span class="seal" role="img" aria-label="Ministry of Commerce, Kingdom of Saudi Arabia"></span>
+        <span class="crtxt">Registered establishment &mdash; Ministry of Commerce, Kingdom of Saudi Arabia
+          <span class="crno">CerebroPilot Establishment &middot; CR 7054697367 &middot; Riyadh &middot; Active</span>
+        </span>
+        <a class="verify" href="https://qr.saudibusiness.gov.sa/viewcr?nCrNumber=bzEmMw4rHKNZm7ykjU7LsA=="
+           target="_blank" rel="noopener noreferrer">Verify &rarr;</a>
+      </div>
+      <p>Owned and operated by <b>CerebroPilot Establishment</b> (مؤسسة سيريبروبايلوت), Riyadh,
+        Saudi Arabia · <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a> ·
+        <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a><br>
+        Payments are processed by Tap Payments. Card details are never entered on or stored by this site.</p>
+    </div>
   </div>
  </div>
 </div>
@@ -370,7 +396,15 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         success is offered or implied.</p>
       <p><b>Independent.</b> Not affiliated with, endorsed by, or produced by the Saudi Commission
         for Health Specialties or any training programme or hospital.</p>
-      <p>Owned and operated by <b>Cerebropilot</b>, Riyadh · Commercial Registration 7054697367 ·
+      <div class="crbadge">
+        <span class="seal" role="img" aria-label="Ministry of Commerce, Kingdom of Saudi Arabia"></span>
+        <span class="crtxt">Registered establishment &mdash; Ministry of Commerce, Kingdom of Saudi Arabia
+          <span class="crno">CerebroPilot Establishment &middot; CR 7054697367 &middot; Riyadh &middot; Active</span>
+        </span>
+        <a class="verify" href="https://qr.saudibusiness.gov.sa/viewcr?nCrNumber=bzEmMw4rHKNZm7ykjU7LsA=="
+           target="_blank" rel="noopener noreferrer">Verify &rarr;</a>
+      </div>
+      <p>Owned and operated by <b>CerebroPilot Establishment</b>, Riyadh ·
         <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a>. Payments are
         processed by Tap Payments; card details are never entered on or stored by this site.</p>
     </div>
