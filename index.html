@@ -173,6 +173,10 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <input id="email" type="email" autocomplete="email" placeholder="name@example.com" maxlength="200" autofocus>
     <button id="send" class="primary">Email me a sign-in link</button>
     <div id="gatemsg" class="msg info hide"></div>
+    <div id="gateBuy" class="hide" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+      <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">Not a member yet?</div>
+      <button id="gatePay" style="width:100%">See plans and subscribe</button>
+    </div>
     <div class="priv">No password needed. We email you a link that signs you in.
       Only addresses added by the administrator can receive one.</div>
   </div>
@@ -299,6 +303,33 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   // for itself which device is asking rather than trusting anything on screen.
   global: { headers: { 'x-device': DEVICE } }
 });
+
+// ---------------------------------------------------------------- paying
+// The site never handles a card. Tap hosts the payment page, which is what keeps
+// card details out of here entirely, and it is also where Apple Pay appears on a
+// Mac or iPhone. Prices are read from the database, never written here: this file
+// is public, and anything it claims a plan costs would be a suggestion at best.
+const FN = SUPABASE_URL + '/functions/v1/';
+async function callFn(name, body){
+  const r = await fetch(FN + name, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    body: JSON.stringify(body || {})
+  });
+  let j = null;
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.error) || 'That did not go through. Please try again.');
+  return j;
+}
+let PLANS = null;
+async function loadPlans(){
+  if (PLANS) return PLANS;
+  const { data, error } = await sb.rpc('list_plans');
+  if (error){ console.error('plans failed', error); return []; }
+  PLANS = data || [];
+  return PLANS;
+}
+const money = (a, c) => Number(a).toLocaleString('en', { minimumFractionDigits: 0 }) + ' ' + c;
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -428,8 +459,21 @@ sb.auth.onAuthStateChange((_e, session) => {
   if (session?.user) start(session.user);
 });
 (async () => {
+  // Coming back from Tap takes priority: the person needs to be told what happened
+  // to their money before anything else on screen matters.
+  if (await handlePaymentReturn()) return;
   const { data:{ session } } = await sb.auth.getSession();
   if (session?.user) start(session.user);
+})();
+
+// The subscribe button on the sign-in page only appears when the bank is actually
+// open to new people, so it never offers something that would then be refused.
+(async () => {
+  try {
+    const { data } = await sb.rpc('list_plans');
+    if (data && data.length) $('#gateBuy').classList.remove('hide');
+  } catch (e) {}
+  $('#gatePay').onclick = () => openPay($('#email').value.trim(), 'buy');
 })();
 
 async function start(user){
@@ -912,8 +956,10 @@ function renderProgress(){
     ${tbl(by('topic'),'Topic')}
     ${tbl(by('year'),'Year')}
     ${tbl(by('track'),'Track')}
+    <div class="card" id="subCard"></div>
     <div class="card"><button id="resetProg">Clear all my answers</button>
       <span style="font-size:12px;color:var(--dim);margin-left:10px">Starts you over. Cannot be undone.</span></div>`;
+  renderSubCard();
   $('#resetProg').onclick = async () => {
     if (!confirm('Delete all your saved answers and start over?')) return;
     await sb.from('attempts').delete().eq('user_id', ME.id);
@@ -994,6 +1040,146 @@ async function renderReports(){
   v.querySelectorAll('[data-drop]').forEach(b => b.onclick = () => setStatus(b.dataset.drop,'dismissed'));
 }
 
+// Where a resident sees how long they have left and can top it up. Deliberately at
+// the foot of My progress rather than in the header - a countdown over every
+// question would be nagging, and this is a revision bank, not a shop.
+async function renderSubCard(){
+  const host = $('#subCard');
+  if (!host) return;
+  if (PROFILE && PROFILE.role === 'admin'){
+    host.innerHTML = '<div style="font-size:13px;color:var(--dim)">'
+      + 'You are an administrator, so your own access does not expire.</div>';
+    return;
+  }
+  let sub = null;
+  try { const { data } = await sb.rpc('my_subscription'); sub = Array.isArray(data) ? data[0] : data; }
+  catch (e) { console.error('subscription lookup failed', e); }
+
+  const exp = sub && (sub.expires_at || sub.expires);
+  let line, cls = 'var(--dim)';
+  if (!exp){ line = 'No end date is recorded on your access.'; }
+  else {
+    const days = Math.round((new Date(exp + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+    if (days < 0){ line = 'Your access ended on ' + exp + '.'; cls = 'var(--bad)'; }
+    else if (days <= 14){ line = 'Your access runs out on ' + exp + ' — ' + days + ' day'
+                                 + (days===1?'':'s') + ' left.'; cls = 'var(--warn)'; }
+    else line = 'Your access runs until ' + exp + ' (' + days + ' days).';
+  }
+  // No Renew button unless something is actually on sale, so nobody is sent to a
+  // checkout that would only turn them away.
+  const plans = await loadPlans();
+  host.innerHTML = `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="font-size:13.5px;color:${cls};flex:1;min-width:200px">${esc(line)}</div>
+      ${plans.length ? '<button id="renewBtn" class="primary">Renew</button>' : ''}
+    </div>`;
+  if ($('#renewBtn')) $('#renewBtn').onclick = () => openPay(PROFILE ? PROFILE.email : '', 'renew');
+}
+
+// ------------------------------------------------------------ pay / renew
+// One screen, used from two places: the sign-in page for somebody who is not on
+// the list yet, and from inside the bank for a resident whose time is running out.
+async function openPay(email, why){
+  const plans = await loadPlans();
+  if (!plans.length){ alertBar('Plans could not be loaded. Please try again shortly.'); return; }
+
+  const box = document.createElement('div');
+  box.id = 'payOverlay';
+  box.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);'
+                    + 'display:grid;place-items:center;padding:20px;overflow:auto';
+  const cards = plans.map(p => `
+    <button class="opt payplan" data-plan="${esc(p.code)}" style="flex-direction:column;align-items:flex-start;gap:3px">
+      <span style="font-weight:650;font-size:15px">${esc(p.label)}</span>
+      <span style="font-size:19px;font-weight:700;color:var(--accent)">${esc(money(p.amount, p.currency))}</span>
+      <span style="font-size:11.5px;color:var(--dim)">${p.months} month${p.months===1?'':'s'} of full access</span>
+    </button>`).join('');
+
+  box.innerHTML = `
+    <div class="gatebox" style="max-width:430px;margin:0">
+      <h1>${why === 'renew' ? 'Renew your access' : 'Subscribe to the bank'}</h1>
+      <p class="lede">${why === 'renew'
+        ? 'Renewing early costs you nothing — the new period starts the day your current one ends.'
+        : 'Full access to every question, with answers and explanations.'}</p>
+      <label for="payEmail">Your email address</label>
+      <input id="payEmail" type="email" maxlength="200" placeholder="name@example.com" value="${esc(email||'')}">
+      <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">${cards}</div>
+      <div id="payMsg" class="msg info hide"></div>
+      <button id="payCancel" style="width:100%;margin-top:4px">Cancel</button>
+      <div class="priv">Payment is handled by Tap, who are licensed for card payments in Saudi
+        Arabia. Visa, Mastercard, mada and Apple Pay are all accepted. No card details are
+        entered on this site or stored by it.</div>
+    </div>`;
+  document.body.appendChild(box);
+
+  const say = (t, k='info') => {
+    const m = box.querySelector('#payMsg');
+    m.className = 'msg ' + k; m.textContent = t; m.classList.remove('hide');
+  };
+  box.querySelector('#payCancel').onclick = () => box.remove();
+  box.onclick = e => { if (e.target === box) box.remove(); };
+
+  box.querySelectorAll('.payplan').forEach(b => b.onclick = async () => {
+    const addr = box.querySelector('#payEmail').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)){ say('Please enter a valid email address.', 'err'); return; }
+    box.querySelectorAll('.payplan').forEach(x => x.disabled = true);
+    say('Opening the payment page…');
+    try {
+      // Only the plan code goes over the wire. The amount is decided server-side.
+      const out = await callFn('tap-create-charge', { email: addr, plan: b.dataset.plan });
+      try { localStorage.setItem('qbank.payEmail', addr); } catch (e) {}
+      location.href = out.url;
+    } catch (e) {
+      say(e.message, 'err');
+      box.querySelectorAll('.payplan').forEach(x => x.disabled = false);
+    }
+  });
+}
+
+// Tap sends the resident back here with ?paid=1&tap_id=chg_xxx. The id is only a
+// pointer: the server asks Tap what really happened before anything is granted.
+async function handlePaymentReturn(){
+  const q = new URLSearchParams(location.search);
+  const id = q.get('tap_id');
+  if (!id) return false;
+  history.replaceState(null, '', location.pathname);
+
+  const box = document.createElement('div');
+  box.id = 'payResult';
+  box.style.cssText = 'position:fixed;inset:0;z-index:70;background:var(--bg);display:grid;'
+                    + 'place-items:center;padding:20px';
+  box.innerHTML = `<div class="gatebox" style="max-width:420px;margin:0">
+      <h1>Checking your payment…</h1>
+      <div class="msg info" id="prMsg">One moment.</div>
+      <button id="prClose" class="primary" style="width:100%;margin-top:14px">Continue</button>
+    </div>`;
+  document.body.appendChild(box);
+  const close = () => { box.remove(); location.reload(); };
+  box.querySelector('#prClose').onclick = close;
+
+  try {
+    const out = await callFn('tap-confirm', { tap_id: id });
+    const m = box.querySelector('#prMsg');
+    if (out.ok){
+      box.querySelector('h1').textContent = 'Payment received';
+      m.className = 'msg good';
+      m.innerHTML = 'Thank you. <b>' + esc(out.email || '') + '</b> now has access until <b>'
+                  + esc(out.expires_at || '') + '</b>.<br><br>'
+                  + 'If you are not signed in yet, request a sign-in link with that same address.';
+    } else {
+      box.querySelector('h1').textContent = 'Payment not completed';
+      m.className = 'msg err';
+      m.textContent = out.status === 'CANCELLED'
+        ? 'That payment was cancelled, so nothing has been charged.'
+        : 'That payment did not go through (' + esc(out.status || 'unknown') + '). '
+          + 'Nothing has been charged. If money did leave your account, tell Dr Abdulrahman '
+          + 'and quote ' + esc(id) + '.';
+    }
+  } catch (e) {
+    box.querySelector('#prMsg').className = 'msg err';
+    box.querySelector('#prMsg').textContent = e.message + ' Your reference is ' + id + '.';
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------- admin
 // expires_at is a generated column: subscribed_at + duration_months. The
 // database enforces it in is_approved(); this only decides what colour to paint.
@@ -1016,6 +1202,107 @@ const FLAG_TONE = { concurrent:'var(--bad)', shared_device:'var(--bad)',
                     pending_device:'var(--warn)', ip_spread:'var(--warn)',
                     many_devices:'var(--warn)', link_storm:'var(--warn)' };
 const DEV_TONE  = { active:'var(--ok)', pending:'var(--warn)', refused:'var(--bad)' };
+
+// Money, on the admin screen. Prices are editable here rather than in the code
+// because a price is a business decision, not a deployment.
+async function renderPayPanel(){
+  const box = $('#payPanel');
+  if (!box) return;
+  const [{ data: plans }, { data: pays }, { data: cfg }] = await Promise.all([
+    sb.rpc('admin_plans'), sb.rpc('admin_payments'), sb.rpc('admin_settings')
+  ]);
+  const selfServe = (cfg && cfg.self_serve) === 'on';
+  const live      = (cfg && cfg.payments_live) === 'on';
+
+  const planRows = (plans||[]).map(p => `
+    <tr data-plan="${esc(p.code)}">
+      <td>${esc(p.label)}</td>
+      <td class="num">${p.months}</td>
+      <td class="num"><input class="planAmt" type="number" min="1" max="100000" step="1"
+           value="${esc(String(p.amount))}" style="width:100px;text-align:right"></td>
+      <td>${esc(p.currency)}</td>
+      <td><button class="planSave">Save</button>
+          <button class="planTog">${p.active ? 'Hide' : 'Show'}</button></td>
+      <td>${p.active ? '<span class="pill ok">on sale</span>' : '<span class="pill dim">hidden</span>'}</td>
+    </tr>`).join('');
+
+  const applied = (pays||[]).filter(p => p.applied_at).length;
+  const takings = (pays||[]).filter(p => p.applied_at)
+                            .reduce((s,p) => s + Number(p.amount||0), 0);
+  const payRows = (pays||[]).slice(0, 60).map(p => `
+    <tr>
+      <td style="font-size:12px">${esc((p.created_at||'').slice(0,16).replace('T',' '))}</td>
+      <td style="font-size:12px">${esc(p.email)}</td>
+      <td class="num">${esc(String(p.amount ?? '—'))} ${esc(p.currency||'')}</td>
+      <td>${p.applied_at
+            ? '<span class="pill ok">' + (p.months_granted||'?') + ' mo added</span>'
+            : '<span class="pill ' + (p.status==='INITIATED'?'dim':'bad') + '">' + esc(p.status) + '</span>'}</td>
+      <td style="font-size:11px;color:var(--faint)">${esc(p.note || p.tap_charge_id || '')}</td>
+    </tr>`).join('');
+
+  box.innerHTML = `<div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <h3 style="margin:0;font-size:14px">Payments</h3>
+      <span class="pill ${live?'ok':'dim'}">${live ? 'open for business' : 'closed — nothing on sale'}</span>
+      <span class="pill ${selfServe?'warn':'dim'}">${selfServe
+        ? 'anyone who pays is let in' : 'only people you have added can pay'}</span>
+      <span class="spacer" style="flex:1"></span>
+      <button id="liveToggle" class="${live?'':'primary'}">${live ? 'Close payments' : 'Open payments'}</button>
+      <button id="ssToggle">${selfServe ? 'Stop letting strangers buy' : 'Let anyone buy access'}</button>
+      <button id="payRefresh">Refresh</button>
+    </div>
+    ${live ? '' : '<div class="note" style="margin-bottom:10px">Payments are closed, so no '
+      + 'Subscribe or Renew button appears anywhere on the site. Open them once your Tap '
+      + 'keys are in place and you have made one real test payment.</div>'}
+    <div style="font-size:11.5px;color:var(--faint);margin-bottom:10px">
+      ${applied} payment${applied===1?'':'s'} received, ${esc(money(takings, (plans&&plans[0]&&plans[0].currency)||'SAR'))} in total.
+      Renewing early never loses time — a new period starts the day the old one ends.
+    </div>
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table><thead><tr><th>Plan</th><th class="num">Months</th><th class="num">Price</th>
+        <th>Currency</th><th></th><th></th></tr></thead><tbody>${planRows}</tbody></table>
+    </div>
+    <div style="overflow-x:auto">
+      <table><thead><tr><th>When</th><th>Who</th><th class="num">Amount</th>
+        <th>Outcome</th><th>Reference</th></tr></thead>
+        <tbody>${payRows || '<tr><td colspan="5" style="color:var(--dim)">No payments yet.</td></tr>'}</tbody></table>
+    </div>
+  </div>`;
+
+  $('#payRefresh').onclick = renderPayPanel;
+  $('#liveToggle').onclick = async () => {
+    const next = live ? 'off' : 'on';
+    const { error } = await sb.rpc('admin_set_config', { p_key:'payments_live', p_value: next });
+    if (error){ alertBar('Could not change that: ' + error.message); return; }
+    PLANS = null; renderPayPanel();
+  };
+  $('#ssToggle').onclick = async () => {
+    const next = selfServe ? 'off' : 'on';
+    if (next === 'on' && !confirm(
+      'Let anyone who pays into the bank?\n\nAnybody with a card will be added to the '
+      + 'allowlist automatically, without you approving them first.')) return;
+    const { error } = await sb.rpc('admin_set_config', { p_key:'self_serve', p_value: next });
+    if (error){ alertBar('Could not change that: ' + error.message); return; }
+    renderPayPanel();
+  };
+  box.querySelectorAll('.planSave').forEach(b => b.onclick = async () => {
+    const tr = b.closest('tr');
+    const amt = Number(tr.querySelector('.planAmt').value);
+    const { error } = await sb.rpc('admin_set_plan',
+      { p_code: tr.dataset.plan, p_amount: amt, p_active: null });
+    alertBar(error ? 'Could not save: ' + error.message : 'Price updated.');
+    PLANS = null; if (!error) renderPayPanel();
+  });
+  box.querySelectorAll('.planTog').forEach(b => b.onclick = async () => {
+    const tr = b.closest('tr');
+    const showing = b.textContent === 'Hide';
+    const { error } = await sb.rpc('admin_set_plan',
+      { p_code: tr.dataset.plan, p_amount: Number(tr.querySelector('.planAmt').value),
+        p_active: !showing });
+    if (error){ alertBar('Could not change that: ' + error.message); return; }
+    PLANS = null; renderPayPanel();
+  });
+}
 
 async function renderDevicePanel(){
   const box = $('#devicePanel');
@@ -1201,6 +1488,7 @@ async function renderAdmin(){
       </div>
     </div>
     <div id="residentDetail"></div>
+    <div id="payPanel"></div>
     <div id="devicePanel"></div>
     <div class="card">
       <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
@@ -1215,6 +1503,7 @@ async function renderAdmin(){
       </div>
     </div>`;
 
+  renderPayPanel();
   renderDevicePanel();
 
   const emailOf = el => el.closest('tr').dataset.email;
