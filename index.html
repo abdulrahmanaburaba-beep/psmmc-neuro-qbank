@@ -1801,6 +1801,7 @@ function renderQuestions(){
         <button id="qRevOnly" class="${QFILTER.reviewOnly?'on':''}">Needs check</button>
         <span class="spacer"></span>
         <button id="qBackup" title="Save every question, answer, explanation and the allowlist to a file on this device">Download backup</button>
+        <button id="qRestore" title="The database keeps a restore point every Friday. Open one of the last eight.">Restore points</button>
         <button id="qNew" class="primary">+ New question</button>
       </div>
       <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
@@ -1833,6 +1834,7 @@ function renderQuestions(){
   $('#qRevOnly').onclick  = () => { QFILTER.reviewOnly = !QFILTER.reviewOnly; renderQuestions(); };
   $('#qNew').onclick = () => openEditor(null);
   $('#qBackup').onclick = downloadBackup;
+  $('#qRestore').onclick = openRestorePoints;
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(b.dataset.edit));
   v.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openEditor(b.dataset.pic, true));
   v.querySelectorAll('[data-del]').forEach(b => b.onclick = () => deleteQuestion(b.dataset.del));
@@ -1848,6 +1850,36 @@ function renderQuestions(){
 // The free Supabase plan has no point-in-time recovery, so the recovery point
 // is whenever this was last pressed. Everything comes back in one admin-only
 // call and is written straight to disk; nothing passes through anyone else.
+// The database takes a restore point every Friday and keeps the last eight, so
+// a bulk edit that goes wrong is recoverable without anyone remembering to do
+// anything. This lists them and hands one back as a file.
+async function openRestorePoints(){
+  const { data, error } = await sb.rpc('admin_list_snapshots');
+  if (error){ alertBar('Could not read the restore points: ' + error.message); return; }
+  const list = data || [];
+  if (!list.length){ alertBar('No restore points yet — the first is taken this Friday.'); return; }
+  const when = t => new Date(t).toLocaleString('en-GB',
+    { weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  const pick = prompt(
+    'Restore points kept by the database:\n\n'
+    + list.map((s,i) => `${i+1}.  ${when(s.taken_at)}  —  ${s.counts.questions} questions, `
+        + `${s.counts.attempts} answers  (${s.reason}, ${s.size})`).join('\n')
+    + '\n\nType a number to download that one, or Cancel.');
+  const n = parseInt(pick, 10);
+  if (!n || n < 1 || n > list.length) return;
+  const s = list[n-1];
+  const { data: body, error: gerr } = await sb.rpc('admin_get_snapshot', { p_id: s.id });
+  if (gerr){ alertBar('Could not fetch that restore point: ' + gerr.message); return; }
+  const stamp = String(s.taken_at).slice(0,19).replace(/[:T]/g,'-');
+  const blob = new Blob([JSON.stringify(body)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `saudi-neuro-qbank-restore-point-${stamp}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  alertBar(`Restore point from ${when(s.taken_at)} saved.`);
+}
+
 async function downloadBackup(){
   const b = $('#qBackup');
   const was = b.textContent;
