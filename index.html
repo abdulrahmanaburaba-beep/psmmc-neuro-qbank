@@ -10,6 +10,59 @@
 <script>if (window.top !== window.self) { window.top.location = window.self.location; }</script>
 <title>Saudi Neurology QBank</title>
 <link rel="icon" href="./logo.svg" type="image/svg+xml">
+<!-- Applied before the first paint. Reading the choice here rather than from the app
+     module is what stops a resident who has picked light from getting a flash of the
+     dark bank on every load. -->
+<script>
+try {
+  var _t = localStorage.getItem('qbank.theme');
+  if (_t === 'light' || _t === 'dark') document.documentElement.dataset.theme = _t;
+} catch (e) { }
+</script>
+<!-- The switch itself. Three states, not two: Auto is the honest default, because a
+     phone that already flips to dark at night should not be argued with. Choosing
+     light or dark overrides the device until the resident cycles back to Auto.
+     Delegated from the document, so a button that appears later still works. -->
+<script>
+(function(){
+  var KEY = 'qbank.theme';
+  var ICON = {
+    auto:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>',
+    light: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.1M12 19.7v2.1M2.2 12h2.1M19.7 12h2.1M5.1 5.1l1.5 1.5M17.4 17.4l1.5 1.5M18.9 5.1l-1.5 1.5M6.6 17.4l-1.5 1.5"/></svg>',
+    dark:  '<svg viewBox="0 0 24 24"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a7.2 7.2 0 1 0 10.8 10.8z"/></svg>'
+  };
+  var LABEL = { auto:'Auto', light:'Light', dark:'Dark' };
+  var NEXT  = { auto:'light', light:'dark', dark:'auto' };
+
+  function current(){
+    try { var t = localStorage.getItem(KEY); return (t === 'light' || t === 'dark') ? t : 'auto'; }
+    catch (e) { return 'auto'; }
+  }
+  function paint(){
+    var m = current();
+    var tip = 'Appearance: ' + LABEL[m] + (m === 'auto' ? ' — follows your device' : '') + '. Tap to change.';
+    var list = document.querySelectorAll('[data-theme-toggle]');
+    for (var i = 0; i < list.length; i++){
+      list[i].innerHTML = ICON[m] + '<span>' + LABEL[m] + '</span>';
+      list[i].title = tip;
+      list[i].setAttribute('aria-label', tip);
+    }
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-theme-toggle]');
+    if (!b) return;
+    var next = NEXT[current()];
+    try {
+      if (next === 'auto') localStorage.removeItem(KEY); else localStorage.setItem(KEY, next);
+    } catch (err) { }
+    if (next === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = next;
+    paint();
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint);
+  else paint();
+})();
+</script>
 <style>
 :root{
   --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
@@ -18,13 +71,39 @@
   --ok:#3fb950; --ok-bg:#12321c; --bad:#f85149; --bad-bg:#3a1518;
   --warn:#d29922; --warn-bg:#33280c; --r:10px;
 }
+/* Light is written once and applied from two places: when the device asks for it and
+   no choice has been made, and whenever the resident has chosen it outright. The
+   :not() is what makes a deliberate choice beat the operating system - a night-shift
+   resident on a phone locked to light mode can still have the dark bank. */
 @media (prefers-color-scheme: light){
-  :root{ --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
+  :root:not([data-theme="dark"]){
+         --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
          --ink:#12151a; --dim:#5a6472; --faint:#8b95a3;
          --accent:#1f6feb; --accent-dim:#c8ddff;
          --ok:#1a7f37; --ok-bg:#e6f6ea; --bad:#cf222e; --bad-bg:#ffebe9;
          --warn:#9a6700; --warn-bg:#fff8c5; }
 }
+:root[data-theme="light"]{
+         --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
+         --ink:#12151a; --dim:#5a6472; --faint:#8b95a3;
+         --accent:#1f6feb; --accent-dim:#c8ddff;
+         --ok:#1a7f37; --ok-bg:#e6f6ea; --bad:#cf222e; --bad-bg:#ffebe9;
+         --warn:#9a6700; --warn-bg:#fff8c5; }
+/* Native form controls and scrollbars follow this, so they never sit light-on-dark. */
+:root{ color-scheme:dark }
+:root[data-theme="light"]{ color-scheme:light }
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ color-scheme:light } }
+
+/* min-height, not padding: a 31px chip is under every mobile tap-target guideline and
+   is genuinely fiddly one-handed. 36px on desktop, 40px once the screen is phone-sized. */
+.themebtn{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;font-size:12px;
+ min-height:36px;color:var(--dim);background:var(--panel);border:1px solid var(--line);
+ border-radius:8px}
+@media(max-width:520px){.themebtn{min-height:40px;padding:5px 11px}}
+.themebtn:hover{color:var(--ink)}
+.themebtn svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;
+ stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.landtop .themebtn{margin-left:auto}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
  font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -131,7 +210,10 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 /* The same masked logo as the landing page, at header size. One file, both places. */
 .brandmark.sm{width:26px;height:26px}
 .who{margin-left:auto;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px}
-.tabs{display:flex;gap:4px;margin-bottom:10px}
+/* Wrap rather than run off the edge. A resident sees three tabs and never notices, but
+   an administrator sees six, and on a 375px phone the Reports tab - the one carrying the
+   unread badge - sat 33px past the right edge with no way to reach it. */
+.tabs{display:flex;flex-wrap:wrap;gap:4px 2px;margin-bottom:10px}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
  padding:6px 10px;color:var(--dim);font-size:13.5px}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
@@ -251,6 +333,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <h1>Saudi Neurology QBank</h1>
       <p>Board revision for neurology residents, by Cerebropilot</p>
     </div>
+    <button class="themebtn" data-theme-toggle type="button"></button>
   </div>
 
   <div class="landgrid">
@@ -337,7 +420,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <header>
     <div class="top">
       <h1><span class="brandmark sm" role="img" aria-label="Cerebropilot"></span>CerebroBank</h1>
-      <div class="who"><span class="em" id="uemail"></span><button id="signout">Sign out</button></div>
+      <div class="who"><span class="em" id="uemail"></span><button class="themebtn" data-theme-toggle type="button"></button><button id="signout">Sign out</button></div>
     </div>
     <div class="tabs">
       <button data-tab="practice" class="on">Practice</button>
