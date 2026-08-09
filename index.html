@@ -337,6 +337,33 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 .notebox textarea{min-height:104px}
 .subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
 .subtabs button{font-size:12.5px;padding:5px 11px;min-height:34px}
+/* ---- refund policy and terms ---- */
+.polwrap{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:grid;
+  place-items:center;padding:16px}
+.polbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden}
+.polhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:13px 16px;
+  border-bottom:1px solid var(--line);background:var(--panel2)}
+.polhead h2{margin:0;font-size:15px;font-weight:650;flex:1;min-width:130px}
+.polhead button{min-height:34px}
+.polbody{overflow:auto;padding:18px 20px 24px;font-size:13.5px;line-height:1.75;color:var(--fg)}
+.polbody h3{font-size:15px;margin:22px 0 6px;color:var(--ink)}
+.polbody h3:first-child{margin-top:0}
+.polbody h4{font-size:13.5px;margin:18px 0 4px;color:var(--ink)}
+.polbody p{margin:0 0 10px}
+.polbody ol,.polbody ul{margin:0 0 10px;padding-inline-start:22px}
+.polbody li{margin-bottom:6px}
+.polbody .meta{font-size:12px;color:var(--dim);margin-bottom:14px;padding-bottom:12px;
+  border-bottom:1px solid var(--line)}
+.polbody[dir="rtl"]{text-align:right;font-size:14.5px;line-height:2}
+.polfoot{padding:11px 16px;border-top:1px solid var(--line);background:var(--panel2);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--dim)}
+.agree{display:flex;gap:9px;align-items:flex-start;margin:14px 0 4px;padding:11px 12px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel2);
+  font-size:12.5px;line-height:1.6;text-align:left;cursor:pointer}
+.agree input{width:auto;flex:none;margin-top:2px;min-width:17px;min-height:17px}
+.agree a{color:var(--accent);text-decoration:underline}
+@media(max-width:520px){.polwrap{padding:0}.polbox{max-height:100vh;height:100%;border-radius:0}}
 /* A wide admin table scrolls inside its own box. The page itself must never scroll
    sideways - that is what hid the Reports tab on a 375px phone. */
 .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
@@ -430,6 +457,12 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <p><b>Independent.</b> Saudi Neurology QBank is not affiliated with, endorsed by, or produced
       by the Saudi Commission for Health Specialties or any training programme or hospital.</p>
 
+    <h3>Refund policy and terms</h3>
+    <p>Read them before you subscribe — both are published in Arabic and English, and you can print
+      or save either as a PDF.<br>
+      <a href="#" data-policy="refund">Refund and Cancellation Policy · سياسة الاسترجاع والاسترداد</a><br>
+      <a href="#" data-policy="terms">Terms and Conditions · الشروط والأحكام</a></p>
+
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
       <h3>Registration</h3>
       <div class="crbadge">
@@ -509,7 +542,9 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
   <div class="appfoot">
     Need help? <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
-    <a href="#" id="aboutLink">About &amp; disclaimer</a>
+    <a href="#" id="aboutLink">About &amp; disclaimer</a> ·
+    <a href="#" data-policy="refund">Refund policy</a> ·
+    <a href="#" data-policy="terms">Terms</a>
     <div id="aboutBox" class="hide">
       <p><b>About the questions.</b> The Part 1, Part 2 and Promotion papers are written to
         <b>resemble</b> the real examinations in style, level and blueprint. They are <b>not</b>
@@ -534,6 +569,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <p>Owned and operated by <b>CerebroPilot Establishment</b>, Riyadh ·
         <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a>. Payments are
         processed by Tap Payments; card details are never entered on or stored by this site.</p>
+      <p><b>Policies.</b> <a href="#" data-policy="refund">Refund and Cancellation Policy</a> ·
+        <a href="#" data-policy="terms">Terms and Conditions</a> — both in Arabic and English.</p>
     </div>
   </div>
 </div>
@@ -606,6 +643,524 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
   // Travels with every request, including the RPCs, so the database can decide
   // for itself which device is asking rather than trusting anything on screen.
   global: { headers: { 'x-device': DEVICE } }
+});
+
+
+// ---------------------------------------------------------------- policies
+// The refund policy is Dr Abdulrahman's own document, reproduced word for word in
+// both languages. The terms are a first draft written to sit alongside it and have
+// not been through a lawyer. The version string is checked by the database: if this
+// file is a stale cached build, recording a consent fails loudly rather than filing
+// an agreement against wording the person never actually saw.
+const POLICY_VERSION = '2026-08-09';
+
+const POLICY = {
+  refund: {
+    title: { en: 'Refund and Cancellation Policy', ar: 'سياسة الاسترجاع والاسترداد' },
+    en: `
+<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+  Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
+  Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
+<p>Saudi Neurology QBank, operated by CerebroPilot Establishment, is committed to providing
+  high-quality digital educational services and content. This Policy sets out the terms and
+  procedures governing subscription cancellations and refunds for services provided through the
+  Platform, subject at all times to the applicable laws and regulations of the Kingdom of Saudi
+  Arabia.</p>
+
+<h3>1. Scope of this Policy</h3>
+<p>This Policy applies to all subscriptions, digital educational services, and digital content
+  purchased or provided through saudi-board.com, including the question bank, practice and mock
+  examinations, explanations, answers and references, progress and performance tools, and any
+  other paid digital features made available through the Platform.</p>
+<p>This Policy covers both individual subscriptions and subscriptions purchased or arranged by
+  institutions, subject to the specific provisions applicable to each subscription type.</p>
+
+<h3>2. Individual Subscriptions and Refund Requests</h3>
+<p>An individual user who personally purchases and pays for a subscription may request a refund
+  within seven (7) days from the date of purchase where the applicable legal conditions are
+  satisfied and the user has not begun to make actual use of, or derive benefit from, the digital
+  service or content.</p>
+<p>Each request will be assessed based on the purchase date, subscription status, extent of use or
+  access, and the applicable laws and regulations of the Kingdom of Saudi Arabia.</p>
+
+<h3>3. Commencement of Use of Digital Content</h3>
+<p>Because the Platform provides digital educational content and services that may become available
+  immediately following activation, the user's commencement of use or benefit from the service may
+  be taken into account when determining refund eligibility in accordance with applicable law.</p>
+<p>Use or benefit may include, without limitation: accessing or using the question bank; answering
+  any question or examination; opening or viewing answers, explanations, or references; using
+  practice or mock examinations; accessing subscriber-only educational content; or using any other
+  paid feature or service.</p>
+<p>Once a user has actually begun using or benefiting from the digital service or content, a refund
+  may not be available where permitted by applicable laws and regulations.</p>
+
+<h3>4. Institutional, Corporate, Hospital and Sponsored Subscriptions</h3>
+<p>Where a subscription is purchased, funded, allocated, or otherwise provided to a user by an
+  establishment, company, hospital, medical center, university, educational institution, training
+  body, or other organization under an institutional subscription or agreement with CerebroPilot
+  Establishment, the contracting organization is the contractual party for matters relating to
+  cancellation and refund.</p>
+<ol>
+  <li>An individual user enrolled under an institutional subscription may not independently cancel
+    the institutional subscription or request a refund where that individual was not the purchasing
+    or paying party.</li>
+  <li>Any request to cancel an institutional subscription or seek a refund must be submitted by the
+    contracting organization or its duly authorized representative.</li>
+  <li>An individual's decision to stop using the Platform, no longer participate, or leave the
+    sponsoring organization does not automatically cancel the institutional subscription or create
+    an individual entitlement to a refund.</li>
+  <li>The addition, removal, reassignment, or replacement of users under an institutional
+    subscription is governed by the agreement between CerebroPilot Establishment and the
+    contracting organization.</li>
+  <li>Where an individual has personally paid CerebroPilot Establishment for the relevant
+    subscription, that individual's request will be assessed under the provisions applicable to
+    individual subscriptions and any relevant agreement.</li>
+  <li>Nothing in this section excludes or limits any mandatory right that cannot lawfully be waived
+    under the applicable laws and regulations of the Kingdom of Saudi Arabia.</li>
+</ol>
+<p>Accordingly, cancellation or refund requests relating to institutional subscriptions will not be
+  accepted from an individual end user and must instead be submitted by the contracting
+  organization or its authorized representative, unless the applicable institutional agreement
+  expressly provides otherwise.</p>
+
+<h3>5. Technical Issues</h3>
+<p>If payment has been successfully charged but the account is not activated, or access to the
+  service is prevented by a technical fault attributable to the Platform, the user should contact
+  the official support channel. The Platform will investigate and seek to restore access as soon as
+  reasonably practicable. If the service cannot be provided or the issue cannot be resolved, any
+  refund request will be assessed in accordance with applicable law and the relevant contractual
+  terms.</p>
+
+<h3>6. Duplicate or Erroneous Charges</h3>
+<p>If the same purchase is charged more than once in error, the user or paying organization may
+  request a review. Once a duplicate charge is verified, the applicable amount will be processed
+  for refund through the original payment method where practicable, subject to the payment
+  provider's procedures.</p>
+
+<h3>7. Non-Use of a Subscription</h3>
+<p>Failure to use an activated subscription does not, by itself, create an automatic entitlement to
+  a refund. Any request will be assessed by reference to the subscription type, purchase date,
+  activation status, actual use or benefit, applicable contractual terms, and mandatory legal
+  rights.</p>
+
+<h3>8. Subscription Term</h3>
+<p>The subscription term begins on the activation date or on another date specified at purchase or
+  in the applicable agreement. Users are responsible for using the service during the relevant
+  subscription period. Expiry of the subscription without using all available questions, content,
+  or features does not automatically entitle the user to a refund.</p>
+
+<h3>9. How to Submit a Refund Request</h3>
+<p>Refund requests must be submitted through the official support channels displayed on the
+  Platform. For an individual subscription, the request should include the user's name, the email
+  address or mobile number associated with the account, payment or transaction details where
+  available, the purchase date, and the reason for the request.</p>
+<p>For an institutional subscription, the request must be submitted by the contracting organization
+  or its authorized representative and include sufficient information to identify the relevant
+  agreement or transaction. CerebroPilot Establishment may request additional information
+  reasonably necessary to verify and process the request.</p>
+
+<h3>10. Processing Approved Refunds</h3>
+<p>Where a refund is approved, the refundable amount will ordinarily be returned to the original
+  payment method where practicable, or through another appropriate method in accordance with
+  applicable procedures. The time required for the refunded amount to appear may depend on the
+  bank, card issuer, or payment service provider and may be outside the control of CerebroPilot
+  Establishment.</p>
+
+<h3>11. Abuse of the Refund Policy</h3>
+<p>CerebroPilot Establishment reserves the right to review refund requests and relevant
+  service-usage records. A request may be declined where there is evidence of misuse of the refund
+  process or an attempt to materially consume or benefit from the educational content and
+  subsequently obtain a refund, to the extent permitted by applicable law.</p>
+
+<h3>12. Mandatory Consumer Rights</h3>
+<p>Nothing in this Policy is intended to exclude, restrict, or waive any mandatory consumer right
+  under the applicable laws and regulations of the Kingdom of Saudi Arabia. If any provision of
+  this Policy conflicts with a mandatory legal requirement, the mandatory legal requirement will
+  prevail to the extent of that conflict.</p>
+
+<h3>13. Service Provider Information</h3>
+<p>Platform: Saudi Neurology QBank<br>
+  Website: saudi-board.com<br>
+  Service Provider: CerebroPilot Establishment<br>
+  Unified National Number: 7054697367<br>
+  Entity Type: Establishment<br>
+  Country: Kingdom of Saudi Arabia</p>
+<p>For questions regarding subscriptions, payments, cancellations, or refunds, users should contact
+  the official support channels displayed on the Platform:
+  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+<p>By completing a purchase or activating a subscription, the user acknowledges that they have
+  reviewed and understood this Refund and Cancellation Policy and the applicable subscription
+  terms, without prejudice to any mandatory rights available under the laws and regulations of the
+  Kingdom of Saudi Arabia.</p>`,
+    ar: `
+<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+  مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
+  المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
+<p>نحرص في Saudi Neurology QBank، والمقدم من CerebroPilot Establishment، على تقديم خدمات ومحتوى
+  تعليمي رقمي عالي الجودة. توضح هذه السياسة شروط وإجراءات إلغاء الاشتراكات واسترجاع المبالغ
+  المدفوعة مقابل الخدمات الرقمية المقدمة من خلال المنصة، وذلك مع مراعاة الأنظمة واللوائح المعمول
+  بها في المملكة العربية السعودية.</p>
+
+<h3>1. نطاق السياسة</h3>
+<p>تنطبق هذه السياسة على جميع الاشتراكات والخدمات والمحتويات التعليمية الرقمية التي يتم شراؤها أو
+  توفيرها من خلال saudi-board.com، بما في ذلك بنك الأسئلة، الاختبارات التدريبية والتجريبية،
+  الشروحات والإجابات والمراجع، أدوات متابعة التقدم والأداء، وأي خدمات أو مزايا رقمية أخرى تقدمها
+  المنصة.</p>
+<p>تشمل هذه السياسة الاشتراكات الفردية والاشتراكات المقدمة من خلال المنشآت والجهات، مع تطبيق
+  الأحكام الخاصة بكل نوع من الاشتراكات.</p>
+
+<h3>2. الاشتراكات الفردية وطلب الاسترجاع</h3>
+<p>يجوز للمستخدم الذي قام بشراء الاشتراك وسداد قيمته بنفسه طلب استرداد قيمة الاشتراك خلال 7 أيام من
+  تاريخ إتمام عملية الشراء، متى انطبقت عليه الشروط النظامية ولم يكن قد بدأ في الانتفاع الفعلي
+  بالخدمة أو المحتوى الرقمي.</p>
+<p>تتم مراجعة طلب الاسترجاع وفقًا لتاريخ الشراء، وحالة الاشتراك، ومدى استخدام الخدمة أو المحتوى،
+  والأنظمة واللوائح المعمول بها في المملكة العربية السعودية.</p>
+
+<h3>3. بدء استخدام المحتوى الرقمي</h3>
+<p>نظرًا إلى أن المنصة تقدم محتوى وخدمات تعليمية رقمية يتم توفيرها للمستخدم بعد تفعيل الاشتراك، فإن
+  بدء المستخدم في استخدام أو الانتفاع بالمحتوى يؤخذ في الاعتبار عند تحديد مدى استحقاقه للاسترجاع
+  وفقًا للأنظمة المعمول بها.</p>
+<p>يُعد من الاستخدام أو الانتفاع: الدخول إلى بنك الأسئلة واستخدامه، حل أي سؤال أو اختبار، فتح أو
+  الاطلاع على الإجابات أو الشروحات أو المراجع، استخدام الاختبارات التدريبية، الوصول إلى المحتوى
+  المخصص للمشتركين، أو استخدام أي خاصية مدفوعة.</p>
+<p>إذا بدأ المستخدم فعليًا في استخدام أو الانتفاع بالخدمة أو المحتوى الرقمي، فقد لا يكون الاسترجاع
+  متاحًا في الحالات التي تجيز فيها الأنظمة واللوائح ذلك.</p>
+
+<h3>4. الاشتراكات المقدمة عن طريق المنشآت والجهات</h3>
+<p>في حال تم شراء أو توفير الاشتراك للمستخدم عن طريق منشأة، شركة، مستشفى، مركز طبي، جامعة، جهة
+  تعليمية، جهة تدريبية، أو أي جهة أخرى بموجب اشتراك أو اتفاقية مؤسسية مع CerebroPilot
+  Establishment، فإن الجهة المتعاقدة تعتبر الطرف صاحب العلاقة التعاقدية فيما يتعلق بالاشتراك
+  وإلغائه واسترداد المبالغ المدفوعة.</p>
+<ol>
+  <li>لا يحق للمستخدم الفردي المسجل ضمن اشتراك مؤسسي طلب إلغاء الاشتراك أو استرداد قيمته بشكل مستقل
+    إذا لم يكن هو الطرف الذي اشترى الاشتراك أو سدد قيمته مباشرة.</li>
+  <li>يجب تقديم طلب إلغاء الاشتراك المؤسسي أو الاسترداد من الجهة المتعاقدة أو ممثلها المفوض.</li>
+  <li>توقف المستخدم الفردي عن استخدام المنصة أو عدم رغبته في الاستمرار أو مغادرته للجهة لا يؤدي
+    تلقائيًا إلى إلغاء الاشتراك المؤسسي أو استحقاق مبلغ مسترد.</li>
+  <li>تخضع إضافة أو إزالة أو استبدال المستخدمين ضمن الاشتراك المؤسسي لشروط الاتفاقية المبرمة بين
+    CerebroPilot Establishment والجهة المتعاقدة.</li>
+  <li>إذا قام المستخدم الفردي بسداد قيمة الاشتراك بنفسه مباشرة إلى CerebroPilot Establishment،
+    فتتم دراسة طلبه وفق أحكام الاشتراكات الفردية وشروط الاتفاقية ذات الصلة.</li>
+  <li>لا يؤثر هذا البند على أي حقوق إلزامية مقررة بموجب الأنظمة واللوائح المعمول بها في المملكة
+    العربية السعودية.</li>
+</ol>
+<p>وعليه، لا تُقبل طلبات إلغاء أو استرداد الاشتراكات المؤسسية من المستخدم الفردي، وإنما يتم تقديمها
+  من الجهة المتعاقدة أو ممثلها المفوض، ما لم تنص الاتفاقية المبرمة مع الجهة على خلاف ذلك.</p>
+
+<h3>5. المشاكل التقنية</h3>
+<p>إذا تم خصم قيمة الاشتراك ولم يتم تفعيل الحساب، أو تعذر الوصول إلى الخدمة بسبب خلل تقني من طرف
+  المنصة، فيرجى التواصل مع الدعم الفني. ستعمل المنصة على التحقق من المشكلة ومعالجتها في أقرب وقت
+  ممكن. وفي حال تعذر تقديم الخدمة أو معالجة المشكلة، تتم دراسة طلب الاسترداد وفقًا للأنظمة واللوائح
+  وشروط الاتفاقية ذات الصلة.</p>
+
+<h3>6. عمليات الدفع المكررة</h3>
+<p>في حال خصم قيمة الاشتراك أكثر من مرة عن طريق الخطأ لنفس عملية الشراء، يحق للمستخدم أو الجهة التي
+  قامت بالدفع طلب مراجعة العمليات. وبعد التحقق من وجود عملية دفع مكررة، تتم معالجة استرداد المبلغ
+  المستحق وفقًا لوسيلة الدفع المستخدمة والإجراءات المعتمدة.</p>
+
+<h3>7. عدم استخدام الاشتراك</h3>
+<p>عدم استخدام الحساب بعد تفعيل الاشتراك لا يعني تلقائيًا استحقاق استرداد قيمة الاشتراك. وتتم دراسة
+  أي مطالبة وفق نوع الاشتراك، وتاريخ الشراء، وحالة تفعيل الخدمة، ومدى الانتفاع بها، وشروط الاتفاقية،
+  والحقوق النظامية المقررة.</p>
+
+<h3>8. مدة الاشتراك</h3>
+<p>تبدأ مدة الاشتراك من تاريخ تفعيله أو التاريخ المحدد في الاتفاقية أو عملية الشراء. ويكون المستخدم
+  مسؤولًا عن استخدام الخدمة خلال فترة الاشتراك المحددة. انتهاء مدة الاشتراك دون استخدام كامل المحتوى
+  أو جميع خصائص المنصة لا يؤدي تلقائيًا إلى استحقاق استرداد قيمة الاشتراك.</p>
+
+<h3>9. كيفية تقديم طلب الاسترجاع</h3>
+<p>يتم تقديم طلب الاسترجاع من خلال قنوات التواصل الرسمية الموضحة في الموقع. بالنسبة للاشتراك الفردي،
+  يجب أن يتضمن الطلب الاسم، البريد الإلكتروني أو رقم الجوال المرتبط بالحساب، تفاصيل عملية الدفع إن
+  وجدت، تاريخ الشراء، وسبب طلب الاسترجاع.</p>
+<p>أما الاشتراكات المؤسسية، فيجب أن يقدم الطلب من الجهة المتعاقدة أو ممثلها المفوض مع المعلومات
+  اللازمة للتحقق من الاتفاقية أو عملية الشراء. ويحق للمنصة طلب معلومات إضافية بالقدر اللازم للتحقق
+  من الطلب.</p>
+
+<h3>10. معالجة المبالغ المستردة</h3>
+<p>في حال الموافقة على طلب الاسترداد، تتم إعادة المبلغ المستحق إلى وسيلة الدفع الأصلية متى كان ذلك
+  ممكنًا، أو من خلال وسيلة مناسبة وفق الإجراءات المعتمدة. قد يستغرق ظهور المبلغ عدة أيام عمل بحسب
+  البنك أو شركة البطاقة أو مزود خدمة الدفع.</p>
+
+<h3>11. إساءة استخدام سياسة الاسترجاع</h3>
+<p>تحتفظ CerebroPilot Establishment بحقها في مراجعة طلبات الاسترجاع والتحقق من سجل استخدام الخدمة.
+  ويجوز رفض الطلب في الحالات التي يظهر فيها إساءة استخدام للسياسة أو محاولة للاستفادة من المحتوى ثم
+  طلب استرداد المبلغ، وذلك في الحدود التي تسمح بها الأنظمة واللوائح المعمول بها.</p>
+
+<h3>12. حقوق المستهلك</h3>
+<p>لا تهدف أي مادة في هذه السياسة إلى إلغاء أو تقييد أي حق إلزامي مقرر للمستهلك بموجب الأنظمة
+  واللوائح المعمول بها في المملكة العربية السعودية. وفي حال وجود تعارض بين أي بند وبين حكم نظامي
+  إلزامي، تكون الأولوية للحكم النظامي المعمول به.</p>
+
+<h3>13. بيانات مقدم الخدمة</h3>
+<p>اسم المنصة: Saudi Neurology QBank<br>
+  الموقع الإلكتروني: saudi-board.com<br>
+  مقدم الخدمة: CerebroPilot Establishment<br>
+  الرقم الوطني الموحد: 7054697367<br>
+  نوع الكيان: Establishment<br>
+  الدولة: المملكة العربية السعودية</p>
+<p>للاستفسارات المتعلقة بالاشتراكات أو المدفوعات أو طلبات الاسترجاع، يرجى التواصل من خلال قنوات
+  الدعم الرسمية الموضحة في الموقع: <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+<p>بإتمام عملية الشراء أو تفعيل الاشتراك، يقر المستخدم بأنه اطلع على سياسة الاسترجاع والاسترداد
+  وشروط الاشتراك وفهمها، وذلك دون الإخلال بأي حقوق إلزامية مقررة بموجب الأنظمة واللوائح المعمول بها
+  في المملكة العربية السعودية.</p>`
+  },
+
+  terms: {
+    title: { en: 'Terms and Conditions', ar: 'الشروط والأحكام' },
+    en: `
+<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+  Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
+  Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
+
+<h3>1. Who you are contracting with</h3>
+<p>saudi-board.com ("the Platform") is owned and operated by CerebroPilot Establishment, a Saudi
+  establishment registered with the Ministry of Commerce under Unified National Number 7054697367,
+  Riyadh, Kingdom of Saudi Arabia. Using the Platform means you accept these Terms and the Refund
+  and Cancellation Policy, which forms part of them.</p>
+
+<h3>2. What the Platform is</h3>
+<p>The Platform provides a revision question bank and related study tools for neurology board
+  examination preparation: practice questions with answers, explanations and references, timed
+  practice papers, progress tracking, personal notes and bookmarks.</p>
+
+<h3>3. Educational use only — not clinical guidance</h3>
+<p>All content is provided for examination revision only. It is <b>not</b> clinical guidance and
+  must not be used to make decisions about the care of any patient. Verify anything you intend to
+  act on against a primary source. Practising on questions of a similar standard is preparation,
+  not a prediction: no guarantee of examination success is offered or implied.</p>
+
+<h3>4. Independence</h3>
+<p>The Platform is not affiliated with, endorsed by, or produced by the Saudi Commission for Health
+  Specialties or any training programme, hospital, or university. Questions are written to resemble
+  the real examinations in style, level and blueprint; nothing is copied from any official
+  examination bank.</p>
+
+<h3>5. Your account</h3>
+<p>Access is personal to you. You sign in with a one-time link sent to your registered email
+  address. You are responsible for keeping access to that address secure and for everything done
+  through your account.</p>
+<p>An account may be used on a limited number of devices, and on one device at a time. This limit
+  exists to keep a single subscription from being shared, and is applied automatically.</p>
+
+<h3>6. What you may not do</h3>
+<ol>
+  <li>Share, sell, lend, or transfer your account, sign-in link, or access to any other person.</li>
+  <li>Copy, photograph, record, republish, or redistribute any question, answer, explanation,
+    reference, or image from the Platform, in whole or in part, in any medium.</li>
+  <li>Use any automated means to extract content from the Platform, or attempt to obtain answers or
+    explanations other than by answering questions normally through the Platform.</li>
+  <li>Attempt to gain access to any part of the Platform, any account, or any data that is not
+    yours.</li>
+</ol>
+<p>All content on the Platform is the intellectual property of CerebroPilot Establishment and is
+  protected under the laws of the Kingdom of Saudi Arabia.</p>
+
+<h3>7. Subscriptions and payment</h3>
+<p>Access is sold as a subscription for a fixed period. Prices are shown at the point of purchase
+  and are charged in the currency displayed. Payments are processed by Tap Payments; card details
+  are never entered on, seen by, or stored by the Platform.</p>
+<p>A subscription does not renew automatically. Renewing early does not shorten the time you have
+  already paid for: the new period begins when the current one ends.</p>
+<p>Cancellations and refunds are governed by the Refund and Cancellation Policy.</p>
+
+<h3>8. Institutional subscriptions</h3>
+<p>Where an institution buys seats and issues activation codes to individuals, the contracting
+  institution is the party to the agreement. Section 4 of the Refund and Cancellation Policy
+  applies.</p>
+
+<h3>9. Suspension</h3>
+<p>Access may be paused or withdrawn where there is evidence of account sharing, copying or
+  redistribution of content, or any other breach of section 6. Where access is withdrawn for such a
+  breach, any refund is assessed under the Refund and Cancellation Policy and applicable law.</p>
+
+<h3>10. Your personal data</h3>
+<p>The Platform holds the information needed to run the subscription and the revision tools: your
+  name, email address, mobile number, professional role and training level, centre, target
+  examination date, the answers you record, and technical information about the devices you sign in
+  from. Your personal notes are private to you.</p>
+<p>Your information is not sold, and is not shared with other users or with third parties except as
+  necessary to process a payment or as required by law. To request a copy of your data, or its
+  deletion, write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+
+<h3>11. Availability</h3>
+<p>The Platform is provided on a reasonable-efforts basis. It may be unavailable at times for
+  maintenance or for reasons outside our control. Section 5 of the Refund and Cancellation Policy
+  covers technical faults that prevent access.</p>
+
+<h3>12. Changes to these Terms</h3>
+<p>These Terms and the Refund and Cancellation Policy may be updated. The version in force is the
+  one published on the Platform, identified by the version number shown above. Where a change is
+  material, you will be asked to accept the new version before your next purchase.</p>
+
+<h3>13. Language</h3>
+<p>These Terms and the Refund and Cancellation Policy are published in Arabic and English. Where the
+  applicable laws and regulations of the Kingdom of Saudi Arabia require a particular language, that
+  requirement applies.</p>
+
+<h3>14. Governing law</h3>
+<p>These Terms are governed by the laws and regulations of the Kingdom of Saudi Arabia, and the
+  competent Saudi authorities and courts have jurisdiction over any dispute. Nothing in these Terms
+  excludes or limits any mandatory consumer right that cannot lawfully be waived.</p>
+
+<h3>15. Contact</h3>
+<p>CerebroPilot Establishment · Riyadh, Kingdom of Saudi Arabia ·
+  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
+  <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a></p>`,
+    ar: `
+<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+  مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
+  المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
+
+<h3>1. الطرف المتعاقد</h3>
+<p>موقع saudi-board.com («المنصة») مملوك ومُشغّل من CerebroPilot Establishment، وهي مؤسسة سعودية
+  مسجلة لدى وزارة التجارة بالرقم الوطني الموحد 7054697367، الرياض، المملكة العربية السعودية.
+  استخدامك للمنصة يعني موافقتك على هذه الشروط وعلى سياسة الاسترجاع والاسترداد التي تُعد جزءًا
+  منها.</p>
+
+<h3>2. طبيعة الخدمة</h3>
+<p>تقدم المنصة بنك أسئلة للمراجعة وأدوات دراسة مرتبطة به للتحضير لاختبارات البورد في طب الأعصاب:
+  أسئلة تدريبية مع الإجابات والشروحات والمراجع، اختبارات تجريبية موقوتة، متابعة التقدم، والملاحظات
+  والعلامات الشخصية.</p>
+
+<h3>3. للاستخدام التعليمي فقط — وليست إرشادًا سريريًا</h3>
+<p>جميع المحتويات مقدمة لغرض المراجعة للاختبارات فقط، وهي <b>ليست</b> إرشادًا سريريًا ولا يجوز
+  الاعتماد عليها في اتخاذ أي قرار يتعلق برعاية مريض. يجب التحقق من أي معلومة تنوي العمل بها من
+  مصدرها الأصلي. والتدريب على أسئلة بمستوى مماثل هو تحضير وليس تنبؤًا، ولا تُقدَّم أي ضمانة صريحة
+  أو ضمنية بالنجاح في الاختبار.</p>
+
+<h3>4. الاستقلالية</h3>
+<p>المنصة غير تابعة للهيئة السعودية للتخصصات الصحية أو أي برنامج تدريبي أو مستشفى أو جامعة، وغير
+  معتمدة منها ولا صادرة عنها. وقد كُتبت الأسئلة لتشابه الاختبارات الحقيقية في الأسلوب والمستوى
+  والمخطط، ولم يُنقل أي منها من أي بنك أسئلة رسمي.</p>
+
+<h3>5. حسابك</h3>
+<p>الوصول إلى المنصة شخصي. يتم تسجيل الدخول عبر رابط لمرة واحدة يُرسل إلى بريدك الإلكتروني المسجل.
+  وأنت مسؤول عن حماية الوصول إلى ذلك البريد وعن كل ما يتم من خلال حسابك.</p>
+<p>يمكن استخدام الحساب على عدد محدود من الأجهزة، وعلى جهاز واحد في الوقت نفسه. وهذا الحد قائم لمنع
+  مشاركة الاشتراك الواحد، ويُطبَّق تلقائيًا.</p>
+
+<h3>6. ما لا يجوز فعله</h3>
+<ol>
+  <li>مشاركة الحساب أو رابط الدخول أو الوصول مع أي شخص آخر، أو بيعه أو إعارته أو نقله.</li>
+  <li>نسخ أو تصوير أو تسجيل أو إعادة نشر أو توزيع أي سؤال أو إجابة أو شرح أو مرجع أو صورة من
+    المنصة، كليًا أو جزئيًا، بأي وسيلة.</li>
+  <li>استخدام أي وسيلة آلية لاستخراج محتوى المنصة، أو محاولة الحصول على الإجابات أو الشروحات بغير
+    الطريق الطبيعي وهو حل الأسئلة داخل المنصة.</li>
+  <li>محاولة الوصول إلى أي جزء من المنصة أو أي حساب أو أي بيانات لا تخصك.</li>
+</ol>
+<p>جميع محتويات المنصة ملكية فكرية لـ CerebroPilot Establishment ومحمية بموجب أنظمة المملكة العربية
+  السعودية.</p>
+
+<h3>7. الاشتراكات والدفع</h3>
+<p>يُباع الوصول في صورة اشتراك لمدة محددة. وتُعرض الأسعار عند الشراء وتُحصَّل بالعملة الموضحة.
+  تتم معالجة المدفوعات عبر Tap Payments، ولا تُدخل بيانات البطاقة في المنصة ولا تطّلع عليها ولا
+  تحفظها.</p>
+<p>لا يتجدد الاشتراك تلقائيًا. والتجديد المبكر لا ينقص المدة المدفوعة مسبقًا، إذ تبدأ المدة الجديدة
+  عند انتهاء المدة الحالية.</p>
+<p>يخضع الإلغاء والاسترداد لسياسة الاسترجاع والاسترداد.</p>
+
+<h3>8. الاشتراكات المؤسسية</h3>
+<p>إذا اشترت جهة مقاعد وأصدرت رموز تفعيل للأفراد، فإن الجهة المتعاقدة هي الطرف في الاتفاقية، ويُطبَّق
+  البند الرابع من سياسة الاسترجاع والاسترداد.</p>
+
+<h3>9. الإيقاف</h3>
+<p>يجوز إيقاف الوصول أو سحبه عند وجود دليل على مشاركة الحساب أو نسخ المحتوى أو إعادة توزيعه أو أي
+  مخالفة أخرى للبند السادس. وفي حال سحب الوصول لهذا السبب، يُدرس أي طلب استرداد وفق سياسة الاسترجاع
+  والاسترداد والأنظمة المعمول بها.</p>
+
+<h3>10. بياناتك الشخصية</h3>
+<p>تحتفظ المنصة بالمعلومات اللازمة لتشغيل الاشتراك وأدوات المراجعة: الاسم، البريد الإلكتروني، رقم
+  الجوال، الدور المهني والمستوى التدريبي، المركز، تاريخ الاختبار المستهدف، إجاباتك المسجلة،
+  ومعلومات تقنية عن الأجهزة التي تسجل الدخول منها. أما ملاحظاتك الشخصية فهي خاصة بك وحدك.</p>
+<p>لا تُباع معلوماتك ولا تُشارك مع مستخدمين آخرين أو مع أطراف ثالثة إلا بالقدر اللازم لمعالجة عملية
+  دفع أو حين تقتضي الأنظمة ذلك. ولطلب نسخة من بياناتك أو حذفها، يرجى المراسلة على
+  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+
+<h3>11. توافر الخدمة</h3>
+<p>تُقدَّم المنصة على أساس بذل العناية المعقولة، وقد تتوقف أحيانًا للصيانة أو لأسباب خارجة عن
+  إرادتنا. ويغطي البند الخامس من سياسة الاسترجاع والاسترداد الأعطال التقنية التي تمنع الوصول.</p>
+
+<h3>12. تعديل الشروط</h3>
+<p>قد يتم تحديث هذه الشروط وسياسة الاسترجاع والاسترداد. والنسخة السارية هي المنشورة على المنصة،
+  ويحددها رقم الإصدار الموضح أعلاه. وعند إجراء تعديل جوهري، سيُطلب منك قبول النسخة الجديدة قبل عملية
+  الشراء التالية.</p>
+
+<h3>13. اللغة</h3>
+<p>تُنشر هذه الشروط وسياسة الاسترجاع والاسترداد باللغتين العربية والإنجليزية. وحيثما تقتضي الأنظمة
+  واللوائح المعمول بها في المملكة العربية السعودية لغة معينة، فيُعمل بذلك المقتضى.</p>
+
+<h3>14. النظام الواجب التطبيق</h3>
+<p>تخضع هذه الشروط لأنظمة ولوائح المملكة العربية السعودية، وتختص الجهات والمحاكم السعودية المختصة
+  بالنظر في أي نزاع. ولا تهدف أي مادة فيها إلى إلغاء أو تقييد أي حق إلزامي مقرر للمستهلك لا يجوز
+  التنازل عنه نظامًا.</p>
+
+<h3>15. التواصل</h3>
+<p>CerebroPilot Establishment · الرياض، المملكة العربية السعودية ·
+  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
+  <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a></p>`
+  }
+};
+
+// One viewer for both documents and both languages. Arabic opens first for a reader
+// whose browser is set to Arabic, and the direction flips with it - a right-to-left
+// document laid out left-to-right is not a translation, it is an insult.
+let POL_LANG = (navigator.language || '').toLowerCase().startsWith('ar') ? 'ar' : 'en';
+function openPolicy(doc){
+  doc = (doc === 'terms') ? 'terms' : 'refund';
+  const old = document.getElementById('polwrap');
+  if (old) old.remove();
+  const box = document.createElement('div');
+  box.id = 'polwrap'; box.className = 'polwrap';
+  box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+  const paint = () => {
+    const d = POLICY[doc], ar = POL_LANG === 'ar';
+    box.innerHTML = `
+      <div class="polbox">
+        <div class="polhead">
+          <h2 id="polTitle">${esc(d.title[POL_LANG])}</h2>
+          <button id="polOther">${doc === 'refund' ? esc(POLICY.terms.title[POL_LANG])
+                                                   : esc(POLICY.refund.title[POL_LANG])}</button>
+          <button id="polLang">${ar ? 'English' : 'العربية'}</button>
+          <button id="polClose" aria-label="Close">✕</button>
+        </div>
+        <div class="polbody" id="polBody" dir="${ar ? 'rtl' : 'ltr'}" lang="${POL_LANG}" tabindex="0">${d[POL_LANG]}</div>
+        <div class="polfoot">
+          <span>Version ${esc(POLICY_VERSION)} · CerebroPilot Establishment · CR 7054697367</span>
+          <span class="spacer" style="flex:1"></span>
+          <button id="polPrint">Print or save as PDF</button>
+        </div>
+      </div>`;
+    box.querySelector('#polClose').onclick = () => box.remove();
+    box.querySelector('#polLang').onclick  = () => { POL_LANG = ar ? 'en' : 'ar'; paint(); };
+    box.querySelector('#polOther').onclick = () => { doc = (doc === 'refund') ? 'terms' : 'refund'; paint(); };
+    box.querySelector('#polPrint').onclick = () => {
+      const w = window.open('', '_blank');
+      if (!w){ alertBar('Your browser blocked the print window. Allow pop-ups for this site.'); return; }
+      w.document.write('<!doctype html><meta charset="utf-8"><title>'
+        + POLICY[doc].title[POL_LANG] + ' — saudi-board.com</title>'
+        + '<style>body{font:14px/1.75 system-ui,sans-serif;max-width:800px;margin:34px auto;padding:0 20px;color:#111}'
+        + 'h3{font-size:15px;margin:22px 0 6px}.meta{font-size:12px;color:#555;border-bottom:1px solid #ddd;'
+        + 'padding-bottom:10px;margin-bottom:16px}li{margin-bottom:6px}</style>'
+        + '<body dir="' + (POL_LANG === 'ar' ? 'rtl' : 'ltr') + '"><h1 style="font-size:20px">'
+        + POLICY[doc].title[POL_LANG] + '</h1>' + POLICY[doc][POL_LANG]);
+      w.document.close(); w.focus(); w.print();
+    };
+    box.querySelector('#polBody').focus();
+  };
+  paint();
+  box.onclick = e => { if (e.target === box) box.remove(); };
+  document.addEventListener('keydown', function esc_(e){
+    if (e.key === 'Escape'){ box.remove(); document.removeEventListener('keydown', esc_); }
+  });
+  document.body.appendChild(box);
+}
+// Delegated, so the links work on the landing page, inside the app, and inside the
+// payment overlay - all three of which are rebuilt at different times.
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('[data-policy]');
+  if (!a) return;
+  e.preventDefault();
+  openPolicy(a.dataset.policy);
 });
 
 // ---------------------------------------------------------------- paying
@@ -2097,6 +2652,14 @@ async function openPay(email, why){
       ${why === 'renew' ? '' : '<div class="priv" style="margin-top:8px;padding-top:0;border:0">'
         + 'Your access is created automatically the moment the payment goes through — '
         + 'then request a sign-in link with this same address.</div>'}
+      <label class="agree" for="payAgree">
+        <input type="checkbox" id="payAgree">
+        <span>I have read and agree to the
+          <a href="#" data-policy="refund">Refund and Cancellation Policy</a> and the
+          <a href="#" data-policy="terms">Terms and Conditions</a>.
+          <span style="display:block;color:var(--faint);margin-top:3px">Both are published in Arabic
+            and English — تُنشر السياستان بالعربية والإنجليزية.</span></span>
+      </label>
       <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">${cards}</div>
       <div id="payMsg" class="msg info hide"></div>
       <button id="payCancel" style="width:100%;margin-top:4px">Cancel</button>
@@ -2113,10 +2676,25 @@ async function openPay(email, why){
   box.querySelector('#payCancel').onclick = () => box.remove();
   box.onclick = e => { if (e.target === box) box.remove(); };
 
+  // The plan buttons stay dead until the policy is accepted. This is a courtesy to
+  // the reader, not the control: payment_start refuses to open a charge unless a
+  // consent row exists for that address at the published version, so removing this
+  // checkbox in a console gets you a refused payment, not a free pass.
+  const agree = box.querySelector('#payAgree');
+  const syncAgree = () => box.querySelectorAll('.payplan').forEach(x => {
+    x.disabled = !agree.checked;
+    x.style.opacity = agree.checked ? '' : '.5';
+  });
+  agree.onchange = syncAgree;
+  syncAgree();
+
   box.querySelectorAll('.payplan').forEach(b => b.onclick = async () => {
     const addr = box.querySelector('#payEmail').value.trim();
     const fn = box.querySelector('#payFirst').value.trim();
     const ln = box.querySelector('#payLast').value.trim();
+    if (!agree.checked){
+      say('Please read and accept the refund policy and terms first.', 'err'); return;
+    }
     if (why !== 'renew' && (!fn || !ln)){
       say('Please give your first and last name — they go on your account.', 'err'); return;
     }
@@ -2124,6 +2702,14 @@ async function openPay(email, why){
     box.querySelectorAll('.payplan').forEach(x => x.disabled = true);
     say('Opening the payment page…');
     try {
+      // Recorded before the charge is created, against the address that will be
+      // charged, with the version the reader was actually shown. If this fails the
+      // payment is not attempted - an unrecorded agreement is no agreement.
+      const { error: cErr } = await sb.rpc('record_policy_consent',
+        { p_email: addr, p_version: POLICY_VERSION });
+      if (cErr) throw new Error(/out of date/i.test(cErr.message || '')
+        ? 'This page is out of date. Reload it, read the current policy, and try again.'
+        : 'Your agreement could not be recorded, so nothing was charged. Try again in a moment.');
       // Only the plan code goes over the wire. The amount is decided server-side.
       const out = await callFn('tap-create-charge',
         { email: addr, plan: b.dataset.plan, first: fn, last: ln });
@@ -2132,6 +2718,7 @@ async function openPay(email, why){
     } catch (e) {
       say(e.message, 'err');
       box.querySelectorAll('.payplan').forEach(x => x.disabled = false);
+      syncAgree();
     }
   });
 }
@@ -2490,13 +3077,47 @@ async function renderBiz(){
   const v = $('#viewBiz');
   v.innerHTML = `
     <div class="subtabs">
-      ${[['cohorts','Cohorts &amp; codes'],['promos','Promo codes'],['retention','Retention']]
+      ${[['cohorts','Cohorts &amp; codes'],['promos','Promo codes'],['retention','Retention'],
+         ['consents','Policy consents']]
         .map(([k,l]) => `<button data-biz="${k}" class="${BIZ_TAB===k?'on':''}">${l}</button>`).join('')}
     </div><div id="bizBody"><div class="empty">Loading…</div></div>`;
   v.querySelectorAll('[data-biz]').forEach(b => b.onclick = () => { BIZ_TAB = b.dataset.biz; renderBiz(); });
   if (BIZ_TAB === 'cohorts')   return bizCohorts();
   if (BIZ_TAB === 'promos')    return bizPromos();
   if (BIZ_TAB === 'retention') return bizRetention();
+  if (BIZ_TAB === 'consents')  return bizConsents();
+}
+
+// The record that matters if a card payment is ever disputed: who accepted which
+// version of the refund policy, and when. Written before the charge is created and
+// never rewritten afterwards.
+async function bizConsents(){
+  const body = $('#bizBody');
+  const { data, error } = await sb.rpc('admin_policy_consents', { p_limit: 300 });
+  if (!$('#bizBody')) return;
+  if (error){ body.innerHTML = '<div class="empty">That could not be loaded.</div>'; return; }
+  const rows = (data || []).map(c => `<tr>
+      <td>${esc(c.email)}</td>
+      <td><code style="font-size:12px">${esc(c.version)}</code></td>
+      <td style="font-size:12px">${esc(String(c.agreed_at || '').replace('T',' ').slice(0,19))}</td>
+      <td>${c.signed_in ? '<span class="pill dim">signed in</span>' : '<span class="pill dim">at checkout</span>'}</td>
+      <td class="sub" style="max-width:230px">${esc(c.agent || '—')}</td></tr>`).join('');
+  body.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:15px">Refund policy acceptances</h3>
+      <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:13px">
+        Recorded the moment someone ticks the box at checkout, before the charge is created.
+        A payment cannot be started at all unless a row exists here for that address at the
+        version currently published — so this is the evidence, not the courtesy.
+        Currently published: <b>${esc(POLICY_VERSION)}</b>.</div>
+      ${rows ? `<div class="tscroll"><table><thead><tr><th>Email</th><th>Version</th>
+        <th>Accepted</th><th>Where</th><th>Device</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : '<div style="font-size:12.5px;color:var(--dim)">Nobody has accepted a policy yet.</div>'}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px">
+        <a href="#" data-policy="refund">Read the refund policy</a> ·
+        <a href="#" data-policy="terms">Read the terms</a>
+      </div>
+    </div>`;
 }
 
 async function bizCohorts(){
