@@ -1679,10 +1679,17 @@ const PHONE_CCS = [
 const ROLES = [['resident','Resident'],['fellow','Fellow'],['consultant','Consultant'],
                ['student','Medical student'],['intern','Intern'],['other','Other']];
 
+// Local date as YYYY-MM-DD, not UTC — toISOString() would roll a late-evening
+// Riyadh time back to the previous day and let "today" read as yesterday.
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 function profileFormHTML(p, opts){
   p = p || {};
   const o = opts || {};
   const cc = p.phone_cc || '+966';
+  const today = todayISO();
   const ccOpts = PHONE_CCS.map(([v,l]) => v === '—'
     ? '<option disabled>──────────</option>'
     : `<option value="${esc(v)}"${v === cc ? ' selected' : ''}>${esc(l)}</option>`).join('');
@@ -1726,8 +1733,8 @@ function profileFormHTML(p, opts){
     </div>
     <div class="fld">
       <label for="pfExam">Target exam date</label>
-      <input id="pfExam" type="date" value="${esc(p.target_exam_on || '')}">
-      <div class="hint">Used to work out how many questions a day you need. Nothing else.</div>
+      <input id="pfExam" type="date" value="${esc(p.target_exam_on || '')}" min="${today}" max="${today.slice(0,4)*1+5}${today.slice(4)}">
+      <div class="hint">Must be in the future — it works out how many questions a day you need.</div>
     </div>
     <div id="pfMsg" style="font-size:12.5px;color:var(--bad);margin:2px 0 10px;min-height:1px"></div>
     <button id="pfSave" class="primary" type="submit">${esc(o.cta || 'Save')}</button>
@@ -1761,6 +1768,10 @@ function wireProfileForm(onSaved, onCancel){
     if (!role){ say('Please choose your role.'); $('#pfRole').focus(); return; }
     if (role === 'resident' && !$('#pfPgy').value){ say('Please choose your current level.'); return; }
     if (role === 'other' && !$('#pfRoleOther').value.trim()){ say('Please say which role.'); return; }
+    // A date picker's min stops most people, but a typed-in or pasted value can still
+    // be in the past, so it is checked here too before anything is sent.
+    const exam = $('#pfExam').value;
+    if (exam && exam < todayISO()){ say('The exam date cannot be in the past.'); $('#pfExam').focus(); return; }
     say('');
     const btn = $('#pfSave'); btn.disabled = true; btn.textContent = 'Saving…';
     const { error } = await sb.rpc('save_my_profile', {
