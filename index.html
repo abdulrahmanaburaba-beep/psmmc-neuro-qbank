@@ -270,7 +270,9 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 .src b{color:var(--ink);font-weight:600}
 .note{margin-top:9px;font-size:12.5px;color:var(--warn);background:var(--warn-bg);padding:8px 11px;
  border-radius:7px;line-height:1.5}
-.nav{display:flex;gap:8px;margin-top:14px;align-items:center}
+/* Wraps. Star and Note joined this row in Aug 2026 and pushed Report 65px off the
+   right edge of a 375px phone - the same shape as the admin tab overflow before it. */
+.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
 
 /* ---------- tables ---------- */
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -320,6 +322,38 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 @media(max-width:600px){.two,.three{grid-template-columns:1fr}}
 .row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .row input{width:auto;flex:1;min-width:180px}
+/* ---- profile, study tools, business (added Aug 2026) ---- */
+.fld .hint{text-align:left;padding:4px 0 0;line-height:1.5}
+.fld .req{color:var(--bad)}
+.wall{max-width:520px;margin:26px auto}
+.wall h3{margin:0 0 4px;font-size:16px}
+.wall .lede{font-size:12.5px;color:var(--dim);line-height:1.6;margin:0 0 16px}
+.phone{display:flex;gap:8px}
+.phone select{flex:none;width:172px}
+.phone input{flex:1;width:auto;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+@media(max-width:520px){.phone{flex-wrap:wrap}.phone select{width:100%}.phone input{width:100%;flex:none}}
+.starbtn{flex:none;min-height:32px;padding:5px 10px}
+.starbtn.on{background:var(--warn);border-color:var(--warn);color:#08131f;font-weight:700}
+.notebox textarea{min-height:104px}
+.subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.subtabs button{font-size:12.5px;padding:5px 11px;min-height:34px}
+/* A wide admin table scrolls inside its own box. The page itself must never scroll
+   sideways - that is what hid the Reports tab on a 375px phone. */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
+.tscroll table{min-width:520px}
+.tscroll .sub{font-size:11.5px;color:var(--dim);overflow-wrap:anywhere}
+.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:7px;margin:10px 0}
+.codes code{display:block;text-align:center;padding:8px 4px;border:1px dashed var(--line);border-radius:8px;
+  background:var(--panel2);font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.06em;user-select:all}
+.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:7px}
+.heat .cell{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--panel2)}
+.heat .cell b{display:block;font-size:16px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.2}
+.heat .cell span{display:block;font-size:11px;color:var(--dim);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.heat .cell.g0{border-color:var(--line)}
+.heat .cell.g1{border-color:var(--bad);background:var(--bad-bg)}
+.heat .cell.g2{border-color:var(--warn)}
+.heat .cell.g3{border-color:var(--ok);background:var(--ok-bg)}
 @media(max-width:600px){.wrap{padding:0 11px 70px}.stem{font-size:15px}
  .tabs button{padding:6px 7px;font-size:13px}.who span.em{display:none}}
 </style></head><body>
@@ -429,6 +463,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <button data-tab="admin" id="tabAdmin" class="hide">Residents</button>
       <button data-tab="qedit" id="tabQuestions" class="hide">Questions</button>
       <button data-tab="reports" id="tabReports" class="hide">Reports<span id="repBadge"></span></button>
+      <button data-tab="biz" id="tabBiz" class="hide">Business</button>
     </div>
 
     <div id="practiceBar">
@@ -441,8 +476,11 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
         <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
         <button id="bReview" title="Questions where the recall was ambiguous or sources disagreed">Needs check</button>
+        <button id="bFlagged" title="Only questions you starred">Starred</button>
         <button id="bShuffle" title="Randomise order">Shuffle</button>
+        <button id="bBlock" title="Build a custom block by level, difficulty and status">Custom block…</button>
       </div>
+      <div id="blockPanel" class="hide"></div>
       <div class="pbar"><i id="prog"></i></div>
       <div class="stats">
         <span class="stat">Question <b id="sPos">0</b> of <b id="sTot">0</b></span>
@@ -454,12 +492,14 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
   </header>
 
+  <div id="profileWall" class="hide"></div>
   <div id="viewPractice"></div>
   <div id="viewProgress" class="hide"></div>
   <div id="viewExam" class="hide"></div>
   <div id="viewAdmin" class="hide"></div>
   <div id="viewQuestions" class="hide"></div>
   <div id="viewReports" class="hide"></div>
+  <div id="viewBiz" class="hide"></div>
 
   <div class="hint" id="kbhint">
     <kbd>A</kbd><kbd>B</kbd><kbd>C</kbd><kbd>D</kbd> or <kbd>1</kbd>–<kbd>4</kbd> to answer ·
@@ -606,6 +646,15 @@ let ME = null, PROFILE = null, ALL = [], ANSWERS = new Map();
 let KEYS = new Map();
 let MY_REPORTS = new Map();
 
+// Starred questions and personal notes. Both are private to the reader and live in
+// their own tables behind row-level security, so one resident can never see another's.
+// A star is "come back to this"; Report a problem is "tell the administrator this is
+// wrong". They are different acts and deliberately not the same button.
+let FLAGS = new Set();
+let NOTES = new Map();
+let MYPROF = null;                  // my_profile() — roster row, not auth
+let BLOCK  = null;                  // a custom block currently being worked through
+
 // Question images live in a PRIVATE bucket. Every view is a short-lived signed
 // URL, so a picture cannot be reached by anyone who is not signed in, and the
 // path in the database is not a guessable public address. Cached per session so
@@ -647,7 +696,7 @@ function drawImage(root){
   signedImage(path).then(paint);
 }
 const state = { list: [], i: 0, shuffle: false, wrongOnly: false, unseen: false,
-                reviewOnly: false, tab: 'practice' };
+                reviewOnly: false, flaggedOnly: false, tab: 'practice' };
 
 // ------------------------------------------------------------- own highlighting
 // Tap any word in a stem to mark it, tap again to clear it. Which words matter is a
@@ -855,13 +904,22 @@ async function start(user){
     try { return Promise.resolve(fn()).catch(e => console.error(label + ' failed', e)); }
     catch (e) { console.error(label + ' failed', e); return Promise.resolve(); }
   };
+  if (prof.role === 'admin') $('#tabBiz').classList.remove('hide');
+
   await Promise.all([
-    safe(loadQuestions, 'questions'),
-    safe(loadAnswers,   'answers'),
-    safe(loadMyReports, 'reports')
+    safe(loadQuestions,  'questions'),
+    safe(loadAnswers,    'answers'),
+    safe(loadMyReports,  'reports'),
+    safe(loadFlags,      'flags'),
+    safe(loadNotes,      'notes'),
+    safe(loadMyProfile,  'profile')
   ]);
   buildFilters();
   apply();
+  // Asked once, after the bank is already loaded behind it. If the profile call
+  // itself failed we do not show the wall — a network blip must never lock a
+  // paid-up resident out of the questions they came for.
+  if (MYPROF && !MYPROF.profile_done) showProfileWall();
 }
 
 // The account can be open on one device at a time. This page holds it while it
@@ -991,8 +1049,208 @@ async function loadMyReports(){
     MY_REPORTS.set(r.question_uid, { category:r.category, note:r.note }));
 }
 
+// ---------------------------------------------------------------- stars and notes
+async function loadFlags(){
+  FLAGS = new Set();
+  const { data, error } = await sb.from('flags').select('question_uid');
+  if (error){ console.error('flags load failed', error); return; }
+  (data || []).forEach(f => FLAGS.add(f.question_uid));
+}
+async function loadNotes(){
+  NOTES = new Map();
+  const { data, error } = await sb.from('notes').select('question_uid,body,updated_at');
+  if (error){ console.error('notes load failed', error); return; }
+  (data || []).forEach(n => NOTES.set(n.question_uid, { body:n.body, at:n.updated_at }));
+}
+async function loadMyProfile(){
+  const { data, error } = await sb.rpc('my_profile');
+  if (error){ console.error('profile load failed', error); return; }
+  MYPROF = data || null;
+}
+
+// Toggling a star writes straight through. The screen only changes after the
+// database has agreed, so a star that appears is a star that survived a reload.
+async function toggleFlag(uid){
+  const on = FLAGS.has(uid);
+  const { error } = on
+    ? await sb.from('flags').delete().eq('question_uid', uid)
+    : await sb.from('flags').insert({ user_id: ME.id, question_uid: uid });
+  if (error){
+    alertBar(/not authorised|row-level/i.test(error.message || '')
+      ? 'Your access to the bank is not active at the moment.'
+      : 'That star did not save. Try again in a moment.');
+    return false;
+  }
+  if (on) FLAGS.delete(uid); else FLAGS.add(uid);
+  return true;
+}
+async function saveNote(uid, body){
+  const txt = String(body || '').trim().slice(0, 4000);
+  if (!txt){
+    const { error } = await sb.from('notes').delete().eq('question_uid', uid);
+    if (error) return error;
+    NOTES.delete(uid);
+    return null;
+  }
+  const { error } = await sb.from('notes')
+    .upsert({ user_id: ME.id, question_uid: uid, body: txt, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,question_uid' });
+  if (error) return error;
+  NOTES.set(uid, { body: txt, at: new Date().toISOString() });
+  return null;
+}
+
+// ---------------------------------------------------------------- profile
+// Saudi is pinned to the top because almost everyone here dials +966; the Gulf
+// follows, then the countries the rest of the roster actually comes from.
+const PHONE_CCS = [
+  ['+966','\u{1F1F8}\u{1F1E6} Saudi Arabia +966'], ['—',''],
+  ['+973','\u{1F1E7}\u{1F1ED} Bahrain +973'], ['+965','\u{1F1F0}\u{1F1FC} Kuwait +965'],
+  ['+968','\u{1F1F4}\u{1F1F2} Oman +968'],    ['+974','\u{1F1F6}\u{1F1E6} Qatar +974'],
+  ['+971','\u{1F1E6}\u{1F1EA} UAE +971'], ['—',''],
+  ['+20','\u{1F1EA}\u{1F1EC} Egypt +20'],     ['+962','\u{1F1EF}\u{1F1F4} Jordan +962'],
+  ['+961','\u{1F1F1}\u{1F1E7} Lebanon +961'], ['+249','\u{1F1F8}\u{1F1E9} Sudan +249'],
+  ['+963','\u{1F1F8}\u{1F1FE} Syria +963'],   ['+967','\u{1F1FE}\u{1F1EA} Yemen +967'],
+  ['+92','\u{1F1F5}\u{1F1F0} Pakistan +92'],  ['+91','\u{1F1EE}\u{1F1F3} India +91'],
+  ['+44','\u{1F1EC}\u{1F1E7} United Kingdom +44'], ['+1','\u{1F1FA}\u{1F1F8} United States +1']
+];
+const ROLES = [['resident','Resident'],['fellow','Fellow'],['consultant','Consultant'],
+               ['student','Medical student'],['intern','Intern'],['other','Other']];
+
+function profileFormHTML(p, opts){
+  p = p || {};
+  const o = opts || {};
+  const cc = p.phone_cc || '+966';
+  const ccOpts = PHONE_CCS.map(([v,l]) => v === '—'
+    ? '<option disabled>──────────</option>'
+    : `<option value="${esc(v)}"${v === cc ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  return `
+  <form id="profileForm" novalidate>
+    <div class="fld">
+      <label for="pfName">Full name <span class="req">*</span></label>
+      <input id="pfName" maxlength="120" autocomplete="name" value="${esc(p.full_name || '')}">
+    </div>
+    <div class="fld">
+      <label for="pfPhone">Mobile number</label>
+      <div class="phone">
+        <select id="pfCC" aria-label="Country code">${ccOpts}</select>
+        <input id="pfPhone" inputmode="numeric" maxlength="14" placeholder="5XXXXXXXX"
+               autocomplete="tel-national" value="${esc(p.phone_national || '')}">
+      </div>
+      <div class="hint">Without the leading zero — 5XXXXXXXX, not 05XXXXXXXX.</div>
+    </div>
+    <div class="fld">
+      <label for="pfRole">Your role <span class="req">*</span></label>
+      <select id="pfRole">
+        <option value="">Choose…</option>
+        ${ROLES.map(([v,l]) => `<option value="${v}"${p.prof_role === v ? ' selected' : ''}>${l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fld hide" id="pfOtherWrap">
+      <label for="pfRoleOther">Please say which <span class="req">*</span></label>
+      <input id="pfRoleOther" maxlength="10" placeholder="max 10 letters" value="${esc(p.prof_role_other || '')}">
+    </div>
+    <div class="fld hide" id="pfPgyWrap">
+      <label for="pfPgy">Current level <span class="req">*</span></label>
+      <select id="pfPgy">
+        <option value="">Choose…</option>
+        ${['PGY1','PGY2','PGY3','PGY4','PGY5'].map(g =>
+          `<option${p.pgy === g ? ' selected' : ''}>${g}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fld">
+      <label for="pfCentre">Centre or hospital</label>
+      <input id="pfCentre" maxlength="120" placeholder="e.g. King Fahad Medical City" value="${esc(p.centre || '')}">
+    </div>
+    <div class="fld">
+      <label for="pfExam">Target exam date</label>
+      <input id="pfExam" type="date" value="${esc(p.target_exam_on || '')}">
+      <div class="hint">Used to work out how many questions a day you need. Nothing else.</div>
+    </div>
+    <div id="pfMsg" style="font-size:12.5px;color:var(--bad);margin:2px 0 10px;min-height:1px"></div>
+    <button id="pfSave" class="primary" type="submit">${esc(o.cta || 'Save')}</button>
+    ${o.cancel ? ' <button id="pfCancel" type="button">Cancel</button>' : ''}
+  </form>`;
+}
+
+// The conditional fields are enforced twice on purpose. Hiding PGY for a consultant
+// is a courtesy; the CHECK constraint ae_pgy_pairing is the control. Clearing the
+// hidden value matters just as much - someone who picks Resident, chooses PGY3, then
+// switches to Consultant must not keep PGY3 on their record.
+function wireProfileForm(onSaved, onCancel){
+  const sync = () => {
+    const r = $('#pfRole').value;
+    $('#pfPgyWrap').classList.toggle('hide',   r !== 'resident');
+    $('#pfOtherWrap').classList.toggle('hide', r !== 'other');
+    if (r !== 'resident') $('#pfPgy').value = '';
+    if (r !== 'other')    $('#pfRoleOther').value = '';
+  };
+  $('#pfRole').onchange = sync;
+  sync();
+  $('#pfPhone').oninput = function(){ this.value = this.value.replace(/\D/g,'').replace(/^0+/,''); };
+  if ($('#pfCancel') && onCancel) $('#pfCancel').onclick = onCancel;
+
+  $('#profileForm').onsubmit = async e => {
+    e.preventDefault();
+    const say = t => { $('#pfMsg').textContent = t || ''; };
+    const name = $('#pfName').value.trim();
+    const role = $('#pfRole').value;
+    if (!name){ say('Please give your full name.'); $('#pfName').focus(); return; }
+    if (!role){ say('Please choose your role.'); $('#pfRole').focus(); return; }
+    if (role === 'resident' && !$('#pfPgy').value){ say('Please choose your current level.'); return; }
+    if (role === 'other' && !$('#pfRoleOther').value.trim()){ say('Please say which role.'); return; }
+    say('');
+    const btn = $('#pfSave'); btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.rpc('save_my_profile', {
+      p_full_name:  name,
+      p_phone_cc:   $('#pfPhone').value ? $('#pfCC').value : null,
+      p_phone:      $('#pfPhone').value || null,
+      p_role:       role,
+      p_role_other: $('#pfRoleOther').value.trim() || null,
+      p_pgy:        $('#pfPgy').value || null,
+      p_centre:     $('#pfCentre').value.trim() || null,
+      p_target_on:  $('#pfExam').value || null
+    });
+    btn.disabled = false; btn.textContent = 'Save';
+    if (error){
+      say(/roster entry/i.test(error.message || '')
+        ? 'Your account is not on the roster. Contact Dr Abdulrahman.'
+        : (error.message || 'That did not save. Try once more.'));
+      return;
+    }
+    await loadMyProfile();
+    if (PROFILE) PROFILE.full_name = name;
+    if (onSaved) onSaved();
+  };
+}
+
+function showProfileWall(){
+  $('#profileWall').classList.remove('hide');
+  $('#practiceBar').classList.add('hide');
+  $('#kbhint').classList.add('hide');
+  ['#viewPractice','#viewProgress','#viewExam','#viewAdmin','#viewQuestions','#viewReports','#viewBiz']
+    .forEach(s => $(s).classList.add('hide'));
+  $('#profileWall').innerHTML = `
+    <div class="card wall">
+      <h3>Before you start</h3>
+      <p class="lede">Six quick fields, asked once. The exam date drives your daily target;
+        the rest lets Dr Abdulrahman see how each centre and each year of training is doing.
+        Only he can see it, and it is never shown next to your name to anyone else.</p>
+      ${profileFormHTML(MYPROF, { cta: 'Save and start studying' })}
+    </div>`;
+  wireProfileForm(() => {
+    $('#profileWall').classList.add('hide');
+    $('#profileWall').innerHTML = '';
+    const cur = document.querySelector('.tabs button.on') || document.querySelector('.tabs button');
+    if (cur) cur.click();
+  });
+}
+
 // ---------------------------------------------------------------- tabs
 $$('.tabs button').forEach(b => b.onclick = () => {
+  // While the profile wall is up nothing else may open behind it, or the tab bar
+  // becomes a way past a question we have just said is required.
+  if (!$('#profileWall').classList.contains('hide')) return;
   state.tab = b.dataset.tab;
   $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
   const p = state.tab === 'practice';
@@ -1004,11 +1262,13 @@ $$('.tabs button').forEach(b => b.onclick = () => {
   $('#viewAdmin').classList.toggle('hide', state.tab !== 'admin');
   $('#viewQuestions').classList.toggle('hide', state.tab !== 'qedit');
   $('#viewReports').classList.toggle('hide', state.tab !== 'reports');
+  $('#viewBiz').classList.toggle('hide', state.tab !== 'biz');
   if (state.tab === 'progress') renderProgress();
   if (state.tab === 'exam') renderExam();
   if (state.tab === 'admin') renderAdmin();
   if (state.tab === 'qedit') renderQuestions();
   if (state.tab === 'reports') renderReports();
+  if (state.tab === 'biz') renderBiz();
 });
 
 // ---------------------------------------------------------------- filters
@@ -1038,6 +1298,15 @@ function buildFilters(){
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
 }
 function apply(){
+  // A custom block is a fixed list the server chose. While one is open it wins over
+  // the filter bar entirely, in the order it came back, so "40 hard PGY4 questions"
+  // stays 40 questions and does not quietly re-sort itself when a dropdown moves.
+  if (BLOCK){
+    const byUid = new Map(ALL.map(q => [q.uid, q]));
+    state.list = BLOCK.uids.map(u => byUid.get(u)).filter(Boolean);
+    state.i = 0; render();
+    return;
+  }
   const tr=$('#fTrack').value, yr=$('#fYear').value, tp=$('#fTopic').value,
         s=$('#fSearch').value.trim().toLowerCase();
   let l = ALL.filter(q => {
@@ -1047,6 +1316,7 @@ function apply(){
     if (state.wrongOnly && ANSWERS.get(q.uid)?.correct !== false) return false;
     if (state.unseen && ANSWERS.has(q.uid)) return false;
     if (state.reviewOnly && !q.needs_review) return false;
+    if (state.flaggedOnly && !FLAGS.has(q.uid)) return false;
     if (s){
       const hay = (q.stem_no_image + ' ' + q.topic + ' ' + Object.values(q.options).join(' ')).toLowerCase();
       if (!hay.includes(s)) return false;
@@ -1065,6 +1335,86 @@ $('#bUnseen').onclick = function(){ state.unseen=!state.unseen; if(state.unseen)
                                     this.classList.toggle('on',state.unseen); apply(); };
 $('#bReview').onclick = function(){ state.reviewOnly=!state.reviewOnly;
                                     this.classList.toggle('on',state.reviewOnly); apply(); };
+$('#bFlagged').onclick = function(){ state.flaggedOnly=!state.flaggedOnly;
+                                     this.classList.toggle('on',state.flaggedOnly); apply(); };
+
+// ---------------------------------------------------------------- custom block
+// The filter bar can already do topic, track and year, because those arrive with the
+// question list. Difficulty, PGY level and "questions I starred" cannot be done here:
+// the first two are columns this page does not fetch, and the third is a table only
+// the database can join. So the block is built by the server and comes back as a list
+// of ids, which is also why the answer key stays where it is.
+$('#bBlock').onclick = () => {
+  const box = $('#blockPanel');
+  if (!box.classList.contains('hide')){ box.classList.add('hide'); box.innerHTML=''; return; }
+  box.classList.remove('hide');
+  box.innerHTML = `
+    <div class="card" style="margin-top:0">
+      <h3 style="margin:0 0 4px;font-size:15px">Build a custom block</h3>
+      <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:13px">
+        Tutor mode, not a timed paper — you still get the explanation after every question.</div>
+      <div class="three">
+        <div class="fld"><label for="blStatus">Questions</label>
+          <select id="blStatus">
+            <option value="all">All</option>
+            <option value="unused">Unused — never answered</option>
+            <option value="incorrect">Answered wrongly</option>
+            <option value="flagged">Starred</option>
+            <option value="needs_check">Needs check</option>
+          </select></div>
+        <div class="fld"><label for="blPgy">Level</label>
+          <select id="blPgy"><option value="">Any level</option>
+            ${['PGY1','PGY2','PGY3','PGY4','PGY5'].map(g=>`<option>${g}</option>`).join('')}
+          </select></div>
+        <div class="fld"><label for="blN">How many</label>
+          <input id="blN" type="number" min="1" max="250" value="40"></div>
+      </div>
+      <div class="fld"><label>Difficulty</label>
+        <div class="row" style="margin-bottom:0">${[1,2,3,4,5].map(d =>
+          `<label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px">
+             <input type="checkbox" class="bldiff" value="${d}" style="width:auto">${d}</label>`).join('')}
+          <span style="font-size:11.5px;color:var(--faint)">1 easiest, 5 hardest. Leave all clear for any.</span>
+        </div></div>
+      <div class="two">
+        <div class="fld"><label for="blTrack">Track</label>
+          <select id="blTrack"><option value="">Every track</option>
+            ${[...new Set(ALL.map(q=>q.track))].sort().map(t=>`<option>${esc(t)}</option>`).join('')}
+          </select></div>
+        <div class="fld"><label for="blTopic">Topic</label>
+          <select id="blTopic"><option value="">Every topic</option>
+            ${[...new Set(ALL.map(q=>q.topic))].sort().map(t=>`<option>${esc(t)}</option>`).join('')}
+          </select></div>
+      </div>
+      <label style="display:block;font-size:12.5px;margin-bottom:12px">
+        <input type="checkbox" id="blShuffle" checked style="width:auto;margin-right:7px">Shuffle the order</label>
+      <div id="blMsg" style="font-size:12.5px;color:var(--warn);margin-bottom:10px"></div>
+      <button id="blGo" class="primary">Build the block</button>
+      <button id="blClose">Cancel</button>
+    </div>`;
+  $('#blClose').onclick = () => { box.classList.add('hide'); box.innerHTML=''; };
+  $('#blGo').onclick = async () => {
+    const diffs = $$('.bldiff').filter(c => c.checked).map(c => +c.value);
+    const btn = $('#blGo'); btn.disabled = true; btn.textContent = 'Building…';
+    const { data, error } = await sb.rpc('build_block', {
+      p_status:     $('#blStatus').value,
+      p_topics:     $('#blTopic').value ? [$('#blTopic').value] : null,
+      p_tracks:     $('#blTrack').value ? [$('#blTrack').value] : null,
+      p_years:      null,
+      p_pgy:        $('#blPgy').value || null,
+      p_difficulty: diffs.length ? diffs : null,
+      p_n:          Math.max(1, Math.min(250, +$('#blN').value || 40)),
+      p_shuffle:    $('#blShuffle').checked
+    });
+    btn.disabled = false; btn.textContent = 'Build the block';
+    if (error){ $('#blMsg').textContent = error.message || 'That block could not be built.'; return; }
+    const uids = (data || []).map(r => (typeof r === 'string' ? r : r.build_block));
+    if (!uids.length){ $('#blMsg').textContent = 'No questions match that. Widen it a little.'; return; }
+    BLOCK = { uids, at: Date.now() };
+    box.classList.add('hide'); box.innerHTML = '';
+    apply();
+  };
+};
+function clearBlock(){ BLOCK = null; apply(); }
 
 // ---------------------------------------------------------------- practice
 function render(){
@@ -1079,7 +1429,19 @@ function render(){
   $('#prog').style.width = state.list.length ? ((state.i+1)/state.list.length*100)+'%' : '0';
 
   const app = $('#viewPractice');
-  if (!q){ app.innerHTML = '<div class="empty"><p>No questions match these filters.</p></div>'; return; }
+  const blockBar = BLOCK
+    ? `<div class="card" style="margin-top:0;padding:11px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+         <b style="font-size:13px">Custom block</b>
+         <span style="font-size:12px;color:var(--dim)">${state.list.length} question${state.list.length===1?'':'s'},
+           chosen by the filters you set. The filter bar is paused until you close it.</span>
+         <span class="spacer" style="flex:1"></span>
+         <button id="bBlockEnd">Close the block</button></div>` : '';
+  const wireBlockBar = () => { if ($('#bBlockEnd')) $('#bBlockEnd').onclick = clearBlock; };
+  if (!q){
+    app.innerHTML = blockBar + '<div class="empty"><p>No questions match these filters.</p></div>';
+    wireBlockBar();
+    return;
+  }
 
   const prev = ANSWERS.get(q.uid);
   const key  = KEYS.get(q.uid) || {};
@@ -1109,7 +1471,7 @@ function render(){
   const hasImg    = !!q.image_path;
   const shownStem = q.stem_no_image || '';
 
-  let h = `<div class="card"><div class="qhead">${tags}</div>`
+  let h = blockBar + `<div class="card"><div class="qhead">${tags}</div>`
         + `<p class="stem" data-hl="${esc(q.uid)}">${wordyStem(shownStem, q.uid)}</p>`;
   if (hasImg)
     h += `<div class="qimg"><img data-qimg="${esc(q.image_path)}" alt="Image for question ${esc(q.uid)}">`
@@ -1151,18 +1513,61 @@ function render(){
                  + (hasImg ? 'Change picture' : '+ Add picture') + '</button> ' : '')
      + `<button id="bClearHl" class="${(HL[q.uid]||[]).length ? '' : 'hide'}"`
      + ' title="Remove the words you marked in this stem">Clear marks</button> '
+     + `<button id="bStar" class="starbtn${FLAGS.has(q.uid) ? ' on' : ''}"`
+     + ' title="Star this question to come back to it">'
+     + (FLAGS.has(q.uid) ? '★ Starred' : '☆ Star') + '</button> '
+     + `<button id="bNote" title="Your own note on this question">`
+     + (NOTES.has(q.uid) ? '✎ Note' : '+ Note') + '</button> '
      + '<button id="bReport" title="Tell the administrator this item looks wrong">'
      + (MY_REPORTS.has(q.uid) ? '✓ Reported' : 'Report a problem') + '</button>'
-     + '</div><div id="repForm"></div></div>';
+     + '</div><div id="noteForm"></div><div id="repForm"></div></div>';
   app.innerHTML = h;
 
+  wireBlockBar();
   drawImage(app);
 
   app.querySelectorAll('.opt').forEach(b => b.onclick = () => choose(q, b.dataset.l));
   $('#bPrev').onclick = prev_; $('#bNext').onclick = next_;
   if (iAmAdmin && $('#bPic')) $('#bPic').onclick = () => openEditor(q.uid, true);
   $('#bReport').onclick = () => reportForm(q);
+  $('#bNote').onclick   = () => noteForm(q);
+  $('#bStar').onclick = async function(){
+    this.disabled = true;
+    const ok = await toggleFlag(q.uid);
+    this.disabled = false;
+    if (!ok) return;
+    const on = FLAGS.has(q.uid);
+    this.classList.toggle('on', on);
+    this.textContent = on ? '★ Starred' : '☆ Star';
+    // Un-starring while the Starred filter is on would leave the question on screen
+    // but out of the list, so the list is rebuilt underneath.
+    if (state.flaggedOnly) apply();
+  };
   if ($('#bClearHl')) $('#bClearHl').onclick = () => { delete HL[q.uid]; saveHL(); render(); };
+}
+
+function noteForm(q){
+  const box = $('#noteForm');
+  if (box.dataset.open === q.uid){ box.innerHTML=''; box.dataset.open=''; return; }
+  box.dataset.open = q.uid;
+  const mine = NOTES.get(q.uid);
+  box.innerHTML =
+    '<div class="exp notebox" style="border-left-color:var(--accent)">'
+  + '<h4>Your note</h4>'
+  + `<div class="fld"><textarea id="ntBody" maxlength="4000" placeholder="What you want to remember about this one.">${esc(mine ? mine.body : '')}</textarea>`
+  + '<div class="hint">Private to you. Not sent to the administrator, and not part of a report.</div></div>'
+  + '<button id="ntSave" class="primary">Save note</button> '
+  + '<button id="ntCancel">Cancel</button>'
+  + '<div id="ntMsg" style="font-size:12.5px;color:var(--dim);margin-top:9px"></div></div>';
+  $('#ntCancel').onclick = () => { box.innerHTML=''; box.dataset.open=''; };
+  $('#ntSave').onclick = async () => {
+    const btn = $('#ntSave'); btn.disabled = true;
+    const err = await saveNote(q.uid, $('#ntBody').value);
+    btn.disabled = false;
+    if (err){ $('#ntMsg').textContent = 'That note did not save. Try again in a moment.'; return; }
+    box.innerHTML = ''; box.dataset.open = '';
+    const b = $('#bNote'); if (b) b.textContent = NOTES.has(q.uid) ? '✎ Note' : '+ Note';
+  };
 }
 async function choose(q, L){
   if (ANSWERS.has(q.uid) || q._pending) return;
@@ -1295,6 +1700,18 @@ function renderProgress(){
       <tbody>${rows}</tbody></table></div>`;
   };
 
+  // Subspecialty heatmap. Score alone is misleading on a topic with four questions
+  // answered, so anything under ten done is drawn grey rather than green or red.
+  const heat = (m) => Object.entries(m)
+    .sort((a,b) => (a[1].done?a[1].ok/a[1].done:2) - (b[1].done?b[1].ok/b[1].done:2))
+    .map(([k,v]) => {
+      const pct = v.done ? Math.round(v.ok/v.done*100) : null;
+      const g = (pct === null || v.done < 10) ? 0 : pct < 60 ? 1 : pct < 80 ? 2 : 3;
+      return `<div class="cell g${g}" title="${esc(k)} — ${v.done} of ${v.total} answered">
+        <b>${pct === null ? '—' : pct + '%'}</b><span>${esc(k)}</span>
+        <span style="color:var(--faint)">${v.done}/${v.total}</span></div>`;
+    }).join('');
+
   $('#viewProgress').innerHTML = `
     <div class="grid">
       <div class="kpi"><b>${done}</b><span>answered of ${ALL.length}</span></div>
@@ -1302,9 +1719,19 @@ function renderProgress(){
       <div class="kpi"><b>${ok}</b><span>correct</span></div>
       <div class="kpi"><b>${bad}</b><span>wrong</span></div>
     </div>
+    <div class="card" id="paceCard"><div class="empty" style="padding:20px">Loading your plan…</div></div>
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:14px">Where you are weakest</h3>
+      <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:11px">
+        Weakest first. Grey means fewer than ten answered — not enough to judge yet.</div>
+      <div class="heat">${heat(by('topic'))}</div>
+    </div>
     ${tbl(by('topic'),'Topic')}
     ${tbl(by('year'),'Year')}
     ${tbl(by('track'),'Track')}
+    <div class="card" id="noteCard"></div>
+    <div class="card" id="detailsCard"></div>
+    <div class="card" id="codeCard"></div>
     <div class="card" id="subCard"></div>
     <div class="card">
       <button id="resetWrong"${bad ? '' : ' disabled'}>Clear my ${bad} wrong answer${bad===1?'':'s'}</button>
@@ -1317,6 +1744,10 @@ function renderProgress(){
       </div>
     </div>`;
   renderSubCard();
+  renderPaceCard();
+  renderNoteCard();
+  renderDetailsCard();
+  renderCodeCard();
   // Working through the wrong list and then clearing it is how revision actually goes.
   // Deleting only the wrong attempts returns those questions to unanswered, so they
   // reappear under Unseen and drop out of Wrong only - and the score stops being
@@ -1339,6 +1770,178 @@ function renderProgress(){
   };
 }
 
+
+// ---------------------------------------------------------------- pacing + standing
+async function renderPaceCard(){
+  const card = $('#paceCard');
+  if (!card) return;
+  const [{ data: pace, error: pe }, { data: stand }] =
+    await Promise.all([sb.rpc('my_pacing'), sb.rpc('my_standing')]);
+  if (!$('#paceCard')) return;                     // tab changed while we waited
+  if (pe || !pace){ card.innerHTML = '<div class="empty" style="padding:20px">Your plan could not be loaded.</div>'; return; }
+
+  const noDate = !pace.target_exam_on;
+  const past   = pace.days_to_exam !== null && pace.days_to_exam <= 0;
+  const perDay = pace.per_day;
+
+  let head;
+  if (noDate)     head = `<div class="kpi"><b>—</b><span>set a target exam date below</span></div>`;
+  else if (past)  head = `<div class="kpi"><b>0</b><span>days to your exam</span></div>`;
+  else            head = `<div class="kpi"><b>${perDay}</b><span>questions a day to finish</span></div>
+                          <div class="kpi"><b>${pace.days_to_exam}</b><span>days to your exam</span></div>`;
+
+  // If the subscription runs out before the exam, the honest number is the one that
+  // fits inside the subscription. Saying "38 a day" to someone whose access ends in
+  // three weeks is a plan they cannot follow.
+  const warn = pace.subscription_ends_first
+    ? `<div class="note" style="margin-top:12px">Your access ends before your exam date.
+         Renew, or plan to finish the bank by the earlier date.</div>` : '';
+
+  let peer = '';
+  if (stand){
+    peer = stand.ranked
+      ? `<div class="kpi"><b>${stand.percentile}${suffix(stand.percentile)}</b>
+           <span>percentile among ${stand.cohort_size} residents</span></div>`
+      : `<div class="kpi"><b>${Math.max(0, 50 - (stand.answered||0))}</b>
+           <span>more answers before you are ranked</span></div>`;
+  }
+
+  card.innerHTML = `
+    <h3 style="margin:0 0 4px;font-size:14px">Your plan</h3>
+    <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:12px">
+      ${noDate ? 'Add a target exam date and this becomes a daily number.'
+               : 'Every question in the bank, spread evenly over the days you have left.'}
+      Ranking needs 50 answers and compares accuracy only — never names, and never a leaderboard.
+    </div>
+    <div class="grid" style="margin-bottom:0">
+      ${head}
+      <div class="kpi"><b>${pace.remaining}</b><span>questions not yet answered</span></div>
+      ${peer}
+    </div>${warn}`;
+}
+const suffix = n => (n % 100 >= 11 && n % 100 <= 13) ? 'th'
+  : ({1:'st',2:'nd',3:'rd'})[n % 10] || 'th';
+
+// ---------------------------------------------------------------- notebook
+function renderNoteCard(){
+  const card = $('#noteCard');
+  if (!card) return;
+  const byUid = new Map(ALL.map(q => [q.uid, q]));
+  const rows = [...NOTES.entries()]
+    .sort((a,b) => String(b[1].at).localeCompare(String(a[1].at)))
+    .map(([uid, n]) => {
+      const q = byUid.get(uid);
+      return `<tr><td style="vertical-align:top">
+          <button class="lnk" data-go="${esc(uid)}"
+            style="background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-size:12.5px">${esc(uid)}</button>
+          <div style="font-size:11px;color:var(--faint)">${q ? esc(q.topic) : 'question not in the bank'}</div></td>
+        <td style="white-space:pre-wrap;line-height:1.55">${esc(n.body)}</td>
+        <td style="width:1%"><button data-delnote="${esc(uid)}">Delete</button></td></tr>`;
+    }).join('');
+  card.innerHTML = `
+    <h3 style="margin:0 0 4px;font-size:14px">My notebook <span class="num" style="margin-left:6px">${NOTES.size}</span></h3>
+    <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:11px">
+      Written by you on the question card. Private — nobody else can read these, including the administrator.</div>
+    ${NOTES.size ? `<table><tbody>${rows}</tbody></table>`
+                 : '<div style="font-size:12.5px;color:var(--dim)">No notes yet. Use <b>+ Note</b> under any question.</div>'}
+    ${FLAGS.size ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px">
+        You have starred <b>${FLAGS.size}</b> question${FLAGS.size===1?'':'s'}.
+        <button id="goStarred" style="margin-left:8px">Work through them</button></div>` : ''}`;
+  card.querySelectorAll('[data-go]').forEach(b => b.onclick = () => goToQuestion(b.dataset.go));
+  card.querySelectorAll('[data-delnote]').forEach(b => b.onclick = async () => {
+    const uid = b.dataset.delnote;
+    if (!confirm('Delete your note on ' + uid + '?')) return;
+    b.disabled = true;
+    const err = await saveNote(uid, '');
+    if (err){ b.disabled = false; alertBar('That note could not be deleted. Try again.'); return; }
+    renderNoteCard();
+  });
+  if ($('#goStarred')) $('#goStarred').onclick = () => {
+    BLOCK = null;
+    state.flaggedOnly = true; $('#bFlagged').classList.add('on');
+    document.querySelector('.tabs [data-tab="practice"]').click();
+    apply();
+  };
+}
+function goToQuestion(uid){
+  BLOCK = null;
+  state.flaggedOnly = state.wrongOnly = state.unseen = state.reviewOnly = false;
+  ['#bFlagged','#bWrong','#bUnseen','#bReview'].forEach(s => $(s).classList.remove('on'));
+  ['#fTrack','#fYear','#fTopic'].forEach(s => { $(s).value = ''; });
+  $('#fSearch').value = '';
+  document.querySelector('.tabs [data-tab="practice"]').click();
+  apply();
+  const i = state.list.findIndex(q => q.uid === uid);
+  if (i >= 0){ state.i = i; render(); }
+  else alertBar('That question is no longer in the bank.');
+}
+
+// ---------------------------------------------------------------- my details
+function renderDetailsCard(){
+  const card = $('#detailsCard');
+  if (!card) return;
+  const p = MYPROF || {};
+  const roleTxt = p.prof_role === 'other'
+    ? (p.prof_role_other || 'Other')
+    : ((ROLES.find(r => r[0] === p.prof_role) || [])[1] || '—');
+  const phone = p.phone_national ? (p.phone_cc || '') + ' ' + p.phone_national : '—';
+  const row = (k, v) => `<tr><td style="color:var(--dim);width:44%">${k}</td><td>${esc(v || '—')}</td></tr>`;
+  card.innerHTML = `
+    <h3 style="margin:0 0 11px;font-size:14px">My details</h3>
+    <table><tbody>
+      ${row('Name', p.full_name)}
+      ${row('Email', p.email)}
+      ${row('Mobile', phone)}
+      ${row('Role', roleTxt)}
+      ${p.prof_role === 'resident' ? row('Level', p.pgy) : ''}
+      ${row('Centre', p.centre)}
+      ${row('Target exam date', p.target_exam_on)}
+    </tbody></table>
+    <div style="margin-top:12px"><button id="pfEdit">Edit my details</button></div>`;
+  $('#pfEdit').onclick = () => {
+    card.innerHTML = '<h3 style="margin:0 0 11px;font-size:14px">My details</h3>'
+                   + profileFormHTML(MYPROF, { cta: 'Save', cancel: true });
+    wireProfileForm(() => { renderDetailsCard(); renderPaceCard(); }, () => renderDetailsCard());
+  };
+}
+
+// ---------------------------------------------------------------- activation code
+function renderCodeCard(){
+  const card = $('#codeCard');
+  if (!card) return;
+  card.innerHTML = `
+    <h3 style="margin:0 0 4px;font-size:14px">Programme activation code</h3>
+    <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:11px">
+      If your hospital or programme bought seats in bulk, your coordinator has a code for you.
+      It adds the time to whatever you already have — redeeming early never costs you days.</div>
+    <div class="row" style="margin-bottom:0">
+      <input id="acCode" maxlength="14" placeholder="XXXX-XXXX-XXXX" autocomplete="off"
+             style="max-width:210px;font-variant-numeric:tabular-nums;letter-spacing:.08em;text-transform:uppercase">
+      <button id="acGo" class="primary">Redeem</button>
+    </div>
+    <div id="acMsg" style="font-size:12.5px;margin-top:9px"></div>`;
+  $('#acGo').onclick = async () => {
+    const code = $('#acCode').value.trim().toUpperCase();
+    const msg  = $('#acMsg');
+    if (!code){ msg.style.color = 'var(--bad)'; msg.textContent = 'Enter the code you were given.'; return; }
+    const btn = $('#acGo'); btn.disabled = true;
+    const { data, error } = await sb.rpc('redeem_code', { p_code: code });
+    btn.disabled = false;
+    if (error || !data){
+      msg.style.color = 'var(--bad)';
+      msg.textContent = 'That could not be checked right now. Try again in a moment.';
+      return;
+    }
+    if (!data.ok){ msg.style.color = 'var(--bad)'; msg.textContent = data.reason; return; }
+    msg.style.color = 'var(--ok)';
+    msg.textContent = `Done — ${data.months} month${data.months===1?'':'s'} added`
+                    + (data.cohort ? ` through ${data.cohort}` : '')
+                    + `. Your access now runs to ${data.expires_at}.`;
+    $('#acCode').value = '';
+    await loadMyProfile();
+    renderSubCard(); renderPaceCard();
+  };
+}
 
 // ---------------------------------------------------------------- reports (admin)
 async function refreshReportBadge(){
@@ -1868,6 +2471,325 @@ async function renderDevicePanel(){
     if (error){ alertBar(error.message); return; }
     renderDevicePanel();
   });
+}
+
+// ---------------------------------------------------------------- business (admin)
+// Cohorts, activation codes, promo codes and retention. Every read and write here goes
+// through an admin_* function that checks is_admin() inside the database. None of these
+// four tables is readable by a signed-in resident at all - RLS is on and no grant exists,
+// so a forged request gets "permission denied for table cohorts", not a filtered list.
+let BIZ_TAB = 'cohorts';
+async function renderBiz(){
+  const v = $('#viewBiz');
+  v.innerHTML = `
+    <div class="subtabs">
+      ${[['cohorts','Cohorts &amp; codes'],['promos','Promo codes'],['retention','Retention']]
+        .map(([k,l]) => `<button data-biz="${k}" class="${BIZ_TAB===k?'on':''}">${l}</button>`).join('')}
+    </div><div id="bizBody"><div class="empty">Loading…</div></div>`;
+  v.querySelectorAll('[data-biz]').forEach(b => b.onclick = () => { BIZ_TAB = b.dataset.biz; renderBiz(); });
+  if (BIZ_TAB === 'cohorts')   return bizCohorts();
+  if (BIZ_TAB === 'promos')    return bizPromos();
+  if (BIZ_TAB === 'retention') return bizRetention();
+}
+
+async function bizCohorts(){
+  const body = $('#bizBody');
+  const { data: rows, error } = await sb.rpc('admin_cohorts');
+  if (!$('#bizBody')) return;
+  if (error){ body.innerHTML = '<div class="empty">That could not be loaded.</div>'; return; }
+  const list = rows || [];
+
+  const tr = c => {
+    const left = Math.max(0, (c.seats || 0) - Number(c.minted || 0));
+    const state = !c.active ? '<span class="pill dim">closed</span>'
+      : (c.expires_at && c.expires_at < new Date().toISOString().slice(0,10))
+        ? '<span class="pill warn">expired</span>' : '<span class="pill ok">open</span>';
+    return `<tr data-cid="${esc(c.id)}">
+      <td><b>${esc(c.name)}</b>
+        <div class="sub">${esc(c.centre || '—')}${c.invoice_ref ? ' · ' + esc(c.invoice_ref) : ''}</div>
+        <div class="sub" style="color:var(--faint)">${esc(c.contact_name || '')}${c.contact_email ? ' · ' + esc(c.contact_email) : ''}</div></td>
+      <td class="num">${c.months} mo</td>
+      <td class="num">${c.redeemed}/${c.seats}</td>
+      <td class="num">${left} unminted</td>
+      <td>${state}</td>
+      <td style="white-space:nowrap">
+        <button data-open-c>Open</button>
+        <button data-edit-c>Edit</button></td></tr>`;
+  };
+
+  body.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:15px">Cohorts</h3>
+      <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:13px">
+        A cohort is one institution buying a block of seats. You mint codes against it, send them to the
+        coordinator, and each resident redeems one. The seat limit is enforced when codes are minted, so
+        you cannot accidentally hand out thirty-one codes for thirty seats.</div>
+      ${list.length ? `<div class="tscroll"><table><thead><tr><th>Cohort</th><th class="num">Length</th>
+        <th class="num">Redeemed</th><th class="num">Seats left</th><th>State</th><th></th></tr></thead>
+        <tbody>${list.map(tr).join('')}</tbody></table></div>`
+        : '<div style="font-size:12.5px;color:var(--dim)">No cohorts yet.</div>'}
+      <div style="margin-top:14px"><button id="cNew" class="primary">New cohort</button></div>
+    </div>
+    <div id="cohortPane"></div>`;
+
+  $('#cNew').onclick = () => cohortForm(null);
+  body.querySelectorAll('[data-open-c]').forEach(b =>
+    b.onclick = () => cohortDetail(b.closest('tr').dataset.cid));
+  body.querySelectorAll('[data-edit-c]').forEach(b =>
+    b.onclick = () => cohortForm(list.find(x => x.id === b.closest('tr').dataset.cid)));
+}
+
+function cohortForm(c){
+  c = c || {};
+  const pane = $('#cohortPane');
+  pane.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 12px;font-size:15px">${c.id ? 'Edit cohort' : 'New cohort'}</h3>
+      <div class="two">
+        <div class="fld"><label for="cName">Name <span class="req">*</span></label>
+          <input id="cName" maxlength="120" placeholder="KFMC Neurology 2026" value="${esc(c.name||'')}"></div>
+        <div class="fld"><label for="cCentre">Centre</label>
+          <input id="cCentre" maxlength="120" value="${esc(c.centre||'')}"></div>
+      </div>
+      <div class="three">
+        <div class="fld"><label for="cSeats">Seats <span class="req">*</span></label>
+          <input id="cSeats" type="number" min="1" max="2000" value="${esc(c.seats||30)}"></div>
+        <div class="fld"><label for="cMonths">Months each <span class="req">*</span></label>
+          <input id="cMonths" type="number" min="1" max="36" value="${esc(c.months||12)}"></div>
+        <div class="fld"><label for="cExp">Codes usable until</label>
+          <input id="cExp" type="date" value="${esc(c.expires_at||'')}"></div>
+      </div>
+      <div class="three">
+        <div class="fld"><label for="cContact">Coordinator</label>
+          <input id="cContact" maxlength="120" value="${esc(c.contact_name||'')}"></div>
+        <div class="fld"><label for="cEmail">Their email</label>
+          <input id="cEmail" type="email" maxlength="200" value="${esc(c.contact_email||'')}"></div>
+        <div class="fld"><label for="cInv">Invoice reference</label>
+          <input id="cInv" maxlength="60" value="${esc(c.invoice_ref||'')}"></div>
+      </div>
+      <div class="two">
+        <div class="fld"><label for="cAmount">Invoiced amount</label>
+          <input id="cAmount" type="number" min="0" step="0.01" value="${esc(c.amount ?? '')}"></div>
+        <div class="fld"><label for="cNote">Note</label>
+          <input id="cNote" maxlength="300" value="${esc(c.note||'')}"></div>
+      </div>
+      ${c.id ? `<label style="display:block;font-size:12.5px;margin-bottom:12px">
+        <input type="checkbox" id="cActive" ${c.active !== false ? 'checked' : ''} style="width:auto;margin-right:7px">
+        Open — unredeemed codes still work</label>` : ''}
+      <div id="cMsg" style="font-size:12.5px;color:var(--bad);margin-bottom:10px"></div>
+      <button id="cSave" class="primary">Save cohort</button>
+      <button id="cCancelF">Cancel</button>
+    </div>`;
+  $('#cCancelF').onclick = () => { pane.innerHTML = ''; };
+  $('#cSave').onclick = async () => {
+    const name = $('#cName').value.trim();
+    if (!name){ $('#cMsg').textContent = 'Give the cohort a name.'; return; }
+    const btn = $('#cSave'); btn.disabled = true;
+    const p = { id: c.id || null, name, centre: $('#cCentre').value.trim(),
+                seats: +$('#cSeats').value || 1, months: +$('#cMonths').value || 12,
+                contact_name: $('#cContact').value.trim(), contact_email: $('#cEmail').value.trim(),
+                invoice_ref: $('#cInv').value.trim(), amount: $('#cAmount').value,
+                expires_at: $('#cExp').value, note: $('#cNote').value.trim() };
+    if (c.id) p.active = $('#cActive').checked;
+    const { data, error } = await sb.rpc('admin_save_cohort', { p });
+    btn.disabled = false;
+    if (error || !data || !data.ok){
+      $('#cMsg').textContent = (error && error.message) || 'That did not save.'; return;
+    }
+    const id = data.id;
+    await bizCohorts();
+    cohortDetail(id);
+  };
+}
+
+async function cohortDetail(id){
+  const pane = $('#cohortPane');
+  pane.innerHTML = '<div class="card"><div class="empty" style="padding:24px">Loading…</div></div>';
+  const { data, error } = await sb.rpc('admin_cohort_detail', { p_cohort: id });
+  if (!$('#cohortPane')) return;
+  if (error || !data || data.error){
+    pane.innerHTML = `<div class="card"><div class="empty">${esc((data && data.error) || 'That could not be loaded.')}</div></div>`;
+    return;
+  }
+  const c = data.cohort || {}, un = data.unredeemed || [], mem = data.members || [];
+  const left = Math.max(0, (c.seats || 0) - (un.length + mem.length));
+  pane.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:15px">${esc(c.name || '')}</h3>
+      <div style="font-size:12px;color:var(--faint);margin-bottom:14px">
+        ${esc(c.centre || '—')} · ${c.months} months per seat · ${mem.length} of ${c.seats} redeemed ·
+        ${un.length} code${un.length===1?'':'s'} waiting · ${left} seat${left===1?'':'s'} not yet minted</div>
+
+      <div class="row">
+        <input id="mintN" type="number" min="1" max="500" value="${Math.min(left || 1, 30)}" style="max-width:110px">
+        <button id="mintGo" class="primary"${left ? '' : ' disabled'}>Mint codes</button>
+        <span style="font-size:11.5px;color:var(--faint)">${left ? 'Seats left to mint: ' + left
+          : 'Every seat has a code already.'}</span>
+      </div>
+      <div id="mintOut"></div>
+
+      ${un.length ? `<h4 style="margin:16px 0 6px;font-size:13px">Codes not yet used (${un.length})</h4>
+        <div class="codes">${un.map(x => `<code>${esc(x)}</code>`).join('')}</div>
+        <button id="copyCodes">Copy all ${un.length} to the clipboard</button>` : ''}
+
+      ${mem.length ? `<h4 style="margin:18px 0 6px;font-size:13px">Redeemed (${mem.length})</h4>
+        <div class="tscroll"><table><thead><tr><th>Resident</th><th>Level</th><th class="num">Answered</th>
+          <th class="num">Score</th><th>Access to</th></tr></thead><tbody>
+          ${mem.map(m => `<tr>
+            <td>${esc(m.name || m.email)}<div class="sub" style="color:var(--faint)">${esc(m.email)}</div></td>
+            <td>${esc(m.pgy || '—')}</td>
+            <td class="num">${m.answered || 0}</td>
+            <td class="num">${m.accuracy === null || m.accuracy === undefined ? '—' : m.accuracy + '%'}</td>
+            <td style="font-size:12px">${esc(m.expires_at || '—')}</td></tr>`).join('')}
+        </tbody></table></div>` : ''}
+      <div style="margin-top:14px"><button id="cClose">Close</button></div>
+    </div>`;
+  $('#cClose').onclick = () => { pane.innerHTML = ''; };
+  if ($('#copyCodes')) $('#copyCodes').onclick = async () => {
+    try { await navigator.clipboard.writeText(un.join('\n')); $('#copyCodes').textContent = 'Copied'; }
+    catch (e) { alertBar('Could not copy. Select the codes and copy them by hand.'); }
+  };
+  $('#mintGo').onclick = async () => {
+    const n = Math.max(1, Math.min(500, +$('#mintN').value || 1));
+    const btn = $('#mintGo'); btn.disabled = true; btn.textContent = 'Minting…';
+    const { data: out, error: e2 } = await sb.rpc('admin_mint_codes', { p_cohort: id, p_count: n });
+    btn.disabled = false; btn.textContent = 'Mint codes';
+    if (e2){ $('#mintOut').innerHTML = `<div class="note" style="border-left-color:var(--bad)">${esc(e2.message)}</div>`; return; }
+    const codes = (out || []).map(r => (typeof r === 'string' ? r : r.admin_mint_codes));
+    $('#mintOut').innerHTML = `<div class="note" style="border-left-color:var(--ok)">
+      Minted ${codes.length}. They are listed below and will stay here until they are used.</div>`;
+    cohortDetail(id);
+  };
+}
+
+async function bizPromos(){
+  const body = $('#bizBody');
+  const [{ data: rows, error }, plans] = await Promise.all([sb.rpc('admin_promos'), loadPlans()]);
+  if (!$('#bizBody')) return;
+  if (error){ body.innerHTML = '<div class="empty">That could not be loaded.</div>'; return; }
+  const list = rows || [];
+  body.innerHTML = `
+    <div class="card" style="border-color:var(--warn)">
+      <h3 style="margin:0 0 6px;font-size:14px;color:var(--warn)">Not yet connected to checkout</h3>
+      <div style="font-size:12.5px;line-height:1.65;color:var(--dim)">
+        You can create and price codes here and see exactly what each one would charge. They are
+        <b>not</b> offered to residents at the payment step yet — that needs a change to the code
+        that takes the money, and Tap is still refusing live charges, so there is no way to test it
+        end to end today. Shipping it untested risks a resident paying and not getting access.
+        For a hospital buying seats, use <b>Cohorts &amp; codes</b> instead — that path is finished
+        and does not touch the card rails.</div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 12px;font-size:15px">Promo codes</h3>
+      ${list.length ? `<div class="tscroll"><table><thead><tr><th>Code</th><th>Discount</th><th class="num">Used</th>
+        <th>Runs</th><th>State</th></tr></thead><tbody>
+        ${list.map(p => `<tr>
+          <td><code style="font-size:13px;letter-spacing:.05em">${esc(p.code)}</code>
+            ${p.note ? `<div style="font-size:11px;color:var(--faint)">${esc(p.note)}</div>` : ''}</td>
+          <td>${p.kind === 'percent' ? p.value + '% off' : money(p.value, p.currency || 'SAR') + ' off'}</td>
+          <td class="num">${p.used_count}${p.max_uses ? ' / ' + p.max_uses : ''}</td>
+          <td style="font-size:12px">${esc(p.starts_on || 'now')} → ${esc(p.expires_on || 'open')}</td>
+          <td>${p.active ? '<span class="pill ok">on</span>' : '<span class="pill dim">off</span>'}</td>
+        </tr>`).join('')}</tbody></table></div>`
+        : '<div style="font-size:12.5px;color:var(--dim)">No promo codes yet.</div>'}
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 12px;font-size:15px">Create or update a code</h3>
+      <div class="three">
+        <div class="fld"><label for="pmCode">Code <span class="req">*</span></label>
+          <input id="pmCode" maxlength="24" placeholder="RAMADAN25" style="text-transform:uppercase"></div>
+        <div class="fld"><label for="pmKind">Kind</label>
+          <select id="pmKind"><option value="percent">Percentage off</option>
+            <option value="fixed">Fixed amount off</option></select></div>
+        <div class="fld"><label for="pmValue">Value <span class="req">*</span></label>
+          <input id="pmValue" type="number" min="1" step="0.01" value="20"></div>
+      </div>
+      <div class="three">
+        <div class="fld"><label for="pmMax">Maximum uses</label>
+          <input id="pmMax" type="number" min="1" placeholder="unlimited"></div>
+        <div class="fld"><label for="pmStart">Starts</label><input id="pmStart" type="date"></div>
+        <div class="fld"><label for="pmEnd">Ends</label><input id="pmEnd" type="date"></div>
+      </div>
+      <div class="fld"><label for="pmNote">Note to yourself</label>
+        <input id="pmNote" maxlength="300" placeholder="e.g. Ramadan campaign"></div>
+      <div id="pmPrev" style="font-size:12.5px;color:var(--dim);line-height:1.7;margin-bottom:11px"></div>
+      <div id="pmMsg" style="font-size:12.5px;color:var(--bad);margin-bottom:10px"></div>
+      <button id="pmSave" class="primary">Save code</button>
+    </div>`;
+
+  // Priced from the same payment_plans rows the charge is built from, so the preview
+  // cannot drift from what would actually be taken.
+  const preview = () => {
+    const kind = $('#pmKind').value, val = +$('#pmValue').value || 0;
+    if (!val || !plans.length){ $('#pmPrev').innerHTML = ''; return; }
+    $('#pmPrev').innerHTML = '<b>What this would charge:</b><br>' + plans.map(pl => {
+      const disc = kind === 'percent' ? Math.round(pl.amount * val) / 100 : Math.min(val, pl.amount);
+      const fin  = Math.max(pl.amount - disc, 1);
+      return `${esc(pl.label)}: <s>${esc(money(pl.amount, pl.currency))}</s> → <b>${esc(money(fin, pl.currency))}</b>`;
+    }).join('<br>') + '<br><span style="color:var(--faint)">Never falls below 1 — Tap will not accept a zero charge.</span>';
+  };
+  ['pmKind','pmValue'].forEach(id => { $('#'+id).oninput = preview; $('#'+id).onchange = preview; });
+  preview();
+
+  $('#pmSave').onclick = async () => {
+    const code = $('#pmCode').value.trim().toUpperCase();
+    if (!/^[A-Z0-9-]{4,24}$/.test(code)){
+      $('#pmMsg').textContent = 'Codes are 4–24 characters, letters, digits and hyphens only.'; return; }
+    const val = +$('#pmValue').value;
+    if (!val || val <= 0){ $('#pmMsg').textContent = 'Give the code a value.'; return; }
+    if ($('#pmKind').value === 'percent' && val > 100){
+      $('#pmMsg').textContent = 'A percentage cannot be more than 100.'; return; }
+    const btn = $('#pmSave'); btn.disabled = true;
+    const { data, error: e2 } = await sb.rpc('admin_save_promo', { p: {
+      code, kind: $('#pmKind').value, value: val,
+      currency: $('#pmKind').value === 'fixed' ? (plans[0] ? plans[0].currency : 'SAR') : null,
+      max_uses: $('#pmMax').value, starts_on: $('#pmStart').value,
+      expires_on: $('#pmEnd').value, active: true, note: $('#pmNote').value.trim() } });
+    btn.disabled = false;
+    if (e2 || !data || !data.ok){ $('#pmMsg').textContent = (e2 && e2.message) || 'That did not save.'; return; }
+    bizPromos();
+  };
+}
+
+async function bizRetention(){
+  const body = $('#bizBody');
+  const { data, error } = await sb.rpc('admin_retention');
+  if (!$('#bizBody')) return;
+  if (error || !data || data.error){
+    body.innerHTML = `<div class="empty">${esc((data && data.error) || 'That could not be loaded.')}</div>`; return; }
+  const k = (n, l, tone) => `<div class="kpi"><b${tone ? ` style="color:${tone}"` : ''}>${n}</b><span>${l}</span></div>`;
+  const centres = (data.by_centre || []).map(c =>
+    `<tr><td>${esc(c.centre)}</td><td class="num">${c.n}</td><td class="num">${c.active}</td></tr>`).join('');
+  body.innerHTML = `
+    <div class="grid">
+      ${k(data.active, 'access running now', 'var(--ok)')}
+      ${k(data.expiring_30, 'ending within 30 days', 'var(--warn)')}
+      ${k(data.expired, 'lapsed')}
+      ${k(data.paused, 'paused by you')}
+    </div>
+    <div class="grid">
+      ${k(data.paying, 'have ever paid')}
+      ${k(data.renewed, 'have paid more than once', 'var(--ok)')}
+      ${k(data.never_used, 'on the roster, never signed in', 'var(--bad)')}
+      ${k(data.dormant_30, 'active but silent 30 days', 'var(--warn)')}
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:14px">What these mean</h3>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.75">
+        <b>Renewed</b> counts people who have paid more than once — the honest measure. Signing in
+        again is not renewal.<br>
+        <b>Never signed in</b> is the one to act on first: they are on the roster, the seat is spent,
+        and they have not once opened the bank.<br>
+        <b>Silent 30 days</b> are paid up and have stopped. That is churn before it shows up as a
+        non-renewal.
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 11px;font-size:14px">By centre</h3>
+      ${centres ? `<table><thead><tr><th>Centre</th><th class="num">On the roster</th>
+        <th class="num">Running</th></tr></thead><tbody>${centres}</tbody></table>`
+        : '<div style="font-size:12.5px;color:var(--dim)">Nobody has recorded a centre yet.</div>'}
+    </div>`;
 }
 
 async function renderAdmin(){
