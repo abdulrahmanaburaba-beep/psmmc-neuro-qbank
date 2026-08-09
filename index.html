@@ -919,7 +919,14 @@ async function start(user){
   // Asked once, after the bank is already loaded behind it. If the profile call
   // itself failed we do not show the wall — a network blip must never lock a
   // paid-up resident out of the questions they came for.
-  if (MYPROF && !MYPROF.profile_done) showProfileWall();
+  //
+  // Never shown to an administrator. The wall asks for a training level and a
+  // target exam date, which mean nothing for the person running the bank, and it
+  // would sit between them and the Residents, Reports and Business tabs until they
+  // answered a question about their own PGY year. They can still fill it in from
+  // My progress if they want their own pacing numbers.
+  const iAmAdmin = !!(PROFILE && PROFILE.role === 'admin');
+  if (MYPROF && !MYPROF.profile_done && !iAmAdmin) showProfileWall();
 }
 
 // The account can be open on one device at a time. This page holds it while it
