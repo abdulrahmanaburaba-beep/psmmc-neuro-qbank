@@ -2799,6 +2799,7 @@ function subStatus(a){
 // exactly like two people sharing a login. The job of this panel is to put the
 // evidence in front of you and to make the third device wait for your say-so.
 const FLAG_TONE = { concurrent:'var(--bad)', shared_device:'var(--bad)',
+                    multi_location:'var(--bad)',
                     pending_device:'var(--warn)', ip_spread:'var(--warn)',
                     many_devices:'var(--warn)', link_storm:'var(--warn)' };
 const DEV_TONE  = { active:'var(--ok)', pending:'var(--warn)', refused:'var(--bad)' };
@@ -2975,7 +2976,8 @@ async function renderPayPanel(){
   });
 }
 
-async function renderDevicePanel(){
+async function renderDevicePanel(autoGeo){
+  if (autoGeo === undefined) autoGeo = true;
   const box = $('#devicePanel');
   if (!box) return;
   box.innerHTML = '<div class="card"><div class="empty">Checking devices…</div></div>';
@@ -2985,6 +2987,33 @@ async function renderDevicePanel(){
     return;
   }
   const accounts = (data.accounts || []);
+
+  // Fill in any locations we don't recognise yet. Every new sign-in can bring a new
+  // IP address; this looks the unknown ones up once (admin-only edge function, which
+  // caches them) and then reloads the panel with the answers filled in. Runs at most
+  // once per view, so it can never loop.
+  if (autoGeo){
+    const isPub = ip => ip && !/^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|::1|fe80|fc|fd)/i.test(ip);
+    const need = new Set();
+    accounts.forEach(a => {
+      (a.ips||[]).forEach(x => { if (!x.country && isPub(x.ip)) need.add(x.ip); });
+      (a.devices||[]).forEach(d => { if (!d.city && !d.country && isPub(d.last_ip)) need.add(d.last_ip); });
+    });
+    if (need.size){
+      box.innerHTML = `<div class="card"><div class="empty">Looking up ${need.size} new location${need.size===1?'':'s'}…</div></div>`;
+      try {
+        const { data:{ session } } = await sb.auth.getSession();
+        await fetch(FN + 'geo-ips', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', apikey: SUPABASE_KEY,
+                     Authorization: 'Bearer ' + (session ? session.access_token : '') },
+          body: JSON.stringify({ ips: [...need] })
+        });
+      } catch (e) { /* locations just stay blank — never fatal */ }
+      return renderDevicePanel(false);   // reload once, now with locations cached
+    }
+  }
+
   const flagged  = accounts.filter(a => (a.flags || []).length);
   const waiting  = accounts.reduce((n, a) => n + (a.n_pending || 0), 0);
   const when = t => t ? new Date(t).toLocaleString('en-GB',
@@ -2993,19 +3022,33 @@ async function renderDevicePanel(){
   const chip = (txt, tone) => `<span style="display:inline-block;padding:2px 8px;border-radius:99px;
     font-size:11px;border:1px solid ${tone};color:${tone};margin:0 4px 4px 0">${esc(txt)}</span>`;
 
+  // "City, Country" from an IP/geo record, degrading gracefully when we only know one.
+  const loc = x => (x && x.city && x.country) ? (x.city + ', ' + x.country)
+                 : (x && x.country) ? x.country : '';
+  // the distinct places an account has signed in from, most-specific label kept once
+  const acctLocs = a => {
+    const seen = new Set(), out = [];
+    (a.ips || []).forEach(x => { const l = loc(x); if (l && !seen.has(l)){ seen.add(l); out.push(l); } });
+    return out;
+  };
+
   const devRow = d => `
     <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;
                 padding:7px 0;border-top:1px solid var(--line)">
       <b style="font-size:12.5px;min-width:120px">${esc(d.label || 'Unnamed device')}</b>
       ${chip(d.status, DEV_TONE[d.status] || 'var(--line)')}
       <span style="font-size:11.5px;color:var(--faint)">last used ${when(d.last_seen_at)}
-        · ${esc(d.last_ip || 'no address')} · ${d.seen_count} visit${d.seen_count===1?'':'s'}</span>
+        · ${esc(d.last_ip || 'no address')}${(d.city||d.country) ? ' · ' + esc(loc(d)) : ''} · ${d.seen_count} visit${d.seen_count===1?'':'s'}</span>
       <span class="spacer" style="flex:1"></span>
       ${d.status !== 'active' ? `<button data-dev="${d.id}" data-to="active">Approve</button>` : ''}
       ${d.status !== 'refused' ? `<button data-dev="${d.id}" data-to="refused">Retire</button>` : ''}
     </div>`;
 
-  const acct = a => `
+  const acct = a => {
+    const locs  = acctLocs(a);
+    const multi = (a.n_locations || 0) > 1;
+    const locTone = multi ? 'var(--bad)' : 'var(--dim)';
+    return `
     <div style="padding:12px 0;border-top:2px solid var(--line)">
       <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
         <b style="font-size:13.5px">${esc(a.name || a.email)}</b>
@@ -3013,12 +3056,19 @@ async function renderDevicePanel(){
         <span class="spacer" style="flex:1"></span>
         <button data-forget="${a.user_id}">Forget all devices</button>
       </div>
-      <div style="margin:6px 0 2px">${(a.flags||[]).map(f =>
-        chip(f.text + (f.at ? ' · ' + when(f.at) : ''), FLAG_TONE[f.code] || 'var(--warn)')).join('')}</div>
+      <div style="font-size:11.5px;color:var(--dim);margin:5px 0 2px">
+        <b>${a.n_devices}</b> device${a.n_devices===1?'':'s'} ·
+        <b>${a.n_ips}</b> IP address${a.n_ips===1?'':'es'} ·
+        <b${multi?' style="color:var(--bad)"':''}>${a.n_locations}</b> location${a.n_locations===1?'':'s'}
+      </div>
+      ${locs.length ? `<div style="margin:2px 0">${locs.map(l => chip(l, locTone)).join('')}</div>` : ''}
+      ${(a.flags||[]).length ? `<div style="margin:4px 0 2px">${(a.flags||[]).map(f =>
+        chip(f.text + (f.at ? ' · ' + when(f.at) : ''), FLAG_TONE[f.code] || 'var(--warn)')).join('')}</div>` : ''}
       ${(a.devices||[]).map(devRow).join('')}
     </div>`;
+  };
 
-  const list = (flagged.length ? flagged : accounts).map(acct).join('')
+  const list = accounts.map(acct).join('')
     || '<div class="empty">No devices have registered yet.</div>';
 
   box.innerHTML = `
@@ -3037,15 +3087,18 @@ async function renderDevicePanel(){
       </div>
       <div style="font-size:11.5px;color:var(--faint);line-height:1.55;margin-bottom:4px">
         ${waiting ? `<b style="color:var(--warn)">${waiting} device${waiting===1?'':'s'} waiting for you.</b> ` : ''}
+        Showing every account that has a device — how many <b>devices</b> it uses, how many different
+        <b>IP addresses</b>, and the <b>city / country</b> each one signs in from.
+        ${(() => { const m = accounts.filter(a => (a.n_locations||0) > 1).length;
+          return m ? `<b style="color:var(--bad)">${m} account${m===1?'':'s'} signed in from more than one city or country</b> — a common sign of a shared login. ` : ''; })()}
         The first ${data.limit} devices an account uses are let in automatically; anything after that waits here.
         <b>Approve</b> lets a device in, <b>Retire</b> shuts it out and frees a slot, and
         <b>Forget all devices</b> gives a resident a clean start after a new phone.
-        ${flagged.length ? '' : 'Nothing is flagged at the moment — showing every account that has registered a device.'}
       </div>
       ${list}
     </div>`;
 
-  $('#devRefresh').onclick = renderDevicePanel;
+  $('#devRefresh').onclick = () => renderDevicePanel();
   $('#devLimit').onchange = async () => {
     const { error } = await sb.rpc('admin_set_config',
       { p_key: 'device_limit', p_value: $('#devLimit').value });
