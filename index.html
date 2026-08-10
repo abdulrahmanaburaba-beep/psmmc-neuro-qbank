@@ -4826,7 +4826,14 @@ var OSCE_SHELL='<div id="oscView"></div><div class="otoast" id="oscToast"></div>
 function osceRpc(name,args){
   var t=null; try{ var raw=localStorage.getItem('sb-jnwbcfwtlnrupkthbluh-auth-token'); if(raw){ var s=JSON.parse(raw); t=(s&&s.access_token)||(s&&s.currentSession&&s.currentSession.access_token)||null; } }catch(e){}
   var KEY='sb_publishable_Lc8toRDfrYJIlqPTyB7_xA_dFym0V5-';
-  return fetch('https://jnwbcfwtlnrupkthbluh.supabase.co/rest/v1/rpc/'+name,{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+(t||KEY),'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(function(r){ if(!r.ok) return r.text().then(function(x){throw new Error(r.status+' '+x);}); return r.status===204?null:r.json(); });
+  // Send the same x-device header the main client attaches on every request. Without
+  // it, device_ok() inside is_approved() fails for a resident under device
+  // enforcement, so osce_cases() returns [] and the bank looks empty ("No stations
+  // published yet"). Admins are exempt from device_ok(), which is why only residents hit it.
+  var dev=null; try{ dev=localStorage.getItem('qbank.device'); }catch(e){}
+  var H={'apikey':KEY,'Authorization':'Bearer '+(t||KEY),'Content-Type':'application/json'};
+  if(dev) H['x-device']=dev;
+  return fetch('https://jnwbcfwtlnrupkthbluh.supabase.co/rest/v1/rpc/'+name,{method:'POST',headers:H,body:JSON.stringify(args||{})}).then(function(r){ if(!r.ok) return r.text().then(function(x){throw new Error(r.status+' '+x);}); return r.status===204?null:r.json(); });
 }
 
 /* ===== simple walkthrough engine (isolated; every symbol osc-prefixed) ===== */
