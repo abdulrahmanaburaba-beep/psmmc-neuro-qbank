@@ -4763,7 +4763,8 @@ function oscFinal(){
     if(document.getElementById('tabOsce')) return;
     var st=document.createElement('style'); st.id='osce-css'; st.textContent=OSCE_CSS; document.head.appendChild(st);
     var host=document.getElementById('app')||document.body;
-    var v=document.createElement('div'); v.id='viewOsce'; v.className='hide'; v.innerHTML='<div id="osceAdminBar"></div><div id="osceApp">'+OSCE_SHELL+'</div>'; host.appendChild(v);
+    var v=document.createElement('div'); v.id='viewOsce'; v.className='hide'; v.innerHTML='<div id="osceAdminBar"></div><div id="osceApp">'+OSCE_SHELL+'</div>';
+    var foot=host.querySelector('.appfoot'); if(foot){ host.insertBefore(v, foot); } else { host.appendChild(v); }  // keep the page footer below the OSCE view
     var tabsBar=document.querySelector('.tabs'); if(!tabsBar) return;
     var btn=document.createElement('button'); btn.id='tabOsce'; btn.type='button'; btn.textContent='OSCE'; btn.className='hide'; tabsBar.appendChild(btn);
     var loaded=false;
