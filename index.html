@@ -502,7 +502,6 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     <div id="practiceBar">
       <div class="bar">
         <select id="fTrack"></select>
-        <select id="fYear" title="The year a paper was sat. A question that came back in a later year appears under every year it was asked."></select>
         <select id="fTopic"></select>
         <input type="search" id="fSearch" placeholder="Search stems…" maxlength="120">
         <span class="spacer"></span>
@@ -1856,17 +1855,14 @@ function buildFilters(){
   const opt = (v,l) => { const o = document.createElement('option'); o.value=v; o.textContent=l; return o; };
   const cnt = k => ALL.reduce((m,q)=>(m[q[k]]=(m[q[k]]||0)+1, m), {});
   const tr = cnt('track'), tp = cnt('topic');
-  const yr = ALL.reduce((m,q) => { new Set(yearsOf(q)).forEach(y => m[y]=(m[y]||0)+1); return m; }, {});
   // rebuild from scratch so a re-run can never duplicate or half-fill the lists
-  ['#fTrack','#fYear','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
+  ['#fTrack','#fTopic'].forEach(id => { $(id).innerHTML = ''; });
   const TORDER = ['Part 1','Part 2','Promotion'];
   const tracks = Object.keys(tr).sort((a,b) => {
     const ia = TORDER.indexOf(a), ib = TORDER.indexOf(b);
     return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
   });
   $('#fTrack').append(opt('','All tracks'), ...tracks.map(t=>opt(t,`${t} (${tr[t]})`)));
-  $('#fYear').append(opt('','All years'),
-    ...Object.keys(yr).sort((a,b)=>b-a).map(y=>opt(y,`${y} (${yr[y]})`)));
   $('#fTopic').append(opt('','All topics'), ...Object.keys(tp).sort().map(t=>opt(t,`${t} (${tp[t]})`)));
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
 }
@@ -1880,11 +1876,10 @@ function apply(){
     state.i = 0; render();
     return;
   }
-  const tr=$('#fTrack').value, yr=$('#fYear').value, tp=$('#fTopic').value,
+  const tr=$('#fTrack').value, tp=$('#fTopic').value,
         s=$('#fSearch').value.trim().toLowerCase();
   let l = ALL.filter(q => {
     if (tr && q.track !== tr) return false;
-    if (yr && !yearsOf(q).includes(yr)) return false;
     if (tp && q.topic !== tp) return false;
     if (state.wrongOnly && ANSWERS.get(q.uid)?.correct !== false) return false;
     if (state.unseen && ANSWERS.has(q.uid)) return false;
@@ -1899,7 +1894,7 @@ function apply(){
   if (state.shuffle) for (let i=l.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [l[i],l[j]]=[l[j],l[i]]; }
   state.list = l; state.i = 0; render();
 }
-['fTrack','fYear','fTopic'].forEach(id => $('#'+id).onchange = apply);
+['fTrack','fTopic'].forEach(id => $('#'+id).onchange = apply);
 let deb; $('#fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(apply, 180); };
 $('#bShuffle').onclick = function(){ state.shuffle=!state.shuffle; this.classList.toggle('on',state.shuffle); apply(); };
 $('#bWrong').onclick  = function(){ state.wrongOnly=!state.wrongOnly; if(state.wrongOnly){state.unseen=false;$('#bUnseen').classList.remove('on');}
@@ -2018,20 +2013,9 @@ function render(){
 
   const prev = ANSWERS.get(q.uid);
   const key  = KEYS.get(q.uid) || {};
-  // When a year is being revised, the card shows that year rather than the one the
-  // question is filed under - a repeat sat in 2021 and again in 2025 is genuinely a
-  // 2021 question, and a card stamped 2025 while you are working through 2021 just
-  // looks like the filter is broken. The repeat tag below still names every year.
-  const pickedYear = ($('#fYear') && $('#fYear').value) || '';
-  const shownYear = (pickedYear && yearsOf(q).includes(pickedYear)) ? pickedYear : q.year;
-  let tags = `<span class="tag yr">${shownYear}</span><span class="tag">${esc(q.track)}</span>`
+  // Year and repeat-history tags removed — not useful to a resident studying the content.
+  let tags = `<span class="tag">${esc(q.track)}</span>`
            + `<span class="tag">${esc(q.topic)}</span>`;
-  // A question can repeat within a single year as well as across years, and
-  // repeat_count catches both. Keying the tag off years.length alone hid the
-  // repeat on roughly a third of the bank - exactly the highest-yield items.
-  const reps = Math.max(q.repeat_count || 1, (q.years||[]).length);
-  if (reps > 1)
-    tags += `<span class="tag rep">repeated ${reps}×${(q.years||[]).length > 1 ? ' · ' + q.years.join(', ') : ''}</span>`;
   // Anything describing how the item was rebuilt is for the editor, not the reader.
   (q.flags||[]).filter(f => !/reconstruct|corrected|rebuilt/i.test(f))
                .forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
@@ -2374,7 +2358,7 @@ async function renderPaceCard(){
   if (stand){
     peer = stand.ranked
       ? `<div class="kpi"><b>${stand.percentile}${suffix(stand.percentile)}</b>
-           <span>percentile among ${stand.cohort_size} residents</span></div>`
+           <span>percentile among peers</span></div>`
       : `<div class="kpi"><b>${Math.max(0, 50 - (stand.answered||0))}</b>
            <span>more answers before you are ranked</span></div>`;
   }
@@ -2440,7 +2424,7 @@ function goToQuestion(uid){
   BLOCK = null;
   state.flaggedOnly = state.wrongOnly = state.unseen = state.reviewOnly = false;
   ['#bFlagged','#bWrong','#bUnseen','#bReview'].forEach(s => $(s).classList.remove('on'));
-  ['#fTrack','#fYear','#fTopic'].forEach(s => { $(s).value = ''; });
+  ['#fTrack','#fTopic'].forEach(s => { $(s).value = ''; });
   $('#fSearch').value = '';
   document.querySelector('.tabs [data-tab="practice"]').click();
   apply();
@@ -3659,11 +3643,8 @@ async function residentDetail(uid){
   const topics = (d.by_topic||[]).map(t =>
     `<tr><td>${esc(t.topic)}</td><td class="num">${t.done}</td>
      <td class="num">${t.pct===null?'—':t.pct+'%'}</td><td style="width:110px">${bar(t.pct)}</td></tr>`).join('');
-  const years = (d.by_year||[]).map(t =>
-    `<tr><td>${t.year}</td><td class="num">${t.done}</td>
-     <td class="num">${t.pct===null?'—':t.pct+'%'}</td><td style="width:110px">${bar(t.pct)}</td></tr>`).join('');
   const wrong = (d.wrong||[]).map(w =>
-    `<tr><td><span class="tag yr">${w.year}</span> <span class="tag">${esc(w.topic)}</span>
+    `<tr><td><span class="tag">${esc(w.topic)}</span>
      <div style="margin-top:5px">${esc(w.stem)}…</div></td>
      <td class="num" style="color:var(--bad)">chose ${esc(w.chose)}</td></tr>`).join('');
   const pct = d.answered ? Math.round(100*d.correct/d.answered) : 0;
@@ -3679,8 +3660,6 @@ async function residentDetail(uid){
     </div>
     ${topics ? `<h3 style="font-size:13px;margin:14px 0 8px">Weakest topics first</h3>
       <table><tbody>${topics}</tbody></table>` : '<div class="empty">Nothing answered yet.</div>'}
-    ${years ? `<h3 style="font-size:13px;margin:16px 0 8px">By year</h3>
-      <table><tbody>${years}</tbody></table>` : ''}
     ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (most recent 60)</h3>
       <table><tbody>${wrong}</tbody></table>` : ''}
     <div class="nav"><button id="closeDetail">Close</button></div>
