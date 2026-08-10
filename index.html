@@ -4534,353 +4534,250 @@ async function deleteQuestion(uid){
   alertBar('Deleted ' + uid + (data && data.attempts_removed ? ' and ' + data.attempts_removed + ' attempt(s).' : '.'));
 }
 </script>
-<!-- ===== Saudi Neuro OSCE / Final Clinical tab =====
-     Self-contained. Adds ONE "OSCE" tab. Does NOT touch the theme or any
-     existing tab/view. Paste this whole block once, right before </body>
-     in www/index.html. The 9 stations + admin show/hide already live in
-     Supabase, so nothing else is needed. ===== -->
+<!-- ===== Saudi Neuro OSCE tab (v2 — simple read→reveal walkthrough) =====
+     Self-contained. Adds ONE "OSCE" tab. All styling scoped under #osceApp and
+     reuses the site's CSS variables, so theming is untouched. Loads the 9 stations
+     and admin show/hide from Supabase. Paste once before </body>. ===== -->
 <script>
-var OSCE_CSS="#osceApp :root{}@media (prefers-color-scheme: light){#osceApp :root{}}#osceApp *{}#osceApp{}#osceApp .wrap{}#osceApp header{}#osceApp a{}#osceApp select,#osceApp input,#osceApp button,#osceApp textarea{}#osceApp button{}#osceApp button:hover:not(:disabled){}#osceApp button:disabled{}#osceApp button.primary{}#osceApp button.ghost{}#osceApp button.sm{}#osceApp .row{}#osceApp .spread{}#osceApp .card{}#osceApp .tag{}#osceApp .tag.acc{}#osceApp .tag.ok{}#osceApp .tag.bad{}#osceApp .tag.warn{}#osceApp .muted{}#osceApp .small{}#osceApp .faint{}#osceApp h1,#osceApp h2,#osceApp h3,#osceApp h4{}#osceApp h2{}#osceApp h3{}#osceApp .modes button{}#osceApp .modes button.on{}#osceApp .phasebar{}#osceApp .phasebar .pb{}#osceApp .phasebar .pb.on{}#osceApp .phasebar .pb.done{}#osceApp .work{}@media(max-width:820px){#osceApp .work{}}#osceApp .col{}#osceApp .colhead{}#osceApp .grp{}#osceApp .grp>summary{}#osceApp .grp>summary::-webkit-details-marker{}#osceApp .opt{}#osceApp .opt:hover{}#osceApp .opt .txt{}#osceApp .opt .addbtn{}#osceApp .mine{}#osceApp .mine .num{}#osceApp .mine .txt{}#osceApp .mine .ctl{}#osceApp .mine.drop{}#osceApp .bucket{}#osceApp .bucket.over{}#osceApp .bucket .bh{}#osceApp .bkbtns button{}#osceApp .meter{}#osceApp .meter i{}#osceApp .exp{}#osceApp .exp h4{}#osceApp .note{}#osceApp .danger{}#osceApp .good{}#osceApp .toast{}#osceApp .toast.on{}#osceApp .qa{}#osceApp .qa .q{}#osceApp .qa .a{}#osceApp .hide{}#osceApp .timepill{}#osceApp .kbd{}#osceApp ul.tight{}#osceApp ul.tight li{}#osceApp .chip{}#osceApp .prio-essential{}#osceApp .prio-important{}#osceApp .prio-useful{}#osceApp .prio-low{}#osceApp .prio-irrelevant{}\n#osceApp header{position:static;top:auto;z-index:auto}\n#osceApp{display:block}\n#osceApp .wrap{max-width:none;padding:0}\n#viewOsce{max-width:900px;margin:0 auto;padding:0 16px 80px}\n";
-var OSCE_SHELL="<header><div class=\"wrap\">\n  <div class=\"spread\">\n    <div class=\"row\"><b id=\"stTitle\">Interactive station</b><span class=\"tag acc\" id=\"stType\"></span></div>\n    <div class=\"row modes\" id=\"modeSel\">\n      <span class=\"faint\">Mode</span>\n      <button data-m=\"learn\" class=\"sm on\">Learn</button>\n      <button data-m=\"practice\" class=\"sm\">Practice</button>\n      <button data-m=\"exam\" class=\"sm\">Exam</button>\n    </div>\n  </div>\n  <div class=\"phasebar\" id=\"phasebar\"></div>\n</div></header>\n\n<div class=\"wrap\" id=\"root\"></div>\n<div class=\"toast\" id=\"toast\"></div>";
+var OSCE_CSS=[
+"#viewOsce{max-width:720px;margin:0 auto;padding:0 16px 96px}",
+"#osceApp{color:var(--ink);font-size:16px;line-height:1.55}",
+"#osceApp .ohead{position:sticky;top:0;z-index:4;background:var(--bg);padding:12px 0 10px;border-bottom:1px solid var(--line)}",
+"#osceApp .obrand{display:flex;align-items:center;gap:10px;flex-wrap:wrap}",
+"#osceApp .obrand b{font-size:15px}",
+"#osceApp .opill{font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:2px 9px}",
+"#osceApp .otog{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);cursor:pointer;user-select:none}",
+"#osceApp .osw{width:38px;height:22px;border-radius:99px;background:var(--line);position:relative;transition:.15s;flex:none}",
+"#osceApp .osw.on{background:var(--accent)}",
+"#osceApp .osw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}",
+"#osceApp .osw.on i{left:18px}",
+"#osceApp .odots{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}",
+"#osceApp .odot{height:6px;flex:1;min-width:12px;border-radius:99px;background:var(--line)}",
+"#osceApp .odot.done{background:var(--accent)}",
+"#osceApp .odot.now{background:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}",
+"#osceApp .ostep{font-size:12px;color:var(--faint);margin-top:8px;text-transform:uppercase;letter-spacing:.03em}",
+"#osceApp .ocard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:17px 17px 15px;margin:14px 0}",
+"#osceApp .oh1{font-size:20px;margin:2px 0 6px;font-weight:700}",
+"#osceApp .oqh{font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px}",
+"#osceApp .oprompt{font-size:17px;font-weight:600;margin:2px 0}",
+"#osceApp .oscn{color:var(--dim);font-size:14.5px}",
+"#osceApp .ohint{color:var(--dim);font-size:13.5px;margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 11px}",
+"#osceApp .obtn{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:11px;padding:11px 15px;font-size:15px;font-weight:600;cursor:pointer;transition:.12s}",
+"#osceApp .obtn:hover{border-color:var(--accent)}",
+"#osceApp .obtn.prim{background:var(--accent);border-color:var(--accent);color:#fff;width:100%;margin-top:12px}",
+"#osceApp .orow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}",
+"#osceApp .oreveal{margin-top:12px;animation:ofade .18s ease}",
+"@keyframes ofade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
+"#osceApp .oglab{font-size:12.5px;font-weight:700;color:var(--dim);margin:15px 0 6px;display:flex;gap:8px;align-items:center}",
+"#osceApp .oglab .on{font-weight:500;color:var(--faint)}",
+"#osceApp .oitem{padding:9px 12px;border:1px solid var(--line);border-radius:11px;margin:7px 0;background:var(--panel)}",
+"#osceApp .oitem.ess{border-color:var(--ok);background:var(--ok-bg)}",
+"#osceApp .oitem.must{border-color:var(--bad);background:var(--bad-bg)}",
+"#osceApp .oitem.low{opacity:.72}",
+"#osceApp .oitem .olab{font-weight:600;font-size:15px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}",
+"#osceApp .oitem.low .olab{font-weight:500;color:var(--faint)}",
+"#osceApp .ok{flex:none;font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 6px;letter-spacing:.02em}",
+"#osceApp .ok.ess{background:var(--ok);color:#fff}",
+"#osceApp .ok.imp{background:var(--accent);color:#fff}",
+"#osceApp .ok.low{background:var(--panel2);color:var(--dim);border:1px solid var(--line)}",
+"#osceApp .osafe{font-size:10.5px;font-weight:700;color:#fff;background:var(--bad);border-radius:6px;padding:1px 6px}",
+"#osceApp .orv{color:var(--dim);font-size:13.5px;margin-top:3px}",
+"#osceApp .oseqn{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:12px;font-weight:700;align-items:center;justify-content:center;flex:none}",
+"#osceApp .ocheck{margin-top:10px}",
+"#osceApp .ocrow{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin:6px 0;cursor:pointer}",
+"#osceApp .ocrow.on{border-color:var(--accent);background:var(--accent-dim)}",
+"#osceApp .obox{width:20px;height:20px;border-radius:6px;border:2px solid var(--line);flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}",
+"#osceApp .ocrow.on .obox{background:var(--accent);border-color:var(--accent)}",
+"#osceApp .oscore{display:flex;gap:8px;margin-top:10px;font-size:13px;color:var(--dim);flex-wrap:wrap}",
+"#osceApp .otag{border:1px solid var(--line);border-radius:99px;padding:2px 10px}",
+"#osceApp .otag.g{color:var(--ok);border-color:var(--ok)}",
+"#osceApp .otag.r{color:var(--bad);border-color:var(--bad)}",
+"#osceApp .orate{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}",
+"#osceApp .orate .obtn{flex:1;min-width:92px}",
+"#osceApp .onav{display:flex;gap:10px;margin-top:16px}",
+"#osceApp .onav .obtn{flex:1}",
+"#osceApp .ocase{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 13px;border:1px solid var(--line);border-radius:12px;margin:8px 0;cursor:pointer;background:var(--panel)}",
+"#osceApp .ocase:hover{border-color:var(--accent)}",
+"#osceApp .ocase .ct{font-weight:600;font-size:15px}",
+"#osceApp .ocase .cc{color:var(--faint);font-size:13px;margin-top:2px}",
+"#osceApp .ofoot{color:var(--faint);font-size:12px;text-align:center;margin-top:20px;line-height:1.6}",
+"#osceApp .oempty{color:var(--dim);padding:22px;text-align:center}",
+"#osceApp .otoast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:9}",
+"#osceApp .otoast.on{opacity:1;transform:translateX(-50%)}"
+].join("\n");
+
+var OSCE_SHELL='<div id="oscView"></div><div class="otoast" id="oscToast"></div>';
+
 function osceRpc(name,args){
   var t=null; try{ var raw=localStorage.getItem('sb-jnwbcfwtlnrupkthbluh-auth-token'); if(raw){ var s=JSON.parse(raw); t=(s&&s.access_token)||(s&&s.currentSession&&s.currentSession.access_token)||null; } }catch(e){}
   var KEY='sb_publishable_Lc8toRDfrYJIlqPTyB7_xA_dFym0V5-';
   return fetch('https://jnwbcfwtlnrupkthbluh.supabase.co/rest/v1/rpc/'+name,{method:'POST',headers:{'apikey':KEY,'Authorization':'Bearer '+(t||KEY),'Content-Type':'application/json'},body:JSON.stringify(args||{})}).then(function(r){ if(!r.ok) return r.text().then(function(x){throw new Error(r.status+' '+x);}); return r.status===204?null:r.json(); });
 }
-function osceSearch(v){ S._q=v; refreshPalette(); }
-function osceToggleAdd(){ S._showAdd=!S._showAdd; goPhase(S.pi); }
-function osceExamReveal(){ S._examReveal=true; goPhase(S.pi); }
-window.OSCE_load=function(){ if(window.__osceLoaded) return; var h=document.getElementById('root'); if(h) h.innerHTML='<div class="card">Loading stations…</div>';
-  return osceRpc('osce_cases').then(function(rows){ CASES=(rows&&rows.length)?rows:[]; window.__osceLoaded=true; renderBank(); }).catch(function(e){ var hh=document.getElementById('root'); if(hh) hh.innerHTML='<div class="card">Could not load stations. '+((e&&e.message)||'')+'</div>'; }); };
-/* ===== interactive engine (isolated; no global collisions) ===== */
-var CASES = [];
-let CASE=null, byId={};
-const $=s=>document.querySelector(s); const $$=s=>Array.from(document.querySelectorAll(s));
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const pct=(a,b)=>b?Math.round(100*a/b):0;
-const mc=p=>p<50?'var(--bad)':p<75?'var(--warn)':'var(--ok)';
-const PRIO_W={essential:3,important:2,useful:1,low:0.3,irrelevant:0};
-let S={mode:'learn',pi:0,plan:{},reveal:{},hints:{},undo:[],results:[],started:false};
-function buildIndex(){ byId={}; CASE.phases.forEach(p=>p.options.forEach(o=>byId[o.c]=o)); }
-function initPlans(){ S={mode:S.mode,pi:0,plan:{},reveal:{},hints:{},undo:[],results:[],started:true};
-  CASE.phases.forEach(p=>{ S.plan[p.id]=(p.type==='bucket'||p.type==='rank')?{}:[]; S.hints[p.id]=0; }); }
-function pickCase(i){ CASE=CASES[i];
-  CASE.domains=CASE.domains||["Data-Gathering","Reasoning","Decision-Making","Professional"];
-  CASE.station_seconds=CASE.station_seconds||600;
-  buildIndex(); initPlans(); renderScenario(); }
-function backToBank(){ CASE=null; S.started=false; renderBank(); }
-function renderBank(){
-  $('#stTitle').textContent='Approach-to-complaint bank'; $('#stType').textContent=CASES.length+' cases'; $('#phasebar').innerHTML='';
-  const byTopic={}; CASES.forEach((c,i)=>{(byTopic[c.topic]=byTopic[c.topic]||[]).push(i);});
-  $('#root').innerHTML=`<div class="card">
-    <h2 style="margin:0 0 .2em">Approach-to-complaint stations</h2>
-    <p class="small muted">Each station begins with a presenting neurological complaint and drives you through the whole neuraxis — a comprehensive, localisation-based differential (central <b>and</b> peripheral) — then investigations by priority and management. Pick a complaint; set Learn / Practice / Exam mode top-right.</p>
-    ${Object.entries(byTopic).map(([t,idxs])=>`<div style="margin-top:12px"><div class="colhead">${esc(t)}</div>${idxs.map(i=>{const c=CASES[i];return `<div class="opt" style="cursor:pointer" onclick="pickCase(${i})"><span class="txt"><b>${esc(c.title)}</b>${c.complaint?`<br><span class="faint">Presenting complaint: ${esc(c.complaint)}</span>`:''}</span><span class="row"><span class="tag ${c.station_type==='OSCE'?'acc':''}">${esc(c.station_type||'SOE')}</span><span class="tag">${esc(c.setting||'')}</span><span class="tag">${'●'.repeat(c.difficulty||2)}${'○'.repeat(3-(c.difficulty||2))}</span></span></div>`;}).join('')}</div>`).join('')}
-    <p class="faint" style="margin-top:14px">Prototype · complaint-based interactive library. The same engine drives every station from its authored data.</p>
-  </div>`;
-}
-/* ---------- mode ---------- */
-function osceBindModes(){ $$('#modeSel button').forEach(b=>b.onclick=()=>{ if(S.started&&!confirm('Change mode? This restarts the station.'))return;
-  S.mode=b.dataset.m; $$('#modeSel button').forEach(x=>x.classList.toggle('on',x===b)); restart(); }); }
-function restart(){ if(!CASE){renderBank();return;} initPlans(); renderScenario(); }
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1400);}
-/* ---------- scenario / phase bar ---------- */
-function drawPhasebar(active){ $('#phasebar').innerHTML=CASE.phases.map((p,i)=>
-  `<span class="pb ${i===active?'on':''} ${i<active?'done':''}">${i+1}. ${esc(p.title)}</span>`).join(''); }
-function renderScenario(){
-  $('#stTitle').textContent=CASE.title; $('#stType').textContent=CASE.station_type+' · '+CASE.setting;
-  drawPhasebar(-1);
-  $('#root').innerHTML=`<div class="card">
-    <div class="spread"><h2 style="margin:0">${esc(CASE.title)}</h2><span class="row"><span class="tag">${esc(CASE.topic)}</span><button class="ghost sm" onclick="backToBank()">← Complaints</button></span></div>
-    <div class="exp"><h4>Outside the room</h4>${esc(CASE.scenario)}</div>
-    <div class="note small"><b>${S.mode.toUpperCase()} mode.</b> ${modeBlurb()}</div>
-    <p class="small muted">You will work through ${CASE.phases.length} steps — history, examination, localisation, differential, investigations, management and counselling. At each step you <b>choose and arrange</b> your approach, then see what it reveals.</p>
-    <button class="primary" onclick="goPhase(0)">Start the station →</button>
-  </div>`;
-}
-function modeBlurb(){return {
-  learn:"Full question wording is shown, hints are free, and timing is only a guide.",
-  practice:"Questions are shown as broad clinical categories, hints are limited, timing is tracked.",
-  exam:"No prompts — type what you would ask/do; disease-specific options are hidden; timed with progressive disclosure."
-}[S.mode];}
-/* ---------- phase dispatch ---------- */
-function goPhase(i){ S.pi=i; const p=CASE.phases[i]; drawPhasebar(i);
-  if(p.type==='seq_interview'||p.type==='seq_order') renderSeq(p);
-  else renderBucket(p);
-}
-function estTime(p){ const ids=flatPlan(p); return ids.reduce((a,c)=>a+(byId[c]?.t||0),0); }
-function flatPlan(p){ const pl=S.plan[p.id]; return (p.type==='bucket'||p.type==='rank')?Object.values(pl).flat():pl; }
-function isPlaced(p,c){ return flatPlan(p).includes(c); }
-/* ---------- palette (left) ---------- */
-function availOptions(p){
-  return p.options.filter(o=>{
-    if(isPlaced(p,o.c))return false;
-    if(S.mode==='learn') return true;               // learn: show relevant + additional
-    if(S.mode==='practice') return o.rel!==false || S._showAdd;   // practice: relevant, +additional on toggle
-    return false;                                    // exam: palette hidden (free-text), unless reveal toggled
-  });
-}
-function optLabel(o){ return S.mode==='practice'?(o.p||o.l):(o.l||o.p); }
-function paletteHTML(p){
-  if(S.mode==='exam' && !S._examReveal){
-    return `<div class="col"><div class="colhead">Type your approach</div>
-      <p class="faint">Exam mode: no options shown. Type each question/action; we map it to the clinical concept.</p>
-      <div class="row"><input id="ftext" placeholder="e.g. when was he last well?" style="flex:1" onkeydown="if(event.key==='Enter')freeAdd()"><button class="sm" onclick="freeAdd()">Add</button></div>
-      <div id="ftmsg" class="faint" style="margin-top:6px"></div>
-      <button class="ghost sm" style="margin-top:10px" onclick="osceExamReveal()">Reveal options (guided — recorded)</button>
-    </div>`;
-  }
-  const groups = p.groups||[{id:'_',label:'Available'}];
-  const q=(S._q||'').toLowerCase();
-  const av=availOptions(p).filter(o=>!q||((optLabel(o)+' '+(o.k||[]).join(' ')).toLowerCase().includes(q)));
-  let body=groups.map(g=>{
-    const items=av.filter(o=>(o.g||'_')===g.id);
-    if(!items.length && (p.groups))return '';
-    const rows=items.map(o=>optRow(p,o)).join('')|| '<div class="faint" style="padding:4px">— all added —</div>';
-    return `<details class="grp" open><summary><span>${esc(g.label)}</span><span class="row"><button class="sm ghost" onclick="event.preventDefault();addGroup('${p.id}','${g.id}')">+ group</button><span class="faint">${items.length}</span></span></summary><div style="padding:6px">${rows}</div></details>`;
+
+/* ===== simple walkthrough engine (isolated; every symbol osc-prefixed) ===== */
+var OSC_CASES=[]; var OSC=null;
+function oscEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+function oscV(){ return document.getElementById('oscView'); }
+function oscToast(m){ var t=document.getElementById('oscToast'); if(!t)return; t.textContent=m; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('on');},1300); }
+function oscPrio(pr){ return ({essential:['ess','Essential'],important:['imp','Important'],useful:['imp','Useful'],low:['low','Lower yield'],irrelevant:['low','Avoid']})[pr]||['low','']; }
+function oscCase(){ return OSC_CASES[OSC.ci]; }
+function oscOptByCode(phase,code){ return (phase.options||[]).filter(function(o){return o.c===code;})[0]; }
+
+window.OSCE_load=function(){ if(window.__osceLoaded) return; var h=oscV(); if(h) h.innerHTML='<div class="ocard"><div class="oempty">Loading stations…</div></div>';
+  return osceRpc('osce_cases').then(function(rows){ OSC_CASES=(rows&&rows.length)?rows:[]; window.__osceLoaded=true; oscBank(); })
+    .catch(function(e){ var hh=oscV(); if(hh) hh.innerHTML='<div class="ocard"><div class="oempty">Could not load stations. '+oscEsc((e&&e.message)||'')+'</div></div>'; }); };
+
+/* ---------- bank ---------- */
+function oscBank(){
+  OSC=null;
+  var byTopic={}; OSC_CASES.forEach(function(c,i){ (byTopic[c.topic||'Other']=byTopic[c.topic||'Other']||[]).push(i); });
+  var list=Object.keys(byTopic).map(function(t){
+    return '<div class="oglab" style="margin-top:16px">'+oscEsc(t)+'</div>'+byTopic[t].map(function(i){
+      var c=OSC_CASES[i]; var d=Math.max(1,Math.min(3,c.difficulty||2));
+      return '<div class="ocase" onclick="oscOpen('+i+')"><div><div class="ct">'+oscEsc(c.title)+'</div>'+
+        (c.complaint?'<div class="cc">'+oscEsc(c.complaint)+'</div>':'')+'</div>'+
+        '<div class="orow"><span class="opill">'+oscEsc(c.station_type||'SOE')+'</span>'+
+        (c.setting?'<span class="opill">'+oscEsc(c.setting)+'</span>':'')+
+        '<span class="opill">'+('●'.repeat(d))+('○'.repeat(3-d))+'</span></div></div>';
+    }).join('');
   }).join('');
-  const addToggle = (S.mode==='practice')?`<button class="ghost sm" onclick="osceToggleAdd()">${S._showAdd?'Hide':'Show'} additional</button>`:'';
-  const ftExam = (S.mode==='exam')?'':`<div class="row" style="margin:4px 0 8px"><input id="ftext" placeholder="or type your own…" style="flex:1" onkeydown="if(event.key==='Enter')freeAdd()"><button class="sm" onclick="freeAdd()">Add</button></div>`;
-  return `<div class="col" ondragover="event.preventDefault()">
-    <div class="colhead spread"><span>Available ${esc(p.type==='seq_interview'?'questions/actions':'options')}</span>${addToggle}</div>
-    <div class="row" style="margin-bottom:6px"><input id="qbox" placeholder="Search…" value="${esc(S._q||'')}" oninput="osceSearch(this.value)" style="flex:1"></div>
-    ${ftExam}
-    <div id="paletteBody">${body||'<div class="faint">Type above to add.</div>'}</div>
-    <div id="ftmsg" class="faint" style="margin-top:6px"></div>
-  </div>`;
+  oscV().innerHTML='<div class="ohead"><div class="obrand"><b>OSCE · Approach to a complaint</b>'+
+      '<span class="opill">'+OSC_CASES.length+' stations</span></div></div>'+
+    '<div class="ocard"><div class="oh1">Approach-to-complaint stations</div>'+
+    '<p class="oscn">Each station starts from a presenting complaint and walks the whole approach — history, examination, localisation, differential, investigations and management. Read each step, think, then reveal the model answer. Turn on <b>Test me</b> to check yourself first.</p>'+
+    (list||'<div class="oempty">No stations published yet.</div>')+'</div>'+
+    '<div class="ofoot">Every question, finding, priority and safety flag comes from the station data — only the way you move through it is simpler.</div>';
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-function optRow(p,o){
-  return `<div class="opt" draggable="true" ondragstart="drag(event,'${o.c}')" data-c="${o.c}">
-    <span class="txt">${esc(optLabel(o))}</span>
-    <button class="sm addbtn" onclick="add('${p.id}','${o.c}')" ondblclick="add('${p.id}','${o.c}')">Add +</button>
-  </div>`;
+
+/* ---------- open a case ---------- */
+function oscOpen(i){ OSC={ci:i,test:(OSC&&OSC.test)||false,step:-1,revealed:{},picks:{},rating:{}}; oscRender(); }
+function oscHead(){
+  var c=oscCase(); var ph=c.phases||[]; var s=OSC.step;
+  var dots=ph.map(function(p,i){ return '<div class="odot '+(i<s?'done':'')+' '+(i===s?'now':'')+'"></div>'; }).join('');
+  var lab = s<0?'Case brief':('Step '+(s+1)+' of '+ph.length+' · '+oscEsc(ph[s].title));
+  return '<div class="ohead"><div class="obrand">'+
+      '<b>'+oscEsc(c.title)+'</b><span class="opill">'+oscEsc(c.topic||'')+'</span>'+
+      '<div class="otog" onclick="oscToggleTest()"><span>Test me as I go</span><div class="osw '+(OSC.test?'on':'')+'"><i></i></div></div>'+
+    '</div><div class="odots">'+dots+'</div><div class="ostep">'+lab+'</div></div>';
 }
-function refreshPalette(){ goPhase(S.pi); const q=$('#qbox'); if(q){ q.focus(); try{q.setSelectionRange(q.value.length,q.value.length);}catch(e){} } }
-/* ---------- SEQUENCE builder (history/exam/management/counselling) ---------- */
-function renderSeq(p){
-  const plan=S.plan[p.id]; const est=estTime(p); const over=est>CASE.station_seconds;
-  const interview=(p.type==='seq_interview');
-  $('#root').innerHTML=`
-   <div class="card"><div class="spread"><h3 style="margin:0">${esc(p.title)}</h3>
-     <span class="row"><span class="tag ${over?'bad':'acc'}">est ${est}s / ${CASE.station_seconds}s</span>
-     <button class="ghost sm" onclick="hint()">💡 Hint${S.mode==='exam'?' (recorded)':''}</button></span></div>
-     <div class="exp"><h4>Examiner</h4>${esc(p.prompt)}</div>
-     <div id="hintbox"></div>
-   </div>
-   <div class="work">
-     ${paletteHTML(p)}
-     <div class="col" ondragover="event.preventDefault()" ondrop="dropReorder(event,'${p.id}')">
-       <div class="colhead spread"><span>My ${interview?'plan':'order'}</span>
-         <span class="row"><button class="sm ghost" onclick="undo()">↶ Undo</button><button class="sm ghost" onclick="clearPlan('${p.id}')">Clear</button></span></div>
-       <div id="mine">${plan.length?plan.map((c,i)=>mineRow(p,c,i)).join(''):'<div class="faint">Drag, click <b>Add +</b>, or type a question. Reorder with ▲▼ — the sequence is scored.</div>'}</div>
-       <button class="primary" style="margin-top:10px;width:100%" ${plan.length?'':'disabled'} onclick="execSeq('${p.id}')">${interview?(p.id==='history'?'Start history interview →':'Perform examination →'):'Confirm & submit →'}</button>
-     </div>
-   </div>`;
+function oscRender(){
+  var c=oscCase();
+  if(OSC.step<0){
+    oscV().innerHTML=oscHead()+'<div class="ocard">'+
+      '<div class="oqh">Presenting complaint</div><div class="oprompt">'+oscEsc(c.complaint||c.title)+'</div>'+
+      '<div class="oqh" style="margin-top:12px">Outside the room</div><div class="oscn">'+oscEsc(c.scenario||'')+'</div>'+
+      '<button class="obtn prim" onclick="oscGo(0)">Start the walkthrough →</button>'+
+      '<div class="ohint" style="margin-top:12px">A calm read-through by default: read the question, think, then reveal. Flip <b>Test me as I go</b> on to check yourself at each step.</div>'+
+      '<div class="onav"><button class="obtn" onclick="oscBank()">← Stations</button></div></div>';
+  } else if(OSC.step>=c.phases.length){ oscFinal(); return; }
+  else { oscV().innerHTML=oscHead()+oscStep(c.phases[OSC.step]); }
+  window.scrollTo({top:0,behavior:'smooth'});
 }
-function mineRow(p,c,i){ const o=byId[c];
-  return `<div class="mine" draggable="true" ondragstart="drag(event,'${c}')" data-c="${c}">
-    <span class="num">${i+1}</span><span class="txt">${esc(optLabel(o))}</span>
-    <span class="ctl"><button class="sm ghost" onclick="move('${p.id}','${c}',-1)">▲</button>
-    <button class="sm ghost" onclick="move('${p.id}','${c}',1)">▼</button>
-    <button class="sm ghost" onclick="removeC('${p.id}','${c}')">✕</button></span></div>`;
+function oscGo(i){ OSC.step=i; oscRender(); }
+function oscToggleTest(){ OSC.test=!OSC.test; oscToast(OSC.test?'Test me: on':'Study mode'); if(OSC.step>=0 && OSC.step<oscCase().phases.length) oscRender(); }
+
+/* ---------- one phase ---------- */
+function oscStep(p){
+  var rev=!!OSC.revealed[p.id];
+  var showCheck=OSC.test && !rev;
+  var hint = (p.hints&&p.hints.length)?('<div class="ohint">💡 '+oscEsc(p.hints[0])+'</div>'):'';
+  var body='<div class="ocard"><div class="oqh">Examiner</div><div class="oprompt">'+oscEsc(p.prompt||p.title)+'</div>'+hint+
+    (showCheck?oscChecklist(p):'')+
+    '<div>'+(rev?oscReveal(p):'')+'</div>'+
+    (rev?oscRate(p):'<button class="obtn prim" onclick="oscDoReveal('+"'"+p.id+"'"+')">'+(OSC.test?'Check &amp; reveal model answer':'Reveal the model answer')+'</button>')+
+    '<div class="onav"><button class="obtn" onclick="oscGo('+(OSC.step-1)+')">'+(OSC.step===0?'← Brief':'← Back')+'</button>'+
+    '<button class="obtn" style="border-color:var(--accent);color:var(--accent)" onclick="oscGo('+(OSC.step+1)+')">'+(OSC.step===oscCase().phases.length-1?'Finish →':(rev?'Next →':'Skip →'))+'</button></div></div>';
+  return body;
 }
-/* ---------- BUCKET / RANK builder (differential/investigation/localisation) ---------- */
-function renderBucket(p){
-  const est=estTime(p);
-  $('#root').innerHTML=`
-   <div class="card"><div class="spread"><h3 style="margin:0">${esc(p.title)}</h3>
-     <span class="row"><span class="tag acc">est ${est}s</span><button class="ghost sm" onclick="hint()">💡 Hint</button></span></div>
-     <div class="exp"><h4>Examiner</h4>${esc(p.prompt)}</div><div id="hintbox"></div>
-   </div>
-   <div class="work">
-     ${paletteHTML(p)}
-     <div class="col">
-       <div class="colhead spread"><span>My ${p.type==='rank'?'ranking':'answer'}</span><button class="sm ghost" onclick="clearPlan('${p.id}')">Clear</button></div>
-       ${p.buckets.map(b=>bucketHTML(p,b)).join('')}
-       <button class="primary" style="margin-top:10px;width:100%" onclick="execBucket('${p.id}')">Submit →</button>
-     </div>
-   </div>`;
+function oscChecklist(p){
+  OSC.picks[p.id]=OSC.picks[p.id]||{};
+  var opts=p.options||[];
+  return '<div class="ocheck"><div class="oqh" style="margin-top:14px">Tick what you would do</div>'+
+    opts.map(function(o,idx){ var on=!!OSC.picks[p.id][idx];
+      return '<div class="ocrow '+(on?'on':'')+'" onclick="oscPick('+"'"+p.id+"'"+','+idx+')"><div class="obox">'+(on?'✓':'')+'</div><div>'+oscEsc(o.l)+'</div></div>';
+    }).join('')+'</div>';
 }
-function bucketHTML(p,b){ const items=(S.plan[p.id][b.id]||[]);
-  return `<div class="bucket" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="dropBucket(event,'${p.id}','${b.id}')">
-    <div class="bh">${esc(b.label)}</div>
-    ${items.map(c=>`<div class="mine" draggable="true" ondragstart="drag(event,'${c}')" data-c="${c}"><span class="txt">${esc(optLabel(byId[c]))}</span><span class="ctl"><button class="sm ghost" onclick="removeC('${p.id}','${c}')">✕</button></span></div>`).join('')||'<div class="faint">drop here</div>'}
-  </div>`;
+function oscPick(id,idx){ var pk=OSC.picks[id]=OSC.picks[id]||{}; pk[idx]=!pk[idx]; oscRender(); }
+function oscDoReveal(id){ OSC.revealed[id]=true; oscRender(); }
+
+function oscItem(o,n){
+  var isMust = o.sf && (o.pr==='essential'||o.pr==='important');
+  var cls = o.pr==='essential'?(o.sf?'oitem must':'oitem ess'):((o.pr==='low'||o.pr==='irrelevant')?'oitem low':'oitem');
+  var pr=oscPrio(o.pr); var chip = pr[1]?'<span class="ok '+pr[0]+'">'+pr[1]+'</span>':'';
+  var num = n!=null?'<span class="oseqn">'+n+'</span> ':'';
+  var safe = isMust?' <span class="osafe">safety</span>':'';
+  return '<div class="'+cls+'"><div class="olab">'+num+chip+'<span>'+oscEsc(o.l)+'</span>'+safe+'</div>'+
+    (o.r?'<div class="orv">'+oscEsc(o.r)+'</div>':'')+'</div>';
 }
-/* for bucket phases, palette rows get quick bucket buttons */
-const _optRow=optRow;
-optRow=function(p,o){
-  if(p.type==='bucket'||p.type==='rank'){
-    return `<div class="opt" draggable="true" ondragstart="drag(event,'${o.c}')" data-c="${o.c}">
-      <span class="txt">${esc(optLabel(o))}</span>
-      <span class="bkbtns row">${p.buckets.map(b=>`<button class="sm ghost" title="${esc(b.label)}" onclick="place('${p.id}','${o.c}','${b.id}')">${esc(b.label.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase())}</button>`).join('')}</span>
-    </div>`;
+function oscReveal(p){
+  var html='<div class="oreveal">';
+  // self-test score line
+  if(OSC.test && OSC.picks[p.id]){
+    var opts=p.options||[]; var ess=opts.filter(function(o){return o.pr==='essential';});
+    var chosen=Object.keys(OSC.picks[p.id]).filter(function(k){return OSC.picks[p.id][k];}).map(function(k){return opts[+k];});
+    var gotEss=chosen.filter(function(o){return o&&o.pr==='essential';}).length;
+    var low=chosen.filter(function(o){return o&&(o.pr==='low'||o.pr==='irrelevant');}).length;
+    html+='<div class="oscore"><span class="otag g">Essentials '+gotEss+'/'+ess.length+'</span>'+
+      (low?'<span class="otag r">'+low+' low-value pick'+(low>1?'s':'')+'</span>':'')+
+      '<span class="otag">You ticked '+chosen.length+'</span></div>';
   }
-  return _optRow(p,o);
-};
-/* ---------- actions ---------- */
-function snap(){ S.undo.push(JSON.stringify(S.plan)); if(S.undo.length>30)S.undo.shift(); }
-function add(pid,c){ const p=CASE.phases.find(x=>x.id===pid); if(isPlaced(p,c)){toast('Already selected');return;} snap(); S.plan[pid].push(c); toast('✓ Added'); goPhase(S.pi); }
-function place(pid,c,bk){ const p=CASE.phases.find(x=>x.id===pid); snap();
-  Object.keys(S.plan[pid]).forEach(k=>S.plan[pid][k]=(S.plan[pid][k]||[]).filter(x=>x!==c));
-  (S.plan[pid][bk]=S.plan[pid][bk]||[]).push(c); toast('✓ Placed'); goPhase(S.pi); }
-function removeC(pid,c){ const p=CASE.phases.find(x=>x.id===pid); snap();
-  if(p.type==='bucket'||p.type==='rank'){Object.keys(S.plan[pid]).forEach(k=>S.plan[pid][k]=S.plan[pid][k].filter(x=>x!==c));}
-  else S.plan[pid]=S.plan[pid].filter(x=>x!==c); goPhase(S.pi); }
-function move(pid,c,d){ snap(); const a=S.plan[pid]; const i=a.indexOf(c); const j=i+d; if(j<0||j>=a.length)return; [a[i],a[j]]=[a[j],a[i]]; goPhase(S.pi); }
-function clearPlan(pid){ snap(); const p=CASE.phases.find(x=>x.id===pid); S.plan[pid]=(p.type==='bucket'||p.type==='rank')?{}:[]; goPhase(S.pi); }
-function undo(){ if(!S.undo.length){toast('Nothing to undo');return;} S.plan=JSON.parse(S.undo.pop()); goPhase(S.pi); }
-function addGroup(pid,gid){ const p=CASE.phases.find(x=>x.id===pid); snap();
-  p.options.filter(o=>(o.g||'_')===gid && !isPlaced(p,o.c) && (S.mode!=='practice'||o.rel!==false||S._showAdd)).forEach(o=>S.plan[pid].push(o.c)); toast('✓ Group added'); goPhase(S.pi); }
-function hint(){ const p=CASE.phases[S.pi]; const hs=p.hints||[]; if(!hs.length)return; S.hints[p.id]=Math.min((S.hints[p.id]||0)+1,hs.length);
-  $('#hintbox').innerHTML=hs.slice(0,S.hints[p.id]).map(h=>`<div class="note small">💡 ${esc(h)}</div>`).join(''); }
-function freeAdd(){ const inp=$('#ftext'); if(!inp)return; const t=inp.value.trim(); if(!t)return; const p=CASE.phases[S.pi];
-  const hit=matchConcept(t,p);
-  if(!hit){ const m=$('#ftmsg'); if(m)m.innerHTML=`<span style="color:var(--warn)">“${esc(t)}” — no clear match to a scored concept. Try rephrasing.</span>`; return; }
-  if(isPlaced(p,hit.c)){ const m=$('#ftmsg'); if(m)m.innerHTML=`<span class="muted">Already covered: ${esc(optLabel(hit))}</span>`; inp.value=''; return; }
-  const wasBucket=(p.type==='bucket'||p.type==='rank');
-  if(wasBucket){ place(p.id,hit.c,p.buckets[0].id); } else { add(p.id,hit.c); }
-  const m=$('#ftmsg'); if(m)m.innerHTML=`<span style="color:var(--ok)">✓ Mapped “${esc(t)}” → ${esc(optLabel(hit))}${wasBucket?' (placed in “'+esc(p.buckets[0].label)+'” — drag to re-file)':''}</span>`;
-  const n=$('#ftext'); if(n){ n.value=''; n.focus(); }
-}
-function matchConcept(text,p){ const t=text.toLowerCase(); let best=null,bs=0;
-  p.options.forEach(o=>{ let s=0; (o.k||[]).forEach(k=>{ if(t.includes(k.toLowerCase()))s+=3; });
-    const words=(optLabel(o)+' '+(o.l||'')+' '+(o.p||'')).toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3);
-    words.forEach(w=>{ if(t.includes(w))s+=1; });
-    if(s>bs){bs=s;best=o;} });
-  return bs>=2?best:null; }
-/* ---------- drag & drop ---------- */
-let DRAG=null;
-function drag(e,c){ DRAG=c; e.dataTransfer.setData('text',c); }
-function dropReorder(e,pid){ e.preventDefault(); const p=CASE.phases.find(x=>x.id===pid); if(!DRAG)return;
-  if(!isPlaced(p,DRAG)){ add(pid,DRAG); DRAG=null; return; }
-  const y=e.clientY; const rows=$$('#mine .mine'); let idx=S.plan[pid].length;
-  for(let i=0;i<rows.length;i++){ const r=rows[i].getBoundingClientRect(); if(y<r.top+r.height/2){idx=i;break;} }
-  snap(); const a=S.plan[pid]; const cur=a.indexOf(DRAG); a.splice(cur,1); if(cur<idx)idx--; a.splice(idx,0,DRAG); DRAG=null; goPhase(S.pi); }
-function dropBucket(e,pid,bk){ e.preventDefault(); if(DRAG){ place(pid,DRAG,bk); DRAG=null; } $$('.bucket').forEach(b=>b.classList.remove('over')); }
-/* ---------- execute + score a SEQUENCE phase ---------- */
-function execSeq(pid){ const p=CASE.phases.find(x=>x.id===pid); const plan=S.plan[pid];
-  if(p.type==='seq_interview'){ runInterview(p,0,[]); }
-  else { scoreAndFeedback(p); }   // management/counselling: no interview, straight to feedback
-}
-function runInterview(p,i,acc){
-  if(i>=S.plan[p.id].length){ // show summary then feedback
-    $('#root').innerHTML=`<div class="card"><h3>${esc(p.id==='history'?'History obtained':'Examination findings')}</h3>
-      ${acc.map(x=>`<div class="qa"><div class="q">${esc(x.q)}</div><div class="a">${esc(x.a)}</div></div>`).join('')}
-      <button class="primary" style="margin-top:10px" onclick='showSeqFeedback(${JSON.stringify(p.id)})'>See feedback →</button></div>`;
-    return; }
-  const c=S.plan[p.id][i]; const o=byId[c]; const q=(p.id==='history')?(o.l||o.p):('Examine: '+(o.l||o.p));
-  acc.push({q, a:o.r||'(no additional finding)'});
-  $('#root').innerHTML=`<div class="card">
-     <div class="spread"><span class="tag acc">${p.id==='history'?'Question':'Manoeuvre'} ${i+1} / ${S.plan[p.id].length}</span><span class="faint">${esc(p.title)}</span></div>
-     <div class="qa"><div class="q">${esc(q)}</div><div class="a">${esc(o.r||'(no additional finding)')}</div></div>
-     <button class="primary" onclick='runInterview(CASE.phases.find(x=>x.id==="${p.id}"),${i+1},window._acc)'>${i+1<S.plan[p.id].length?'Next →':'Finish →'}</button>
-   </div>`; window._acc=acc;
-}
-function showSeqFeedback(pid){ scoreAndFeedback(CASE.phases.find(x=>x.id===pid)); }
-/* ---------- execute + score a BUCKET phase ---------- */
-function execBucket(pid){ const p=CASE.phases.find(x=>x.id===pid); scoreAndFeedback(p); }
-/* ---------- scoring + feedback (shared) ---------- */
-function scoreSeq(p){
-  const chosen=S.plan[p.id]; const ess=p.options.filter(o=>o.pr==='essential');
-  const imp=p.options.filter(o=>o.pr==='important');
-  const gotEss=ess.filter(o=>chosen.includes(o.c)), gotImp=imp.filter(o=>chosen.includes(o.c));
-  const low=chosen.filter(c=>['low','irrelevant'].includes(byId[c].pr));
-  const missedEss=ess.filter(o=>!chosen.includes(o.c));
-  const missedSafety=p.options.filter(o=>o.sf&&['essential','important'].includes(o.pr)&&!chosen.includes(o.c));
-  // sequence: order of chosen essentials/importants vs expert_seq
-  let seqScore=null;
-  if(p.expert_seq){ const exp=p.expert_seq.filter(c=>chosen.includes(c)); const got=chosen.filter(c=>p.expert_seq.includes(c));
-    let inorder=0,tot=0; for(let a=0;a<got.length;a++)for(let b=a+1;b<got.length;b++){tot++; if(exp.indexOf(got[a])<exp.indexOf(got[b]))inorder++;} seqScore=tot?pct(inorder,tot):100; }
-  // safety violations for seq_order (must_before)
-  const viol=[];
-  if(p.type==='seq_order'){ p.options.forEach(o=>{ if(o.must_before){ const ai=chosen.indexOf(o.c); o.must_before.forEach(b=>{const bi=chosen.indexOf(b); if(ai>=0&&bi>=0&&bi<ai)viol.push(`${optLabel(byId[b])} was placed before ${optLabel(o)}`);});}});
-    chosen.filter(c=>byId[c].pr==='irrelevant'&&byId[c].sf).forEach(c=>viol.push(`Unsafe action selected: ${optLabel(byId[c])}`)); }
-  const covPct=pct(gotEss.length*3+gotImp.length*2, ess.length*3+imp.length*2);
-  return {gotEss,gotImp,ess,imp,low,missedEss,missedSafety,seqScore,viol,covPct,chosen};
-}
-function scoreBucket(p){
-  const pl=S.plan[p.id]; const placed=Object.entries(pl).flatMap(([bk,arr])=>arr.map(c=>[c,bk]));
-  const ess=p.options.filter(o=>o.pr==='essential');
-  let full=0,part=0; const wrong=[],correct=[];
-  placed.forEach(([c,bk])=>{ const o=byId[c]; if(!o)return; if(o.bk===bk){full++;correct.push(o);} else {part++;wrong.push([o,bk]);} });
-  const missedEss=ess.filter(o=>!placed.some(([c])=>c===o.c));
-  const missedSafety=p.options.filter(o=>o.sf&&o.pr==='essential'&&!placed.some(([c])=>c===o.c));
-  const low=placed.map(([c])=>byId[c]).filter(o=>['low','irrelevant'].includes(o.pr));
-  const denom=p.options.filter(o=>['essential','important','useful'].includes(o.pr)).length;
-  const covPct=pct(full+part*0.5, denom);
-  return {full,part,wrong,correct,missedEss,missedSafety,low,covPct,placed};
-}
-function scoreAndFeedback(p){
-  const est=estTime(p); const time=Math.min(100,pct(CASE.station_seconds-Math.max(0,est-CASE.station_seconds),CASE.station_seconds));
-  let R,html='';
-  if(p.type==='bucket'||p.type==='rank'){ R=scoreBucket(p);
-    html=`
-      ${R.missedSafety.length?`<div class="danger"><b>⚠ Safety omission:</b><ul class="tight">${R.missedSafety.map(o=>`<li>${esc(optLabel(o))} — ${esc(o.r||'')}</li>`).join('')}</ul></div>`:''}
-      <div class="good small">Correctly placed: ${R.correct.map(o=>esc(optLabel(o))).join(', ')||'—'}</div>
-      ${R.wrong.length?`<div class="note small"><b>Re-categorise:</b> ${R.wrong.map(([o,bk])=>esc(optLabel(o))+' (you put it in “'+esc((p.buckets.find(b=>b.id===bk)||{}).label)+'”; expert: “'+esc((p.buckets.find(b=>b.id===o.bk)||{}).label)+'”)').join('; ')}</div>`:''}
-      ${R.missedEss.length?`<div class="note small"><b>Missed key items:</b> ${R.missedEss.map(o=>esc(optLabel(o))).join(', ')}</div>`:''}
-      ${R.low.length?`<div class="small muted">Low-value picks: ${R.low.map(o=>esc(optLabel(o))).join(', ')}</div>`:''}`;
-    // reveal results for placed items (investigations)
-    const results=R.placed.map(([c])=>byId[c]).filter(o=>o.r);
-    if(results.length&&p.id==='investigation'){ html+=`<div class="exp"><h4>Results (only what you requested)</h4>${results.map(o=>`<div class="small"><b>${esc(optLabel(o))}:</b> ${esc(o.r)}</div>`).join('')}</div>`; }
-    R.covPct2=R.covPct;
-  } else { R=scoreSeq(p);
-    html=`
-      ${R.missedSafety.length?`<div class="danger"><b>⚠ Critical omission${R.missedSafety.length>1?'s':''}:</b><ul class="tight">${R.missedSafety.map(o=>`<li>${esc(optLabel(o))}${o.r?' — '+esc(o.r):''}</li>`).join('')}</ul></div>`:''}
-      ${R.viol.length?`<div class="danger"><b>⚠ Unsafe sequencing:</b><ul class="tight">${R.viol.map(v=>`<li>${esc(v)}</li>`).join('')}</ul></div>`:''}
-      <div class="good small"><b>Essential covered ${R.gotEss.length}/${R.ess.length}:</b> ${R.gotEss.map(o=>esc(optLabel(o))).join(', ')||'—'}</div>
-      ${R.missedEss.length?`<div class="note small"><b>Missed essential:</b> ${R.missedEss.map(o=>esc(optLabel(o))+(o.r?' — '+o.r:'')).map(esc).join(' · ')}</div>`:''}
-      ${R.low.length?`<div class="small muted">Low-value / time-wasting: ${R.low.map(c=>esc(optLabel(byId[c]))).join(', ')}</div>`:''}
-      ${R.seqScore!=null?`<div class="small">Sequence vs expert order: <b style="color:${mc(R.seqScore)}">${R.seqScore}%</b>${p.expert_seq?` &nbsp;<span class="faint">Suggested opening: ${p.expert_seq.slice(0,4).map(c=>esc(optLabel(byId[c]||{l:c}))).join(' → ')}…</span>`:''}</div>`:''}`;
+  var type=p.type;
+  if(type==='seq_order'){
+    var order = (p.expert_seq&&p.expert_seq.length)?p.expert_seq.slice():[];
+    (p.options||[]).forEach(function(o){ if(order.indexOf(o.c)<0) order.push(o.c); });
+    var n=0; order.forEach(function(code){ var o=oscOptByCode(p,code); if(o){ n++; html+=oscItem(o,n); } });
+  } else if(p.buckets&&p.buckets.length){
+    p.buckets.forEach(function(b){
+      var its=(p.options||[]).filter(function(o){return o.bk===b.id;});
+      if(!its.length) return;
+      html+='<div class="oglab">'+oscEsc(b.label)+' <span class="on">· '+its.length+'</span></div>';
+      its.forEach(function(o){ html+=oscItem(o); });
+    });
+    var un=(p.options||[]).filter(function(o){ return !p.buckets.some(function(b){return b.id===o.bk;}); });
+    if(un.length){ html+='<div class="oglab">Also consider</div>'; un.forEach(function(o){ html+=oscItem(o); }); }
+  } else if(p.groups&&p.groups.length){
+    p.groups.forEach(function(g){
+      var its=(p.options||[]).filter(function(o){return o.g===g.id;});
+      if(!its.length) return;
+      html+='<div class="oglab">'+oscEsc(g.label)+' <span class="on">· '+its.length+'</span></div>';
+      its.forEach(function(o){ html+=oscItem(o); });
+    });
+    var ung=(p.options||[]).filter(function(o){ return !p.groups.some(function(g){return g.id===o.g;}); });
+    if(ung.length){ html+='<div class="oglab">Other</div>'; ung.forEach(function(o){ html+=oscItem(o); }); }
+  } else {
+    (p.options||[]).forEach(function(o){ html+=oscItem(o); });
   }
-  const cov=R.covPct;
-  // store result for final report
-  S.results=S.results.filter(r=>r.id!==p.id);
-  S.results.push({id:p.id,title:p.title,domain:p.domain,cov,seq:R.seqScore??null,safety:(R.missedSafety.length+ (R.viol?R.viol.length:0)),low:(R.low||[]).length,time,est,
-    missedEss:(R.missedEss||[]).map(o=>optLabel(o)), missedSafety:(R.missedSafety||[]).map(o=>optLabel(o))});
-  const dyn = (p.revise_prompt && p.id==='differential')?`<div class="note"><b>New information.</b> ${esc(p.revise_prompt)}<br><button class="sm" style="margin-top:6px" onclick="goPhase(S.pi)">↻ Revise my differential</button> <span class="faint">(then re-submit — CVT/paradoxical source can move up)</span></div>`:'';
-  const last=S.pi>=CASE.phases.length-1;
-  $('#root').innerHTML=`<div class="card">
-     <div class="spread"><h3 style="margin:0">Feedback · ${esc(p.title)}</h3><span class="tag" style="color:${mc(cov)};border-color:${mc(cov)}">${cov}% coverage</span></div>
-     <div class="meter" style="margin:8px 0"><i style="width:${cov}%;background:${mc(cov)}"></i></div>
-     ${html}
-     ${dyn}
-     <div class="spread" style="margin-top:14px">
-       <button class="ghost" onclick="goPhase(${S.pi})">↩ Edit this step</button>
-       ${last?`<button class="primary" onclick="finalReport()">See full performance report →</button>`:`<button class="primary" onclick="goPhase(${S.pi+1})">Next: ${esc(CASE.phases[S.pi+1].title)} →</button>`}
-     </div>
-   </div>`;
+  html+='</div>';
+  return html;
 }
-/* ---------- final report ---------- */
-function finalReport(){ drawPhasebar(CASE.phases.length);
-  const R=S.results; const overall=pct(R.reduce((a,r)=>a+r.cov,0),R.length*100);
-  const byDom={}; CASE.domains.forEach(d=>byDom[d]=[]); R.forEach(r=>{(byDom[r.domain]=byDom[r.domain]||[]).push(r.cov);});
-  const safety=R.reduce((a,r)=>a+r.safety,0); const low=R.reduce((a,r)=>a+r.low,0);
-  const seqs=R.filter(r=>r.seq!=null); const seqAvg=seqs.length?pct(seqs.reduce((a,r)=>a+r.seq,0),seqs.length*100):null;
-  const missedSafety=R.flatMap(r=>r.missedSafety); const missedEss=R.flatMap(r=>r.missedEss);
-  const totalEst=R.reduce((a,r)=>a+r.est,0);
-  $('#root').innerHTML=`<div class="card">
-    <h2 style="margin:0">Performance report — ${esc(CASE.title)}</h2>
-    <div class="row" style="margin:12px 0;gap:14px">
-      <div><div class="faint">Overall coverage</div><div style="font-size:26px;font-weight:700;color:${mc(overall)}">${overall}%</div></div>
-      <div><div class="faint">Sequencing</div><div style="font-size:26px;font-weight:700;color:${seqAvg==null?'var(--dim)':mc(seqAvg)}">${seqAvg==null?'—':seqAvg+'%'}</div></div>
-      <div><div class="faint">Safety flags</div><div style="font-size:26px;font-weight:700;color:${safety?'var(--bad)':'var(--ok)'}">${safety}</div></div>
-      <div><div class="faint">Low-value picks</div><div style="font-size:26px;font-weight:700">${low}</div></div>
-      <div><div class="faint">Est. time</div><div style="font-size:26px;font-weight:700;color:${totalEst>CASE.station_seconds?'var(--bad)':'var(--ok)'}">${totalEst}s</div></div>
-    </div>
-    <h3>By step</h3>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr><th style="text-align:left;border-bottom:1px solid var(--line);padding:6px">Step</th><th style="border-bottom:1px solid var(--line);padding:6px">Domain</th><th style="border-bottom:1px solid var(--line);padding:6px">Coverage</th><th style="border-bottom:1px solid var(--line);padding:6px">Seq</th><th style="border-bottom:1px solid var(--line);padding:6px">Safety</th></tr></thead>
-      <tbody>${R.map(r=>`<tr><td style="padding:6px;border-bottom:1px solid var(--line)">${esc(r.title)}</td><td style="text-align:center;border-bottom:1px solid var(--line)">${esc((r.domain||'').split('-')[0])}</td><td style="text-align:center;border-bottom:1px solid var(--line);color:${mc(r.cov)}">${r.cov}%</td><td style="text-align:center;border-bottom:1px solid var(--line)">${r.seq==null?'—':r.seq+'%'}</td><td style="text-align:center;border-bottom:1px solid var(--line);color:${r.safety?'var(--bad)':'var(--ok)'}">${r.safety||'✓'}</td></tr>`).join('')}</tbody>
-    </table>
-    ${missedSafety.length?`<div class="danger" style="margin-top:12px"><b>Critical omissions</b><ul class="tight">${missedSafety.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`:`<div class="good" style="margin-top:12px">No critical safety omissions. ✔</div>`}
-    ${missedEss.length?`<div class="note"><b>What you should have covered</b><ul class="tight">${[...new Set(missedEss)].map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`:''}
-    <div class="exp"><h4>Suggested expert approach</h4>Anchor the timeline (last-known-well) → screen the two reversible mimics (glucose, haemorrhage on CT) → quantify with NIHSS → confirm a large-vessel occlusion → deliver reperfusion (thrombolysis ± thrombectomy) → then hunt the young-stroke cause (PFO + DVT = paradoxical embolism). Safety before speed; focus before completeness.</div>
-    <div class="row" style="margin-top:12px"><button class="primary" onclick="restart()">↻ Retry station</button><button class="ghost" onclick="location.reload()">Reset</button></div>
-    <p class="faint" style="margin-top:10px">Prototype · one fully-enriched case demonstrating the interaction engine. The same engine drives every station once its option data is authored.</p>
-  </div>`;
+function oscRate(p){
+  var r=OSC.rating[p.id];
+  var opts=[['got','Got it'],['part','Partly'],['rev','Review again']];
+  return '<div class="orate">'+opts.map(function(x){ return '<button class="obtn '+(r===x[0]?'prim':'')+'" onclick="oscSetRate('+"'"+p.id+"'"+','+"'"+x[0]+"'"+')">'+x[1]+'</button>'; }).join('')+'</div>';
 }
+function oscSetRate(id,k){ OSC.rating[id]=k; oscRender(); }
+
+/* ---------- final ---------- */
+function oscFinal(){
+  var c=oscCase(); var ph=c.phases||[];
+  var got=0,rev=0; ph.forEach(function(p){ var r=OSC.rating[p.id]; if(r==='got')got++; if(r==='rev')rev++; });
+  var recap=ph.map(function(p){ var r=OSC.rating[p.id];
+    var tag=r==='got'?'<span class="otag g">nailed</span>':r==='rev'?'<span class="otag r">review</span>':r==='part'?'<span class="otag">partly</span>':'<span class="otag" style="opacity:.6">—</span>';
+    return '<div class="orow" style="justify-content:space-between;padding:7px 0;border-top:1px solid var(--line)"><span>'+oscEsc(p.title)+'</span>'+tag+'</div>';
+  }).join('');
+  oscV().innerHTML='<div class="ohead"><div class="obrand"><b>'+oscEsc(c.title)+'</b><span class="opill">Done</span></div></div>'+
+    '<div class="ocard"><div class="oh1">Case complete</div>'+
+    '<div class="oscore"><span class="otag g">'+got+' step'+(got!==1?'s':'')+' nailed</span>'+
+      (rev?'<span class="otag r">'+rev+' to review</span>':'')+'<span class="otag">'+ph.length+' steps</span></div>'+
+    '<div style="margin-top:12px">'+recap+'</div>'+
+    '<div class="onav"><button class="obtn" onclick="oscGo('+(ph.length-1)+')">← Back</button>'+
+    '<button class="obtn prim" style="margin:0;flex:1;width:auto" onclick="oscOpen('+OSC.ci+')">↻ Do it again</button></div>'+
+    '<div style="margin-top:10px"><button class="obtn" style="width:100%" onclick="oscBank()">← All stations</button></div></div>';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- install: tab + gating (unchanged, proven) ---------- */
 (function(){
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
   function install(){
@@ -4888,7 +4785,6 @@ function finalReport(){ drawPhasebar(CASE.phases.length);
     var st=document.createElement('style'); st.id='osce-css'; st.textContent=OSCE_CSS; document.head.appendChild(st);
     var host=document.getElementById('app')||document.body;
     var v=document.createElement('div'); v.id='viewOsce'; v.className='hide'; v.innerHTML='<div id="osceAdminBar"></div><div id="osceApp">'+OSCE_SHELL+'</div>'; host.appendChild(v);
-    try{ osceBindModes(); }catch(e){}
     var tabsBar=document.querySelector('.tabs'); if(!tabsBar) return;
     var btn=document.createElement('button'); btn.id='tabOsce'; btn.type='button'; btn.textContent='OSCE'; btn.className='hide'; tabsBar.appendChild(btn);
     var loaded=false;
