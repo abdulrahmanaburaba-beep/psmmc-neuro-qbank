@@ -217,6 +217,10 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
  padding:6px 10px;color:var(--dim);font-size:13.5px}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
+.adminsep{align-self:center;margin:0 3px 0 7px;padding-left:9px;border-left:1px solid var(--line);
+  color:var(--faint);font-size:10px;letter-spacing:.09em;text-transform:uppercase}
+.tabs.consultant-mode button:not(#tabMyres){display:none}
+.tabs.consultant-mode .adminsep{display:none}
 .bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:10px}
 .bar input[type=search]{min-width:150px;flex:1;width:auto}
 .spacer{flex:1}
@@ -493,7 +497,10 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <button data-tab="practice" class="on">Practice</button>
       <button data-tab="progress">My progress</button>
       <button data-tab="exam">Exam</button>
+      <button data-tab="myres" id="tabMyres" class="hide">My residents</button>
+      <span class="adminsep hide" id="adminSep" aria-hidden="true">Admin</span>
       <button data-tab="admin" id="tabAdmin" class="hide">Residents</button>
+      <button data-tab="consultants" id="tabConsultants" class="hide">Consultants</button>
       <button data-tab="qedit" id="tabQuestions" class="hide">Questions</button>
       <button data-tab="reports" id="tabReports" class="hide">Reports<span id="repBadge"></span></button>
       <button data-tab="biz" id="tabBiz" class="hide">Business</button>
@@ -528,7 +535,9 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <div id="viewPractice"></div>
   <div id="viewProgress" class="hide"></div>
   <div id="viewExam" class="hide"></div>
+  <div id="viewMyres" class="hide"></div>
   <div id="viewAdmin" class="hide"></div>
+  <div id="viewConsultants" class="hide"></div>
   <div id="viewQuestions" class="hide"></div>
   <div id="viewReports" class="hide"></div>
   <div id="viewBiz" class="hide"></div>
@@ -1443,11 +1452,20 @@ async function start(user){
   $('#app').classList.remove('hide');
   $('#uemail').textContent = prof.email;
   if (prof.role === 'admin'){
+    $('#adminSep').classList.remove('hide');
     $('#tabAdmin').classList.remove('hide');
+    $('#tabConsultants').classList.remove('hide');
     $('#tabQuestions').classList.remove('hide');
     $('#tabReports').classList.remove('hide');
     refreshReportBadge();
     setInterval(refreshReportBadge, 120000);   // quiet poll while the tab is open
+  }
+  // A consultant (sub-administrator) sees ONLY their own monitoring surface.
+  // consultant-mode hides every other tab via CSS, including the OSCE tab that is
+  // inserted later, so nothing a resident or admin has can leak into their view.
+  if (prof.role === 'consultant'){
+    document.querySelector('.tabs').classList.add('consultant-mode');
+    $('#tabMyres').classList.remove('hide');
   }
 
   // Each loader fails on its own. Previously one rejection here skipped both
@@ -1479,8 +1497,10 @@ async function start(user){
   // would sit between them and the Residents, Reports and Business tabs until they
   // answered a question about their own PGY year. They can still fill it in from
   // My progress if they want their own pacing numbers.
-  const iAmAdmin = !!(PROFILE && PROFILE.role === 'admin');
-  if (MYPROF && !MYPROF.profile_done && !iAmAdmin) showProfileWall();
+  const iAmStaff = !!(PROFILE && (PROFILE.role === 'admin' || PROFILE.role === 'consultant'));
+  if (MYPROF && !MYPROF.profile_done && !iAmStaff) showProfileWall();
+  // Consultants land straight on their residents rather than the practice bank.
+  if (PROFILE && PROFILE.role === 'consultant') $('#tabMyres').click();
 }
 
 // The account can be open on one device at a time. This page holds it while it
@@ -1800,7 +1820,7 @@ function showProfileWall(){
   $('#profileWall').classList.remove('hide');
   $('#practiceBar').classList.add('hide');
   $('#kbhint').classList.add('hide');
-  ['#viewPractice','#viewProgress','#viewExam','#viewAdmin','#viewQuestions','#viewReports','#viewBiz']
+  ['#viewPractice','#viewProgress','#viewExam','#viewMyres','#viewAdmin','#viewConsultants','#viewQuestions','#viewReports','#viewBiz']
     .forEach(s => $(s).classList.add('hide'));
   $('#profileWall').innerHTML = `
     <div class="card wall">
@@ -1831,13 +1851,17 @@ $$('.tabs button').forEach(b => b.onclick = () => {
   $('#viewPractice').classList.toggle('hide', !p);
   $('#viewProgress').classList.toggle('hide', state.tab !== 'progress');
   $('#viewExam').classList.toggle('hide', state.tab !== 'exam');
+  $('#viewMyres').classList.toggle('hide', state.tab !== 'myres');
   $('#viewAdmin').classList.toggle('hide', state.tab !== 'admin');
+  $('#viewConsultants').classList.toggle('hide', state.tab !== 'consultants');
   $('#viewQuestions').classList.toggle('hide', state.tab !== 'qedit');
   $('#viewReports').classList.toggle('hide', state.tab !== 'reports');
   $('#viewBiz').classList.toggle('hide', state.tab !== 'biz');
   if (state.tab === 'progress') renderProgress();
   if (state.tab === 'exam') renderExam();
+  if (state.tab === 'myres') renderMyResidents();
   if (state.tab === 'admin') renderAdmin();
+  if (state.tab === 'consultants') renderConsultants();
   if (state.tab === 'qedit') renderQuestions();
   if (state.tab === 'reports') renderReports();
   if (state.tab === 'biz') renderBiz();
@@ -3666,6 +3690,220 @@ async function residentDetail(uid){
   host.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+// ============================================================ consultants (admin only)
+// The administrator promotes a member to "consultant" (a sub-administrator) and
+// picks exactly which residents that consultant may monitor. A consultant sees
+// nothing else on the site: no question editor, no reported questions, no roster,
+// no business, no settings, and no resident other than the ones assigned here.
+async function renderConsultants(){
+  const v = $('#viewConsultants');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  const [{ data: cons, error: e1 }, { data: residents }] = await Promise.all([
+    sb.rpc('admin_list_consultants'),
+    sb.from('profiles').select('id,email,full_name').eq('role','resident').order('full_name')
+  ]);
+  if (e1){ v.innerHTML = '<div class="card"><div class="empty">Could not load consultants.</div></div>'; return; }
+  const consList = cons || [];
+  const rows = consList.map(c => `
+    <tr data-cid="${c.id}">
+      <td><b>${esc(c.name||'—')}</b><div style="font-size:11.5px;color:var(--dim)">${esc(c.email)}</div></td>
+      <td class="num">${c.residents}</td>
+      <td style="white-space:nowrap">
+        <button data-manage>Manage residents</button>
+        <button data-revoke>Revoke</button></td>
+    </tr>`).join('');
+  const residentOpts = (residents||[]).map(r =>
+    `<option value="${r.id}">${esc(r.full_name || r.email)}</option>`).join('');
+
+  v.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 6px;font-size:15px">Consultants (sub-administrators)</h3>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:12px">
+        A consultant can monitor <b>only the residents you assign to them</b> — their scores,
+        weak topics and wrong answers — and can print a report of just those residents.
+        They cannot edit questions, see reported questions, change any setting, or add or
+        remove members. Only you can create a consultant or change who is under them.
+      </div>
+      <div class="row">
+        <select id="consPick" style="flex:1 1 auto;min-width:180px">${
+          residentOpts || '<option value="">No residents yet</option>'}</select>
+        <button id="consAdd" class="primary"${residentOpts?'':' disabled'}>Make consultant</button>
+      </div>
+      <div id="consAddMsg" style="font-size:12.5px;color:var(--dim);margin-top:6px"></div>
+    </div>
+    <div id="consManage"></div>
+    <div class="card">
+      ${consList.length ? `<div style="overflow-x:auto"><table>
+        <thead><tr><th>Consultant</th><th class="num">Residents</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : '<div class="empty">No consultants yet. Promote a member above to get started.</div>'}
+    </div>`;
+
+  const msg = (t,bad)=>{ const m=$('#consAddMsg'); if(!m) return; m.style.color=bad?'var(--bad)':'var(--dim)'; m.textContent=t; };
+  $('#consAdd').onclick = async () => {
+    const id = $('#consPick').value; if (!id) return;
+    const name = $('#consPick').selectedOptions[0] ? $('#consPick').selectedOptions[0].textContent : 'that member';
+    if (!confirm('Make ' + name + ' a consultant?\n\nThey will be able to monitor the residents you assign to them, and nothing else.')) return;
+    const { error } = await sb.rpc('admin_grant_consultant', { target: id });
+    if (error){ msg('Could not promote: ' + error.message, true); return; }
+    renderConsultants();
+  };
+  v.querySelectorAll('[data-revoke]').forEach(b => b.onclick = async () => {
+    const tr = b.closest('tr'), cid = tr.dataset.cid;
+    const nm = tr.querySelector('b') ? tr.querySelector('b').textContent : 'this consultant';
+    if (!confirm('Revoke ' + nm + '?\n\nThey go back to being an ordinary member and every resident assignment is removed. Nothing about the residents themselves changes.')) return;
+    const { error } = await sb.rpc('admin_revoke_consultant', { target: cid });
+    if (error){ alertBar('Could not revoke: ' + error.message); return; }
+    renderConsultants();
+  });
+  v.querySelectorAll('[data-manage]').forEach(b => b.onclick = () => {
+    const tr = b.closest('tr');
+    manageConsultantResidents(tr.dataset.cid, tr.querySelector('b') ? tr.querySelector('b').textContent : 'Consultant');
+  });
+}
+
+async function manageConsultantResidents(cid, name){
+  const host = $('#consManage');
+  host.innerHTML = '<div class="card"><div class="empty">Loading…</div></div>';
+  const { data: list, error } = await sb.rpc('admin_list_residents_for_assignment', { p_consultant: cid });
+  if (error){ host.innerHTML = '<div class="card"><div class="empty">Could not load residents.</div></div>'; return; }
+  const items = (list||[]).map(r => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px">
+      <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''}>
+      <span style="flex:1">${esc(r.name||r.email)}<span style="color:var(--faint);font-size:11px"> · ${esc(r.email)}</span></span>
+      <span class="num">${r.answered} answered</span>
+    </label>`).join('');
+  const selCount = (list||[]).filter(r=>r.assigned).length;
+  host.innerHTML = `<div class="card" style="border-color:var(--accent)">
+    <div class="qhead"><b style="font-size:14px">Residents under ${esc(name)}</b>
+      <span class="tag" id="consSel">${selCount} selected</span></div>
+    <div style="font-size:11.5px;color:var(--faint);margin:2px 0 8px">Tick the residents this consultant may monitor, then Save.</div>
+    <div style="max-height:340px;overflow-y:auto">${items || '<div class="empty">No residents.</div>'}</div>
+    <div class="nav"><button id="consSave" class="primary">Save</button><button id="consCancel">Cancel</button></div>
+  </div>`;
+  host.scrollIntoView({behavior:'smooth',block:'nearest'});
+  host.querySelectorAll('[data-rid]').forEach(cb => cb.onchange = () => {
+    $('#consSel').textContent = host.querySelectorAll('[data-rid]:checked').length + ' selected';
+  });
+  $('#consCancel').onclick = () => { host.innerHTML=''; };
+  $('#consSave').onclick = async () => {
+    const ids = [...host.querySelectorAll('[data-rid]:checked')].map(cb => cb.dataset.rid);
+    const { error } = await sb.rpc('admin_set_consultant_residents', { p_consultant: cid, p_residents: ids });
+    if (error){ alertBar('Could not save: ' + error.message); return; }
+    host.innerHTML=''; renderConsultants();
+  };
+}
+
+// ========================================================= my residents (consultant view)
+// A consultant's entire surface: only the residents the administrator assigned.
+async function renderMyResidents(){
+  const v = $('#viewMyres');
+  v.innerHTML = '<div class="empty">Loading…</div>';
+  const { data, error } = await sb.rpc('consultant_my_residents');
+  if (error){ v.innerHTML = '<div class="card"><div class="empty">Could not load your residents.</div></div>'; return; }
+  const list = data || [];
+  const totalDone = list.reduce((s,r)=>s+(r.answered||0),0);
+  const rows = list.map(r => {
+    const pct = r.answered ? Math.round(100*r.correct/r.answered) : null;
+    const seen = r.last_seen ? new Date(r.last_seen).toLocaleDateString() : 'never';
+    return `<tr data-uid="${r.id}" style="cursor:pointer">
+      <td data-open><b>${esc(r.name||'—')}</b><div style="font-size:11.5px;color:var(--dim)">${esc(r.email)}</div></td>
+      <td class="num">${r.answered||0}</td>
+      <td class="num">${pct===null?'—':pct+'%'}</td>
+      <td style="width:90px"><div class="meter"><i style="width:${pct||0}%;background:${
+        pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div></td>
+      <td style="font-size:12px;color:var(--dim)">${seen}</td></tr>`;
+  }).join('');
+  v.innerHTML = `
+    <div class="grid">
+      <div class="kpi"><b>${list.length}</b><span>residents you monitor</span></div>
+      <div class="kpi"><b>${totalDone}</b><span>questions answered by them</span></div>
+    </div>
+    ${list.length ? `<div class="card" style="text-align:right;padding:12px 16px">
+      <button id="consReport" class="primary">Generate report</button></div>` : ''}
+    <div id="myresDetail"></div>
+    <div class="card">
+      ${list.length ? `<div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">Click a resident for their topic breakdown and wrong answers.</div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Resident</th><th class="num">Answered</th><th class="num">Score</th><th></th><th>Last seen</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+      : '<div class="empty">No residents have been assigned to you yet. Your administrator assigns them.</div>'}
+    </div>`;
+  v.querySelectorAll('tr[data-uid] [data-open]').forEach(td =>
+    td.onclick = () => consultantDetail(td.closest('tr').dataset.uid));
+  const rep = $('#consReport'); if (rep) rep.onclick = generateConsultantReport;
+}
+
+async function consultantDetail(uid){
+  const host = $('#myresDetail');
+  if (host.dataset.open === uid){ host.innerHTML=''; host.dataset.open=''; return; }
+  host.dataset.open = uid;
+  host.innerHTML = '<div class="card"><div class="empty">Loading…</div></div>';
+  const { data: d, error } = await sb.rpc('consultant_resident_detail', { target: uid });
+  if (error || !d){ host.innerHTML = '<div class="card"><div class="empty">Could not load.</div></div>'; return; }
+  const bar = pct => `<div class="meter"><i style="width:${pct||0}%;background:${
+    pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div>`;
+  const topics = (d.by_topic||[]).map(t =>
+    `<tr><td>${esc(t.topic)}</td><td class="num">${t.done}</td>
+     <td class="num">${t.pct===null?'—':t.pct+'%'}</td><td style="width:110px">${bar(t.pct)}</td></tr>`).join('');
+  const wrong = (d.wrong||[]).map(w =>
+    `<tr><td><span class="tag">${esc(w.topic)}</span>
+     <div style="margin-top:5px">${esc(w.stem)}…</div></td>
+     <td class="num" style="color:var(--bad)">chose ${esc(w.chose)}</td></tr>`).join('');
+  const pct = d.answered ? Math.round(100*d.correct/d.answered) : 0;
+  const denom = (typeof ALL !== 'undefined' && ALL.length) ? ALL.length : d.answered;
+  host.innerHTML = `<div class="card" style="border-color:var(--accent)">
+    <div class="qhead"><b style="font-size:15px">${esc(d.name || d.email || 'Resident')}</b>
+      <span class="tag">${esc(d.email||'')}</span>
+      <span class="num">${d.last_seen ? 'last seen ' + new Date(d.last_seen).toLocaleDateString() : 'never signed in'}</span></div>
+    <div class="grid">
+      <div class="kpi"><b>${d.answered}</b><span>answered of ${denom}</span></div>
+      <div class="kpi"><b>${pct}%</b><span>overall</span></div>
+      <div class="kpi"><b>${d.answered - d.correct}</b><span>wrong</span></div>
+    </div>
+    ${topics ? `<h3 style="font-size:13px;margin:14px 0 8px">Weakest topics first</h3>
+      <table><tbody>${topics}</tbody></table>` : '<div class="empty">Nothing answered yet.</div>'}
+    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (most recent 60)</h3>
+      <table><tbody>${wrong}</tbody></table>` : ''}
+    <div class="nav"><button id="closeMyres">Close</button></div>
+  </div>`;
+  $('#closeMyres').onclick = () => { host.innerHTML=''; host.dataset.open=''; };
+  host.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+async function generateConsultantReport(){
+  const { data, error } = await sb.rpc('consultant_report');
+  if (error || !data){ alertBar('Could not build the report.'); return; }
+  const when = new Date(data.generated_at || Date.now()).toLocaleString();
+  const who = (PROFILE && (PROFILE.full_name || PROFILE.email)) || 'Consultant';
+  const esc2 = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const body = (data.residents||[]).map(r => {
+    const pct = r.answered ? Math.round(100*r.correct/r.answered) : null;
+    const weak = (r.weak_topics||[]).map(w=>`${esc2(w.topic)} (${w.pct==null?'—':w.pct+'%'}, ${w.done})`).join(', ') || '—';
+    return `<tr>
+      <td>${esc2(r.name||r.email)}<div style="color:#666;font-size:11px">${esc2(r.email)}</div></td>
+      <td style="text-align:center">${r.answered||0}</td>
+      <td style="text-align:center">${pct==null?'—':pct+'%'}</td>
+      <td>${weak}</td>
+      <td style="text-align:center">${r.last_seen?new Date(r.last_seen).toLocaleDateString():'never'}</td></tr>`;
+  }).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Resident report</title>
+    <style>body{font:13px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:900px;margin:24px auto;padding:0 18px}
+    h1{font-size:19px;margin:0 0 2px}.sub{color:#666;font-size:12px;margin-bottom:16px}
+    table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border:1px solid #ddd;padding:7px 9px;text-align:left;vertical-align:top}
+    th{background:#f5f5f5}@media print{button{display:none}}</style></head>
+    <body>
+      <h1>Resident performance report</h1>
+      <div class="sub">Prepared for ${esc2(who)} · ${data.resident_count} resident(s) · ${esc2(when)}</div>
+      <table><thead><tr><th>Resident</th><th>Answered</th><th>Score</th><th>Weakest topics (score, answered)</th><th>Last seen</th></tr></thead>
+        <tbody>${body || '<tr><td colspan="5">No residents assigned.</td></tr>'}</tbody></table>
+      <p style="margin-top:20px"><button onclick="window.print()">Print / Save as PDF</button></p>
+    </body></html>`;
+  const w = window.open('', '_blank');
+  if (!w){ alertBar('Allow pop-ups to open the printable report.'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 // ==================================================================== exam mode
 // Question counts are the published SCFHS blueprint figures. SCFHS does not
 // publish the time allowed for these papers, so the default is one minute per
@@ -4109,7 +4347,7 @@ addEventListener('keydown', e => {
 
 let QDRAFT = null;                                   // { q, moved:Set, file:File|null }
 const QFILTER = { s:'', track:'', topic:'', imgOnly:false, needsPic:false, reviewOnly:false };
-// "needs picture" means the original exam item showed an image and none has been
+// "needs picture" means the question needs an image attached and none has been
 // attached yet - the worklist of what is still to do.
 const wantsPic = q => !q.image_path && (q.flags||[]).includes('image-dependent');
 const BLANK = () => ({ uid:'', year:new Date().getFullYear(), track:'', topic:'', stem:'',
@@ -4167,7 +4405,7 @@ function renderQuestions(){
         <select id="qTrack" style="flex:0 0 auto;width:130px">${opts(tracks, QFILTER.track)}</select>
         <select id="qTopic" style="flex:0 0 auto;width:170px">${opts(topics, QFILTER.topic)}</select>
         <button id="qImgOnly" class="${QFILTER.imgOnly?'on':''}" title="Questions that already have a picture attached">Has picture (${withImg})</button>
-        <button id="qNeedsPic" class="${QFILTER.needsPic?'on':''}" title="The original exam item showed an image and none has been attached yet">Needs picture (${needsImg})</button>
+        <button id="qNeedsPic" class="${QFILTER.needsPic?'on':''}" title="Questions that need an image attached">Needs picture (${needsImg})</button>
         <button id="qRevOnly" class="${QFILTER.reviewOnly?'on':''}">Needs check</button>
         <span class="spacer"></span>
         <button id="qBackup" title="Save every question, answer, explanation and the allowlist to a file on this device">Download backup</button>
