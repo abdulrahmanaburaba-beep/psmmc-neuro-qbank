@@ -406,7 +406,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
           the other three are not, and the reference it came from.</span></li>
         <li><b>Exam mode</b><span>Timed papers built to the blueprint, marked against the real
           pass bands, with a topic breakdown at the end.</span></li>
-        <li><b>Kept current</b><span>Questions are corrected and added as new recalls come in.
+        <li><b>Kept current</b><span>Questions are reviewed, corrected and expanded over time.
           Anything doubtful is flagged rather than quietly left wrong.</span></li>
         <li><b>Answer from the keyboard</b><span>A–D or 1–4 to answer, N and P to move. Built
           for long revision sessions, not for clicking.</span></li>
@@ -507,7 +507,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <span class="spacer"></span>
         <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
         <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
-        <button id="bReview" title="Questions where the recall was ambiguous or sources disagreed">Needs check</button>
+        <button id="bReview" title="Questions flagged for a final check where published sources may disagree">Needs check</button>
         <button id="bFlagged" title="Only questions you starred">Starred</button>
         <button id="bShuffle" title="Randomise order">Shuffle</button>
         <button id="bBlock" title="Build a custom block by level, difficulty and status">Custom block…</button>
@@ -2016,9 +2016,8 @@ function render(){
   // Year and repeat-history tags removed — not useful to a resident studying the content.
   let tags = `<span class="tag">${esc(q.track)}</span>`
            + `<span class="tag">${esc(q.topic)}</span>`;
-  // Anything describing how the item was rebuilt is for the editor, not the reader.
-  (q.flags||[]).filter(f => !/reconstruct|corrected|rebuilt/i.test(f))
-               .forEach(f => tags += `<span class="tag flag">${esc(f)}</span>`);
+  // Editorial / provenance flags (reconstructed, answer supplied, recall notes, etc.)
+  // are for the editor only and are never shown to the reader.
   if (q.needs_review) tags += '<span class="tag flag">check this one</span>';
   tags += `<span class="num">${esc(q.uid)}</span>`;
 
@@ -2054,11 +2053,10 @@ function render(){
          + `<p>${esc(key.image_finding)}</p></div>`;
     if (prev.chosen === '-') h += '<div class="note">You left this one blank in a timed paper, so it scored zero.</div>';
     if (q.needs_review)
-      h += '<div class="note"><b>Treat this answer with caution.</b> The original recall was '
-         + 'ambiguous or published sources disagree. Verify it against a primary source before '
-         + 'committing it to memory.</div>';
+      h += '<div class="note"><b>Treat this answer with caution.</b> Published sources may '
+         + 'disagree here. Verify it against a primary source before committing it to memory.</div>';
     if (!hasImg && (q.flags||[]).includes('image-dependent'))
-      h += '<div class="note">The original exam item showed an image; the finding is described in the stem.</div>';
+      h += '<div class="note">This question had an image; the key finding is described in the stem.</div>';
   }
   // Administrator-only shortcut. Rendered for nobody else, and even if the
   // markup were forced in, every write behind it is refused server-side.
