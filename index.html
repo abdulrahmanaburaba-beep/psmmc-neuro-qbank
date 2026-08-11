@@ -2793,7 +2793,7 @@ async function openPay(email, why){
   const cards = plans.map(p => `
     <button class="opt payplan" data-plan="${esc(p.code)}" style="flex-direction:column;align-items:flex-start;gap:3px">
       <span style="font-weight:650;font-size:15px">${esc(p.label)}</span>
-      <span style="font-size:19px;font-weight:700;color:var(--accent)">${esc(money(p.amount, p.currency))}</span>
+      <span data-price style="font-size:19px;font-weight:700;color:var(--accent)">${esc(money(p.amount, p.currency))}</span>
       <span style="font-size:11.5px;color:var(--dim)">${p.months} month${p.months===1?'':'s'} of full access</span>
     </button>`).join('');
 
@@ -2822,6 +2822,15 @@ async function openPay(email, why){
           <span style="display:block;color:var(--faint);margin-top:3px">Both are published in Arabic
             and English — تُنشر السياستان بالعربية والإنجليزية.</span></span>
       </label>
+      <div style="margin-top:12px">
+        <label for="payPromo">Discount code <span style="color:var(--faint);font-weight:400">(optional)</span></label>
+        <div class="row" style="margin-top:4px">
+          <input id="payPromo" maxlength="40" placeholder="Enter a code"
+            style="text-transform:uppercase;letter-spacing:.06em">
+          <button id="payPromoCheck" type="button" style="flex:0 0 auto">Apply</button>
+        </div>
+        <div id="payPromoMsg" style="font-size:12px;margin-top:5px;min-height:16px;color:var(--dim)"></div>
+      </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">${cards}</div>
       <div id="payMsg" class="msg info hide"></div>
       <button id="payCancel" style="width:100%;margin-top:4px">Cancel</button>
@@ -2850,6 +2859,52 @@ async function openPay(email, why){
   agree.onchange = syncAgree;
   syncAgree();
 
+  // A code typed here is only ever a preview. The price that gets charged is worked
+  // out again server-side from the same code when the charge is opened, so nothing
+  // shown on this screen can change what anybody pays.
+  const promoEl  = box.querySelector('#payPromo');
+  const promoMsg = box.querySelector('#payPromoMsg');
+  const setPromoMsg = (t, kind) => {
+    promoMsg.textContent = t;
+    promoMsg.style.color = kind === 'ok' ? 'var(--ok)' : kind === 'bad' ? 'var(--bad)' : 'var(--dim)';
+  };
+  // The price shown on each plan button, with the code applied where it is valid.
+  const priceOnCards = async () => {
+    const code = promoEl.value.trim().toUpperCase();
+    const btns = [...box.querySelectorAll('.payplan')];
+    if (!code){
+      btns.forEach(x => {
+        const p = plans.find(pp => pp.code === x.dataset.plan);
+        if (p) x.querySelector('[data-price]').innerHTML = esc(money(p.amount, p.currency));
+      });
+      setPromoMsg('');
+      return;
+    }
+    let anyGood = false, note = '';
+    for (const x of btns){
+      const p = plans.find(pp => pp.code === x.dataset.plan);
+      if (!p) continue;
+      let q = null;
+      try { ({ data: q } = await sb.rpc('quote_promo', { p_code: code, p_plan: p.code })); }
+      catch (e) { q = null; }
+      const cell = x.querySelector('[data-price]');
+      if (q && q.ok){
+        anyGood = true;
+        cell.innerHTML = `<span style="text-decoration:line-through;color:var(--faint);font-size:14px;font-weight:600">`
+          + `${esc(money(q.was, q.currency))}</span> ${esc(money(q.amount, q.currency))}`;
+      } else {
+        cell.innerHTML = esc(money(p.amount, p.currency));
+        if (q && q.reason) note = q.reason;
+      }
+    }
+    setPromoMsg(anyGood ? 'Code applied — the new price is shown on each plan.'
+                        : (note || 'That code is not valid.'), anyGood ? 'ok' : 'bad');
+  };
+  box.querySelector('#payPromoCheck').onclick = priceOnCards;
+  promoEl.onkeydown = e => { if (e.key === 'Enter'){ e.preventDefault(); priceOnCards(); } };
+  // Clearing the box puts the full prices back rather than leaving a stale discount.
+  promoEl.oninput = () => { if (!promoEl.value.trim()) priceOnCards(); };
+
   box.querySelectorAll('.payplan').forEach(b => b.onclick = async () => {
     const addr = box.querySelector('#payEmail').value.trim();
     const fn = box.querySelector('#payFirst').value.trim();
@@ -2872,9 +2927,11 @@ async function openPay(email, why){
       if (cErr) throw new Error(/out of date/i.test(cErr.message || '')
         ? 'This page is out of date. Reload it, read the current policy, and try again.'
         : 'Your agreement could not be recorded, so nothing was charged. Try again in a moment.');
-      // Only the plan code goes over the wire. The amount is decided server-side.
+      // Only the plan code and any discount code go over the wire. The amount is
+      // decided server-side from both, so the page cannot influence the price.
       const out = await callFn('tap-create-charge',
-        { email: addr, plan: b.dataset.plan, first: fn, last: ln });
+        { email: addr, plan: b.dataset.plan, first: fn, last: ln,
+          promo: promoEl.value.trim().toUpperCase() || undefined });
       try { localStorage.setItem('qbank.payEmail', addr); } catch (e) {}
       // Assigning to location.href will happily run a javascript: URL, so the
       // address the payment provider hands back is checked before we follow it.
@@ -3559,15 +3616,17 @@ async function bizPromos(){
   if (error){ body.innerHTML = '<div class="empty">That could not be loaded.</div>'; return; }
   const list = rows || [];
   body.innerHTML = `
-    <div class="card" style="border-color:var(--warn)">
-      <h3 style="margin:0 0 6px;font-size:14px;color:var(--warn)">Not yet connected to checkout</h3>
+    <div class="card" style="border-color:var(--ok)">
+      <h3 style="margin:0 0 6px;font-size:14px;color:var(--ok)">Live at checkout</h3>
       <div style="font-size:12.5px;line-height:1.65;color:var(--dim)">
-        You can create and price codes here and see exactly what each one would charge. They are
-        <b>not</b> offered to residents at the payment step yet — that needs a change to the code
-        that takes the money, and Tap is still refusing live charges, so there is no way to test it
-        end to end today. Shipping it untested risks a resident paying and not getting access.
-        For a hospital buying seats, use <b>Cohorts &amp; codes</b> instead — that path is finished
-        and does not touch the card rails.</div>
+        Residents can enter a code on the payment screen and see the new price before they pay.
+        The discount is worked out again on the server when the charge is opened, so what the page
+        shows can never change what is actually charged. A code counts as used only when money is
+        actually taken — an abandoned checkout costs you nothing off the limit. If a code is
+        expired, switched off or used up, the resident is told plainly rather than being quietly
+        charged full price.<br><br>
+        For a hospital buying a block of seats with no card involved, <b>Cohorts &amp; codes</b>
+        is still the better path.</div>
     </div>
     <div class="card">
       <h3 style="margin:0 0 12px;font-size:15px">Promo codes</h3>
