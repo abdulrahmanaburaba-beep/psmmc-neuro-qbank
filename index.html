@@ -444,9 +444,9 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
           font-weight:700;margin-bottom:4px">For programme directors</div>
         <h3 style="margin:0 0 6px;font-size:16px">Bundle your whole programme</h3>
         <div style="font-size:12.5px;color:var(--dim);line-height:1.6">
-          Buy seats for your residents as one group, watch everyone's progress by topic and
-          subspecialty in a single view, and assign a consultant of your choice to monitor
-          them — without touching questions, reports or anything else on the site.
+          Buy seats for your residents as one group, get a weekly report on each individual
+          resident's progress, and assign a consultant of your choice to monitor them.
+          Billed yearly — just tell us how many residents and we'll follow up with a quote.
         </div>
       </div>
       <div style="flex:0 0 auto;min-width:200px;text-align:right">
@@ -454,8 +454,6 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <div style="display:flex;justify-content:flex-end;margin:4px 0 6px">
           <input id="bundleN" type="number" min="1" max="500" value="10" style="width:76px;text-align:center">
         </div>
-        <div style="font-size:19px;font-weight:700;color:var(--accent)" id="bundlePrice">—</div>
-        <div style="font-size:11px;color:var(--faint)" id="bundleSub">&nbsp;</div>
       </div>
     </div>
     <div class="nav" style="margin-top:14px;justify-content:flex-end">
@@ -1441,25 +1439,6 @@ sb.auth.onAuthStateChange((_e, session) => {
   } catch (e) {}
   $('#gatePay').onclick = () => openPay($('#email').value.trim(), 'buy');
 
-  // Priced off the shortest real plan, so the bundle box can never quietly
-  // disagree with what one resident actually pays.
-  const base = plans.slice().sort((a,b) => a.months - b.months)[0];
-  const updateBundle = () => {
-    if (!$('#bundleN')) return;
-    const n = Math.max(1, Math.min(500, +$('#bundleN').value || 1));
-    if (base){
-      $('#bundlePrice').textContent = money(base.amount * n, base.currency);
-      $('#bundleSub').textContent = money(base.amount, base.currency) + ' per resident, '
-        + base.months + ' month' + (base.months===1?'':'s') + ' each';
-    } else {
-      $('#bundlePrice').textContent = 'Contact us';
-      $('#bundleSub').textContent = '';
-    }
-  };
-  if ($('#bundleN')){
-    updateBundle();
-    $('#bundleN').oninput = updateBundle;
-  }
   if ($('#bundleOpen')) $('#bundleOpen').onclick = () => {
     const host = $('#bundleForm');
     if (!host.classList.contains('hide')){ host.classList.add('hide'); host.innerHTML=''; return; }
