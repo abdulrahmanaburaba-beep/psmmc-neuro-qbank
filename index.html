@@ -8,7 +8,7 @@
      not honoured in a meta CSP, so the frame-buster below covers clickjacking. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://jnwbcfwtlnrupkthbluh.supabase.co https://o4511874742812672.ingest.de.sentry.io; img-src 'self' data: https://jnwbcfwtlnrupkthbluh.supabase.co; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <script>if (window.top !== window.self) { window.top.location = window.self.location; }</script>
-<title>Saudi Neurology QBank</title>
+<title>CerebrobanQ</title>
 <link rel="icon" href="./logo.svg" type="image/svg+xml">
 <!-- Applied before the first paint. Reading the choice here rather than from the app
      module is what stops a resident who has picked light from getting a flash of the
@@ -395,7 +395,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   <div class="landtop">
     <div class="brandmark" role="img" aria-label="Cerebropilot"></div>
     <div>
-      <h1>Saudi Neurology QBank</h1>
+      <h1>CerebrobanQ</h1>
       <p>Board revision for neurology residents, by Cerebropilot</p>
     </div>
     <button class="themebtn" data-theme-toggle type="button"></button>
@@ -437,6 +437,33 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
   </div>
 
+  <div class="card" style="margin:0 0 28px;border-color:var(--accent)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);
+          font-weight:700;margin-bottom:4px">For programme directors</div>
+        <h3 style="margin:0 0 6px;font-size:16px">Bundle your whole programme</h3>
+        <div style="font-size:12.5px;color:var(--dim);line-height:1.6">
+          Buy seats for your residents as one group, watch everyone's progress by topic and
+          subspecialty in a single view, and assign a consultant of your choice to monitor
+          them — without touching questions, reports or anything else on the site.
+        </div>
+      </div>
+      <div style="flex:0 0 auto;min-width:200px;text-align:right">
+        <label for="bundleN" style="font-size:11.5px;color:var(--faint)">Residents</label>
+        <div style="display:flex;justify-content:flex-end;margin:4px 0 6px">
+          <input id="bundleN" type="number" min="1" max="500" value="10" style="width:76px;text-align:center">
+        </div>
+        <div style="font-size:19px;font-weight:700;color:var(--accent)" id="bundlePrice">—</div>
+        <div style="font-size:11px;color:var(--faint)" id="bundleSub">&nbsp;</div>
+      </div>
+    </div>
+    <div class="nav" style="margin-top:14px;justify-content:flex-end">
+      <button id="bundleOpen" class="primary">Request this bundle</button>
+    </div>
+    <div id="bundleForm" class="hide"></div>
+  </div>
+
   <div class="landfoot">
     <h3>Support</h3>
     <p>Something wrong with a question, a payment, or getting in?
@@ -458,7 +485,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       clinical guidance and must not be used to make decisions about a patient — verify anything
       you intend to act on against a primary source. Practising on questions of a similar standard
       is preparation, not a prediction: no guarantee of exam success is offered or implied.</p>
-    <p><b>Independent.</b> Saudi Neurology QBank is not affiliated with, endorsed by, or produced
+    <p><b>Independent.</b> CerebrobanQ is not affiliated with, endorsed by, or produced
       by the Saudi Commission for Health Specialties or any training programme or hospital.</p>
 
     <h3>Refund policy and terms</h3>
@@ -666,10 +693,10 @@ const POLICY = {
   refund: {
     title: { en: 'Refund and Cancellation Policy', ar: 'سياسة الاسترجاع والاسترداد' },
     en: `
-<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+<div class="meta">CerebrobanQ — saudi-board.com<br>
   Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
   Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
-<p>Saudi Neurology QBank, operated by CerebroPilot Establishment, is committed to providing
+<p>CerebrobanQ, operated by CerebroPilot Establishment, is committed to providing
   high-quality digital educational services and content. This Policy sets out the terms and
   procedures governing subscription cancellations and refunds for services provided through the
   Platform, subject at all times to the applicable laws and regulations of the Kingdom of Saudi
@@ -787,7 +814,7 @@ const POLICY = {
   prevail to the extent of that conflict.</p>
 
 <h3>13. Service Provider Information</h3>
-<p>Platform: Saudi Neurology QBank<br>
+<p>Platform: CerebrobanQ<br>
   Website: saudi-board.com<br>
   Service Provider: CerebroPilot Establishment<br>
   Unified National Number: 7054697367<br>
@@ -801,10 +828,10 @@ const POLICY = {
   terms, without prejudice to any mandatory rights available under the laws and regulations of the
   Kingdom of Saudi Arabia.</p>`,
     ar: `
-<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+<div class="meta">CerebrobanQ — saudi-board.com<br>
   مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
   المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
-<p>نحرص في Saudi Neurology QBank، والمقدم من CerebroPilot Establishment، على تقديم خدمات ومحتوى
+<p>نحرص في CerebrobanQ، والمقدم من CerebroPilot Establishment، على تقديم خدمات ومحتوى
   تعليمي رقمي عالي الجودة. توضح هذه السياسة شروط وإجراءات إلغاء الاشتراكات واسترجاع المبالغ
   المدفوعة مقابل الخدمات الرقمية المقدمة من خلال المنصة، وذلك مع مراعاة الأنظمة واللوائح المعمول
   بها في المملكة العربية السعودية.</p>
@@ -900,7 +927,7 @@ const POLICY = {
   إلزامي، تكون الأولوية للحكم النظامي المعمول به.</p>
 
 <h3>13. بيانات مقدم الخدمة</h3>
-<p>اسم المنصة: Saudi Neurology QBank<br>
+<p>اسم المنصة: CerebrobanQ<br>
   الموقع الإلكتروني: saudi-board.com<br>
   مقدم الخدمة: CerebroPilot Establishment<br>
   الرقم الوطني الموحد: 7054697367<br>
@@ -916,7 +943,7 @@ const POLICY = {
   terms: {
     title: { en: 'Terms and Conditions', ar: 'الشروط والأحكام' },
     en: `
-<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+<div class="meta">CerebrobanQ — saudi-board.com<br>
   Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
   Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
 
@@ -1015,7 +1042,7 @@ const POLICY = {
   <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
   <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a></p>`,
     ar: `
-<div class="meta">Saudi Neurology QBank — saudi-board.com<br>
+<div class="meta">CerebrobanQ — saudi-board.com<br>
   مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
   المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
 
@@ -1406,11 +1433,77 @@ sb.auth.onAuthStateChange((_e, session) => {
 // The subscribe button on the sign-in page only appears when the bank is actually
 // open to new people, so it never offers something that would then be refused.
 (async () => {
+  let plans = [];
   try {
     const { data } = await sb.rpc('list_plans');
-    if (data && data.length) $('#gateBuy').classList.remove('hide');
+    plans = data || [];
+    if (plans.length) $('#gateBuy').classList.remove('hide');
   } catch (e) {}
   $('#gatePay').onclick = () => openPay($('#email').value.trim(), 'buy');
+
+  // Priced off the shortest real plan, so the bundle box can never quietly
+  // disagree with what one resident actually pays.
+  const base = plans.slice().sort((a,b) => a.months - b.months)[0];
+  const updateBundle = () => {
+    if (!$('#bundleN')) return;
+    const n = Math.max(1, Math.min(500, +$('#bundleN').value || 1));
+    if (base){
+      $('#bundlePrice').textContent = money(base.amount * n, base.currency);
+      $('#bundleSub').textContent = money(base.amount, base.currency) + ' per resident, '
+        + base.months + ' month' + (base.months===1?'':'s') + ' each';
+    } else {
+      $('#bundlePrice').textContent = 'Contact us';
+      $('#bundleSub').textContent = '';
+    }
+  };
+  if ($('#bundleN')){
+    updateBundle();
+    $('#bundleN').oninput = updateBundle;
+  }
+  if ($('#bundleOpen')) $('#bundleOpen').onclick = () => {
+    const host = $('#bundleForm');
+    if (!host.classList.contains('hide')){ host.classList.add('hide'); host.innerHTML=''; return; }
+    host.classList.remove('hide');
+    host.innerHTML = `
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <div class="two" style="margin-bottom:10px">
+          <div><label for="bInst">Institution</label>
+            <input id="bInst" maxlength="200" placeholder="Hospital or programme name"></div>
+          <div><label for="bName">Your name</label>
+            <input id="bName" maxlength="120" placeholder="Full name"></div>
+        </div>
+        <div class="two" style="margin-bottom:10px">
+          <div><label for="bEmail">Email</label>
+            <input id="bEmail" type="email" maxlength="200" placeholder="name@example.com"></div>
+          <div><label for="bPhone">Phone (optional)</label>
+            <input id="bPhone" maxlength="40" placeholder="+966…"></div>
+        </div>
+        <label for="bNote">Anything else (optional)</label>
+        <textarea id="bNote" maxlength="1000" rows="2" style="width:100%;resize:vertical"></textarea>
+        <div class="nav" style="margin-top:10px">
+          <button id="bSend" class="primary">Send request</button>
+        </div>
+        <div id="bMsg" style="font-size:12.5px;color:var(--dim);margin-top:6px"></div>
+      </div>`;
+    const bmsg = (t,bad) => { const m=$('#bMsg'); if(!m)return; m.style.color = bad?'var(--bad)':'var(--dim)'; m.textContent = t; };
+    $('#bSend').onclick = async () => {
+      const email = $('#bEmail').value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ bmsg('Enter a valid email address.', true); return; }
+      const n = Math.max(1, Math.min(500, +$('#bundleN').value || 1));
+      $('#bSend').disabled = true;
+      const { error } = await sb.rpc('submit_bundle_request', {
+        p_institution: $('#bInst').value.trim() || null,
+        p_contact_name: $('#bName').value.trim() || null,
+        p_email: email,
+        p_phone: $('#bPhone').value.trim() || null,
+        p_residents_count: n,
+        p_note: $('#bNote').value.trim() || null
+      });
+      if (error){ $('#bSend').disabled = false; bmsg('Could not send that. Please try again or email admin@saudi-board.com directly.', true); return; }
+      host.innerHTML = '<div class="msg info" style="margin-top:14px">Thanks — we usually reply within a day. '
+        + 'You can also write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> directly.</div>';
+    };
+  };
 })();
 
 async function start(user){
@@ -1543,7 +1636,7 @@ function showDisplaced(other){
   $('#gate').classList.remove('hide');
   $('#gate').innerHTML = `
     <div class="gatebox">
-      <h1>Saudi Neurology QBank</h1>
+      <h1>CerebrobanQ</h1>
       <p class="lede">Your account has been opened on ${esc(who)}.</p>
       <div class="msg info" style="text-align:left;line-height:1.65">
         An account can only be used on one device at a time, so this one has stopped.
@@ -1569,7 +1662,7 @@ function showDeviceWait(d){
   $('#gate').classList.remove('hide');
   $('#gate').innerHTML = `
     <div class="gatebox">
-      <h1>Saudi Neurology QBank</h1>
+      <h1>CerebrobanQ</h1>
       <p class="lede">This device is not one of the ${d.limit} approved for your account.</p>
       <div class="msg info" style="text-align:left;line-height:1.65">
         Your account already has ${d.active_devices} device${d.active_devices===1?'':'s'} in use.
@@ -3147,7 +3240,7 @@ async function renderBiz(){
   v.innerHTML = `
     <div class="subtabs">
       ${[['cohorts','Cohorts &amp; codes'],['promos','Promo codes'],['retention','Retention'],
-         ['consents','Policy consents']]
+         ['consents','Policy consents'],['bundles','Bundle requests']]
         .map(([k,l]) => `<button data-biz="${k}" class="${BIZ_TAB===k?'on':''}">${l}</button>`).join('')}
     </div><div id="bizBody"><div class="empty">Loading…</div></div>`;
   v.querySelectorAll('[data-biz]').forEach(b => b.onclick = () => { BIZ_TAB = b.dataset.biz; renderBiz(); });
@@ -3155,6 +3248,49 @@ async function renderBiz(){
   if (BIZ_TAB === 'promos')    return bizPromos();
   if (BIZ_TAB === 'retention') return bizRetention();
   if (BIZ_TAB === 'consents')  return bizConsents();
+  if (BIZ_TAB === 'bundles')   return bizBundles();
+}
+
+// Leads from the "For programme directors" box on the sign-in page. Anyone can
+// submit one without an account; only an admin can read them back.
+async function bizBundles(){
+  const body = $('#bizBody');
+  const { data, error } = await sb.rpc('admin_list_bundle_requests');
+  if (!$('#bizBody')) return;
+  if (error){ body.innerHTML = '<div class="empty">That could not be loaded.</div>'; return; }
+  const list = data || [];
+  const badge = s => s==='new' ? '<span class="pill warn">new</span>'
+    : s==='contacted' ? '<span class="pill dim">contacted</span>'
+    : '<span class="pill dim">closed</span>';
+  const rows = list.map(r => `<tr data-id="${r.id}">
+      <td style="font-size:12px">${esc(String(r.created_at||'').replace('T',' ').slice(0,16))}</td>
+      <td><b>${esc(r.institution || '—')}</b><div style="font-size:11.5px;color:var(--dim)">${esc(r.contact_name||'')}</div></td>
+      <td style="font-size:12.5px">${esc(r.email)}${r.phone?'<div style="color:var(--dim)">'+esc(r.phone)+'</div>':''}</td>
+      <td class="num">${r.residents_count ?? '—'}</td>
+      <td style="font-size:12px;color:var(--dim);max-width:220px">${esc(r.note || '')}</td>
+      <td>${badge(r.status)}</td>
+      <td style="white-space:nowrap">
+        ${r.status!=='contacted' ? '<button data-mark="contacted">Mark contacted</button>' : ''}
+        ${r.status!=='closed' ? '<button data-mark="closed">Close</button>' : ''}
+      </td></tr>`).join('');
+  body.innerHTML = `
+    <div class="card">
+      <h3 style="margin:0 0 4px;font-size:15px">Bundle requests</h3>
+      <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:13px">
+        Programme directors asking about buying seats for a group. Reply from their email,
+        then set up their seats the same way as any other institution under
+        <b>Cohorts &amp; codes</b>.</div>
+      ${rows ? `<div class="tscroll"><table><thead><tr><th>When</th><th>Institution</th>
+        <th>Contact</th><th class="num">Residents</th><th>Note</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : '<div style="font-size:12.5px;color:var(--dim)">No requests yet.</div>'}
+    </div>`;
+  body.querySelectorAll('[data-mark]').forEach(b => b.onclick = async () => {
+    const tr = b.closest('tr');
+    const { error } = await sb.rpc('admin_set_bundle_status', { p_id: tr.dataset.id, p_status: b.dataset.mark });
+    if (error){ alertBar('Could not update: ' + error.message); return; }
+    bizBundles();
+  });
 }
 
 // The record that matters if a card payment is ever disputed: who accepted which
@@ -3697,10 +3833,7 @@ async function residentDetail(uid){
 async function renderConsultants(){
   const v = $('#viewConsultants');
   v.innerHTML = '<div class="empty">Loading…</div>';
-  const [{ data: cons, error: e1 }, { data: residents }] = await Promise.all([
-    sb.rpc('admin_list_consultants'),
-    sb.from('profiles').select('id,email,full_name').eq('role','resident').order('full_name')
-  ]);
+  const { data: cons, error: e1 } = await sb.rpc('admin_list_consultants');
   if (e1){ v.innerHTML = '<div class="card"><div class="empty">Could not load consultants.</div></div>'; return; }
   const consList = cons || [];
   const rows = consList.map(c => `
@@ -3711,8 +3844,6 @@ async function renderConsultants(){
         <button data-manage>Manage residents</button>
         <button data-revoke>Revoke</button></td>
     </tr>`).join('');
-  const residentOpts = (residents||[]).map(r =>
-    `<option value="${r.id}">${esc(r.full_name || r.email)}</option>`).join('');
 
   v.innerHTML = `
     <div class="card">
@@ -3723,29 +3854,66 @@ async function renderConsultants(){
         They cannot edit questions, see reported questions, change any setting, or add or
         remove members. Only you can create a consultant or change who is under them.
       </div>
+      <div style="font-size:12px;color:var(--faint);margin-bottom:8px">
+        Works for anyone by email — already a resident here, on the list but never signed in
+        yet, or a brand new address.
+      </div>
       <div class="row">
-        <select id="consPick" style="flex:1 1 auto;min-width:180px">${
-          residentOpts || '<option value="">No residents yet</option>'}</select>
-        <button id="consAdd" class="primary"${residentOpts?'':' disabled'}>Make consultant</button>
+        <input id="consEmail" type="email" maxlength="200" placeholder="name@example.com">
+        <input id="consName" maxlength="120" placeholder="Full name (optional)">
+        <button id="consAdd" class="primary">Make consultant</button>
       </div>
       <div id="consAddMsg" style="font-size:12.5px;color:var(--dim);margin-top:6px"></div>
     </div>
     <div id="consManage"></div>
     <div class="card">
-      ${consList.length ? `<div style="overflow-x:auto"><table>
+      ${consList.length > 6 ? `<input id="consFilter" placeholder="Filter by name or email…"
+        style="width:100%;margin-bottom:10px">` : ''}
+      ${consList.length ? `<div style="overflow-x:auto"><table id="consTable">
         <thead><tr><th>Consultant</th><th class="num">Residents</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>`
-        : '<div class="empty">No consultants yet. Promote a member above to get started.</div>'}
+        : '<div class="empty">No consultants yet. Add one above to get started.</div>'}
     </div>`;
 
   const msg = (t,bad)=>{ const m=$('#consAddMsg'); if(!m) return; m.style.color=bad?'var(--bad)':'var(--dim)'; m.textContent=t; };
+  if ($('#consFilter')){
+    $('#consFilter').oninput = () => {
+      const q = $('#consFilter').value.trim().toLowerCase();
+      $('#consTable').querySelectorAll('tbody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    };
+  }
+  // Any email, in one flow — the admin should never have to know or care whether
+  // this person has signed in before. Three cases, one outcome: they are a
+  // consultant next time they sign in (or immediately, if they already have a
+  // session).
   $('#consAdd').onclick = async () => {
-    const id = $('#consPick').value; if (!id) return;
-    const name = $('#consPick').selectedOptions[0] ? $('#consPick').selectedOptions[0].textContent : 'that member';
-    if (!confirm('Make ' + name + ' a consultant?\n\nThey will be able to monitor the residents you assign to them, and nothing else.')) return;
-    const { error } = await sb.rpc('admin_grant_consultant', { target: id });
-    if (error){ msg('Could not promote: ' + error.message, true); return; }
-    renderConsultants();
+    const email = $('#consEmail').value.trim().toLowerCase();
+    const name  = $('#consName').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg('Enter a valid email address.', true); return; }
+    if (!confirm('Make ' + email + ' a consultant?\n\nThey will be able to monitor the residents you assign to them, and nothing else.')) return;
+
+    const { data: prof } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
+    if (prof){
+      if (prof.role === 'admin'){ msg('That is an administrator — cannot change.', true); return; }
+      const { error } = await sb.rpc('admin_grant_consultant', { target: prof.id });
+      if (error){ msg('Could not promote: ' + error.message, true); return; }
+    } else {
+      const { data: existing } = await sb.from('allowed_emails').select('email,role').eq('email', email).maybeSingle();
+      if (existing){
+        if (existing.role === 'admin'){ msg('That is an administrator — cannot change.', true); return; }
+        const { error } = await sb.from('allowed_emails')
+          .update({ role: 'consultant', full_name: name || undefined }).eq('email', email);
+        if (error){ msg('Could not update: ' + error.message, true); return; }
+      } else {
+        const { error } = await sb.from('allowed_emails')
+          .insert({ email, full_name: name || null, role: 'consultant' });
+        if (error){ msg('Could not add: ' + error.message, true); return; }
+      }
+    }
+    msg(email + ' is now a consultant.');
+    $('#consEmail').value=''; $('#consName').value=''; renderConsultants();
   };
   v.querySelectorAll('[data-revoke]').forEach(b => b.onclick = async () => {
     const tr = b.closest('tr'), cid = tr.dataset.cid;
@@ -3767,7 +3935,7 @@ async function manageConsultantResidents(cid, name){
   const { data: list, error } = await sb.rpc('admin_list_residents_for_assignment', { p_consultant: cid });
   if (error){ host.innerHTML = '<div class="card"><div class="empty">Could not load residents.</div></div>'; return; }
   const items = (list||[]).map(r => `
-    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px">
+    <label data-row style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px">
       <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''}>
       <span style="flex:1">${esc(r.name||r.email)}<span style="color:var(--faint);font-size:11px"> · ${esc(r.email)}</span></span>
       <span class="num">${r.answered} answered</span>
@@ -3777,13 +3945,23 @@ async function manageConsultantResidents(cid, name){
     <div class="qhead"><b style="font-size:14px">Residents under ${esc(name)}</b>
       <span class="tag" id="consSel">${selCount} selected</span></div>
     <div style="font-size:11.5px;color:var(--faint);margin:2px 0 8px">Tick the residents this consultant may monitor, then Save.</div>
-    <div style="max-height:340px;overflow-y:auto">${items || '<div class="empty">No residents.</div>'}</div>
+    ${(list||[]).length > 8 ? `<input id="consResFilter" placeholder="Filter by name or email…"
+      style="width:100%;margin-bottom:8px">` : ''}
+    <div id="consResList" style="max-height:340px;overflow-y:auto">${items || '<div class="empty">No residents.</div>'}</div>
     <div class="nav"><button id="consSave" class="primary">Save</button><button id="consCancel">Cancel</button></div>
   </div>`;
   host.scrollIntoView({behavior:'smooth',block:'nearest'});
   host.querySelectorAll('[data-rid]').forEach(cb => cb.onchange = () => {
     $('#consSel').textContent = host.querySelectorAll('[data-rid]:checked').length + ' selected';
   });
+  if ($('#consResFilter')){
+    $('#consResFilter').oninput = () => {
+      const q = $('#consResFilter').value.trim().toLowerCase();
+      $('#consResList').querySelectorAll('[data-row]').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    };
+  }
   $('#consCancel').onclick = () => { host.innerHTML=''; };
   $('#consSave').onclick = async () => {
     const ids = [...host.querySelectorAll('[data-rid]:checked')].map(cb => cb.dataset.rid);
@@ -4481,7 +4659,7 @@ async function openRestorePoints(){
   const blob = new Blob([JSON.stringify(body)], { type:'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `saudi-neuro-qbank-restore-point-${stamp}.json`;
+  a.href = url; a.download = `cerebrobanq-restore-point-${stamp}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
   alertBar(`Restore point from ${when(s.taken_at)} saved.`);
@@ -4498,7 +4676,7 @@ async function downloadBackup(){
     const blob = new Blob([JSON.stringify(data)], { type:'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = `saudi-neuro-qbank-backup-${stamp}.json`;
+    a.href = url; a.download = `cerebrobanq-backup-${stamp}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
     const c = (data && data.counts) || {};
