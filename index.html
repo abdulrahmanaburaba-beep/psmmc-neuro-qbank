@@ -403,8 +403,8 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
   <div class="landgrid">
     <div>
-      <p class="pitch"><b>2,489 questions</b> from Saudi board papers — each one with a worked
-        explanation and a source you can go and check.</p>
+      <p class="pitch"><b>2,489 questions</b> covering the Saudi Neurology Board blueprint — each
+        one with a worked explanation and a source you can go and check.</p>
       <ul class="feats">
         <li><b>Every answer explained</b><span>Not just the right letter. Why it is right, why
           the other three are not, and the reference it came from.</span></li>
@@ -414,7 +414,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
           Anything doubtful is flagged rather than quietly left wrong.</span></li>
         <li><b>Answer from the keyboard</b><span>A–D or 1–4 to answer, N and P to move. Built
           for long revision sessions, not for clicking.</span></li>
-        <li><b>Find your weak topics</b><span>Your score by topic, year and track — so you
+        <li><b>Find your weak topics</b><span>Your score by topic and track — so you
           revise what actually needs it.</span></li>
         <li><b>Ward or home</b><span>Phone between cases, laptop in the evening. One account,
           nothing to install.</span></li>
@@ -2306,7 +2306,6 @@ function renderProgress(){
       <div class="heat">${heat(by('topic'))}</div>
     </div>
     ${tbl(by('topic'),'Topic')}
-    ${tbl(by('year'),'Year')}
     ${tbl(by('track'),'Track')}
     <div class="card" id="noteCard"></div>
     <div class="card" id="detailsCard"></div>
