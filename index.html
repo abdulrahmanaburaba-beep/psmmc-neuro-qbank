@@ -219,8 +219,6 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 .tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
 .adminsep{align-self:center;margin:0 3px 0 7px;padding-left:9px;border-left:1px solid var(--line);
   color:var(--faint);font-size:10px;letter-spacing:.09em;text-transform:uppercase}
-.tabs.consultant-mode button:not(#tabMyres){display:none}
-.tabs.consultant-mode .adminsep{display:none}
 .bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:10px}
 .bar input[type=search]{min-width:150px;flex:1;width:auto}
 .spacer{flex:1}
@@ -515,7 +513,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <div id="app" class="wrap hide">
   <header>
     <div class="top">
-      <h1><span class="brandmark sm" role="img" aria-label="Cerebropilot"></span>CerebroBank</h1>
+      <h1><span class="brandmark sm" role="img" aria-label="Cerebropilot"></span>CerebrobanQ</h1>
       <div class="who"><span class="em" id="uemail"></span><button class="themebtn" data-theme-toggle type="button"></button><button id="signout">Sign out</button></div>
     </div>
     <div class="tabs">
@@ -1532,11 +1530,11 @@ async function start(user){
     refreshReportBadge();
     setInterval(refreshReportBadge, 120000);   // quiet poll while the tab is open
   }
-  // A consultant (sub-administrator) sees ONLY their own monitoring surface.
-  // consultant-mode hides every other tab via CSS, including the OSCE tab that is
-  // inserted later, so nothing a resident or admin has can leak into their view.
+  // A consultant gets the full ordinary resident experience — practice, exam,
+  // progress, everything a normal member has — plus one extra tab to monitor
+  // whichever residents the administrator has assigned to them. It is not a
+  // separate restricted mode; the only thing added is "My residents".
   if (prof.role === 'consultant'){
-    document.querySelector('.tabs').classList.add('consultant-mode');
     $('#tabMyres').classList.remove('hide');
   }
 
@@ -1571,8 +1569,6 @@ async function start(user){
   // My progress if they want their own pacing numbers.
   const iAmStaff = !!(PROFILE && (PROFILE.role === 'admin' || PROFILE.role === 'consultant'));
   if (MYPROF && !MYPROF.profile_done && !iAmStaff) showProfileWall();
-  // Consultants land straight on their residents rather than the practice bank.
-  if (PROFILE && PROFILE.role === 'consultant') $('#tabMyres').click();
 }
 
 // The account can be open on one device at a time. This page holds it while it
@@ -3828,10 +3824,12 @@ async function renderConsultants(){
     <div class="card">
       <h3 style="margin:0 0 6px;font-size:15px">Consultants (sub-administrators)</h3>
       <div style="font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:12px">
-        A consultant can monitor <b>only the residents you assign to them</b> — their scores,
-        weak topics and wrong answers — and can print a report of just those residents.
-        They cannot edit questions, see reported questions, change any setting, or add or
-        remove members. Only you can create a consultant or change who is under them.
+        A consultant uses the bank like any other member — practice, exam, OSCE, progress —
+        with one addition: a "My residents" tab where they can monitor <b>only the residents
+        you assign to them</b> — their scores, weak topics and wrong answers — and print a
+        report of just those residents. They cannot edit questions, see reported questions,
+        change any setting, or add or remove members. Only you can create a consultant or
+        change who is under them.
       </div>
       <div style="font-size:12px;color:var(--faint);margin-bottom:8px">
         Works for anyone by email — already a resident here, on the list but never signed in
@@ -3871,7 +3869,7 @@ async function renderConsultants(){
     const email = $('#consEmail').value.trim().toLowerCase();
     const name  = $('#consName').value.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg('Enter a valid email address.', true); return; }
-    if (!confirm('Make ' + email + ' a consultant?\n\nThey will be able to monitor the residents you assign to them, and nothing else.')) return;
+    if (!confirm('Make ' + email + ' a consultant?\n\nThey keep full access to the bank like any other member, plus a "My residents" tab to monitor whichever residents you assign to them.')) return;
 
     const { data: prof } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
     if (prof){
@@ -3914,10 +3912,13 @@ async function manageConsultantResidents(cid, name){
   const { data: list, error } = await sb.rpc('admin_list_residents_for_assignment', { p_consultant: cid });
   if (error){ host.innerHTML = '<div class="card"><div class="empty">Could not load residents.</div></div>'; return; }
   const items = (list||[]).map(r => `
-    <label data-row style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);font-size:13px">
-      <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''}>
-      <span style="flex:1">${esc(r.name||r.email)}<span style="color:var(--faint);font-size:11px"> · ${esc(r.email)}</span></span>
-      <span class="num">${r.answered} answered</span>
+    <label data-row style="display:flex;align-items:flex-start;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px">
+      <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''} style="margin-top:3px;flex:0 0 auto">
+      <span style="flex:1;min-width:0">
+        <div style="font-weight:600;overflow-wrap:anywhere">${esc(r.name || '(no name on file)')}</div>
+        <div style="color:var(--faint);font-size:11px;overflow-wrap:anywhere">${esc(r.email)}</div>
+      </span>
+      <span class="num" style="flex:0 0 auto;white-space:nowrap">${r.answered} answered</span>
     </label>`).join('');
   const selCount = (list||[]).filter(r=>r.assigned).length;
   host.innerHTML = `<div class="card" style="border-color:var(--accent)">
