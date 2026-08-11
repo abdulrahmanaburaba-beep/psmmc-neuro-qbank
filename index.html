@@ -3805,10 +3805,39 @@ async function residentDetail(uid){
 // picks exactly which residents that consultant may monitor. A consultant sees
 // nothing else on the site: no question editor, no reported questions, no roster,
 // no business, no settings, and no resident other than the ones assigned here.
+// Shared by the manual email box and the "pick an existing user" list below it —
+// one promotion path, three underlying cases (signed-in profile / on the roster
+// but never signed in / brand new address), same outcome either way.
+async function promoteToConsultant(email, name){
+  email = (email || '').trim().toLowerCase();
+  const { data: prof } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
+  if (prof){
+    if (prof.role === 'admin') return { error: 'That is an administrator — cannot change.' };
+    const { error } = await sb.rpc('admin_grant_consultant', { target: prof.id });
+    if (error) return { error: 'Could not promote: ' + error.message };
+  } else {
+    const { data: existing } = await sb.from('allowed_emails').select('email,role').eq('email', email).maybeSingle();
+    if (existing){
+      if (existing.role === 'admin') return { error: 'That is an administrator — cannot change.' };
+      const { error } = await sb.from('allowed_emails')
+        .update({ role: 'consultant', full_name: name || undefined }).eq('email', email);
+      if (error) return { error: 'Could not update: ' + error.message };
+    } else {
+      const { error } = await sb.from('allowed_emails')
+        .insert({ email, full_name: name || null, role: 'consultant' });
+      if (error) return { error: 'Could not add: ' + error.message };
+    }
+  }
+  return { ok: true };
+}
+
 async function renderConsultants(){
   const v = $('#viewConsultants');
   v.innerHTML = '<div class="empty">Loading…</div>';
-  const { data: cons, error: e1 } = await sb.rpc('admin_list_consultants');
+  const [{ data: cons, error: e1 }, { data: allow }] = await Promise.all([
+    sb.rpc('admin_list_consultants'),
+    sb.from('allowed_emails').select('email,full_name,role').order('full_name')
+  ]);
   if (e1){ v.innerHTML = '<div class="card"><div class="empty">Could not load consultants.</div></div>'; return; }
   const consList = cons || [];
   const rows = consList.map(c => `
@@ -3819,6 +3848,23 @@ async function renderConsultants(){
         <button data-manage>Manage residents</button>
         <button data-revoke>Revoke</button></td>
     </tr>`).join('');
+
+  // Everyone on the roster except administrators — pick any of them to promote
+  // in one click instead of retyping an email you can already see on screen.
+  const pickable = (allow||[]).filter(a => a.role !== 'admin')
+    .sort((a,b) => (a.full_name||a.email).localeCompare(b.full_name||b.email));
+  const pickRows = pickable.map(a => `
+    <label data-row style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+      padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px">
+      <span style="min-width:0">
+        <div style="font-weight:600;overflow-wrap:anywhere">${esc(a.full_name || '(no name on file)')}</div>
+        <div style="color:var(--faint);font-size:11px;overflow-wrap:anywhere">${esc(a.email)}</div>
+      </span>
+      ${a.role === 'consultant'
+        ? '<span class="tag" style="flex:0 0 auto">Already a consultant</span>'
+        : `<button data-pick="${esc(a.email)}" data-pickname="${esc(a.full_name||'')}"
+             style="flex:0 0 auto">Make consultant</button>`}
+    </label>`).join('');
 
   v.innerHTML = `
     <div class="card">
@@ -3832,8 +3878,7 @@ async function renderConsultants(){
         change who is under them.
       </div>
       <div style="font-size:12px;color:var(--faint);margin-bottom:8px">
-        Works for anyone by email — already a resident here, on the list but never signed in
-        yet, or a brand new address.
+        Pick anyone already on the roster below, or add a brand new address here.
       </div>
       <div class="row">
         <input id="consEmail" type="email" maxlength="200" placeholder="name@example.com">
@@ -3841,6 +3886,15 @@ async function renderConsultants(){
         <button id="consAdd" class="primary">Make consultant</button>
       </div>
       <div id="consAddMsg" style="font-size:12.5px;color:var(--dim);margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 6px;font-size:14px">Pick an existing user</h3>
+      <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">Select anyone already on
+        the roster to make them a consultant — no need to retype their email.</div>
+      ${pickable.length > 6 ? `<input id="consPickFilter" placeholder="Filter by name or email…"
+        style="width:100%;margin-bottom:8px">` : ''}
+      <div id="consPickList" style="max-height:320px;overflow-y:auto">${pickRows
+        || '<div class="empty">Nobody on the roster yet.</div>'}</div>
     </div>
     <div id="consManage"></div>
     <div class="card">
@@ -3861,6 +3915,22 @@ async function renderConsultants(){
       });
     };
   }
+  if ($('#consPickFilter')){
+    $('#consPickFilter').oninput = () => {
+      const q = $('#consPickFilter').value.trim().toLowerCase();
+      $('#consPickList').querySelectorAll('[data-row]').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    };
+  }
+  v.querySelectorAll('[data-pick]').forEach(b => b.onclick = async () => {
+    const email = b.dataset.pick, name = b.dataset.pickname;
+    if (!confirm('Make ' + email + ' a consultant?\n\nThey keep full access to the bank like any other member, plus a "My residents" tab to monitor whichever residents you assign to them.')) return;
+    b.disabled = true;
+    const { error } = await promoteToConsultant(email, name);
+    if (error){ alertBar(error); b.disabled = false; return; }
+    renderConsultants();
+  });
   // Any email, in one flow — the admin should never have to know or care whether
   // this person has signed in before. Three cases, one outcome: they are a
   // consultant next time they sign in (or immediately, if they already have a
@@ -3871,24 +3941,8 @@ async function renderConsultants(){
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg('Enter a valid email address.', true); return; }
     if (!confirm('Make ' + email + ' a consultant?\n\nThey keep full access to the bank like any other member, plus a "My residents" tab to monitor whichever residents you assign to them.')) return;
 
-    const { data: prof } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
-    if (prof){
-      if (prof.role === 'admin'){ msg('That is an administrator — cannot change.', true); return; }
-      const { error } = await sb.rpc('admin_grant_consultant', { target: prof.id });
-      if (error){ msg('Could not promote: ' + error.message, true); return; }
-    } else {
-      const { data: existing } = await sb.from('allowed_emails').select('email,role').eq('email', email).maybeSingle();
-      if (existing){
-        if (existing.role === 'admin'){ msg('That is an administrator — cannot change.', true); return; }
-        const { error } = await sb.from('allowed_emails')
-          .update({ role: 'consultant', full_name: name || undefined }).eq('email', email);
-        if (error){ msg('Could not update: ' + error.message, true); return; }
-      } else {
-        const { error } = await sb.from('allowed_emails')
-          .insert({ email, full_name: name || null, role: 'consultant' });
-        if (error){ msg('Could not add: ' + error.message, true); return; }
-      }
-    }
+    const { error } = await promoteToConsultant(email, name);
+    if (error){ msg(error, true); return; }
     msg(email + ' is now a consultant.');
     $('#consEmail').value=''; $('#consName').value=''; renderConsultants();
   };
@@ -3913,7 +3967,7 @@ async function manageConsultantResidents(cid, name){
   if (error){ host.innerHTML = '<div class="card"><div class="empty">Could not load residents.</div></div>'; return; }
   const items = (list||[]).map(r => `
     <label data-row style="display:flex;align-items:flex-start;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px">
-      <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''} style="margin-top:3px;flex:0 0 auto">
+      <input type="checkbox" data-rid="${r.id}"${r.assigned?' checked':''} style="width:auto;flex:none;min-width:16px;min-height:16px;margin-top:3px">
       <span style="flex:1;min-width:0">
         <div style="font-weight:600;overflow-wrap:anywhere">${esc(r.name || '(no name on file)')}</div>
         <div style="color:var(--faint);font-size:11px;overflow-wrap:anywhere">${esc(r.email)}</div>
