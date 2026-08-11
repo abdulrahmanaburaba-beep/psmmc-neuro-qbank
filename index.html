@@ -643,13 +643,28 @@ Sentry.init({
 });
 </script>
 
+<!-- One source of truth for the project address and its publishable key. These were
+     duplicated in two places - the module below and the OSCE block at the foot of
+     the file, which is a plain script and cannot see the module's constants - and a
+     key rotation that updated only one of them took the whole site down with
+     "Unregistered API key". Both now read from here, so that cannot happen again.
+     The publishable key is designed to sit in a browser: it carries no privilege of
+     its own, and every row it can reach is decided by row-level security and the
+     signed-in user's token. The secret key is never present on this page. -->
+<script>
+window.SB_CONFIG = Object.freeze({
+  url: 'https://jnwbcfwtlnrupkthbluh.supabase.co',
+  key: 'sb_publishable_9k0N91WSBVmliPE6hYER2w_3kQz4VHY'
+});
+</script>
+
 <script type="module">
 // Vendored locally on purpose: a hospital network that blocks public CDNs would
 // otherwise take the whole site down. No third-party runtime dependency.
 import { createClient } from './supabase.js';
 
-const SUPABASE_URL = 'https://jnwbcfwtlnrupkthbluh.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_9k0N91WSBVmliPE6hYER2w_3kQz4VHY';
+const SUPABASE_URL = window.SB_CONFIG.url;
+const SUPABASE_KEY = window.SB_CONFIG.key;
 
 // A name this browser hands back on every request. Deliberately NOT a hardware
 // fingerprint: two browsers on one laptop count as two devices, which is the
@@ -1234,8 +1249,12 @@ const money = (a, c) => Number(a).toLocaleString('en', { minimumFractionDigits: 
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+// The single quote matters even though no single-quoted attribute exists today:
+// the day someone writes data-x='${esc(v)}' every escaped value would otherwise
+// become an injection point, and that is not a mistake you want to be one
+// keystroke away from.
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                 .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                 .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 let ME = null, PROFILE = null, ALL = [], ANSWERS = new Map();
 // answer + explanation + source, held ONLY for questions this user has answered.
@@ -2857,6 +2876,10 @@ async function openPay(email, why){
       const out = await callFn('tap-create-charge',
         { email: addr, plan: b.dataset.plan, first: fn, last: ln });
       try { localStorage.setItem('qbank.payEmail', addr); } catch (e) {}
+      // Assigning to location.href will happily run a javascript: URL, so the
+      // address the payment provider hands back is checked before we follow it.
+      if (!/^https:\/\//i.test(out.url || ''))
+        throw new Error('The payment page address was rejected. Nothing has been charged.');
       location.href = out.url;
     } catch (e) {
       say(e.message, 'err');
@@ -3553,7 +3576,7 @@ async function bizPromos(){
         ${list.map(p => `<tr>
           <td><code style="font-size:13px;letter-spacing:.05em">${esc(p.code)}</code>
             ${p.note ? `<div style="font-size:11px;color:var(--faint)">${esc(p.note)}</div>` : ''}</td>
-          <td>${p.kind === 'percent' ? p.value + '% off' : money(p.value, p.currency || 'SAR') + ' off'}</td>
+          <td>${p.kind === 'percent' ? esc(String(p.value)) + '% off' : esc(money(p.value, p.currency || 'SAR')) + ' off'}</td>
           <td class="num">${p.used_count}${p.max_uses ? ' / ' + p.max_uses : ''}</td>
           <td style="font-size:12px">${esc(p.starts_on || 'now')} → ${esc(p.expires_on || 'open')}</td>
           <td>${p.active ? '<span class="pill ok">on</span>' : '<span class="pill dim">off</span>'}</td>
@@ -4169,7 +4192,7 @@ async function generateConsultantReport(){
   if (error || !data){ alertBar('Could not build the report.'); return; }
   const when = new Date(data.generated_at || Date.now()).toLocaleString();
   const who = (PROFILE && (PROFILE.full_name || PROFILE.email)) || 'Consultant';
-  const esc2 = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const esc2 = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const body = (data.residents||[]).map(r => {
     const pct = r.answered ? Math.round(100*r.correct/r.answered) : null;
     const weak = (r.weak_topics||[]).map(w=>`${esc2(w.topic)} (${w.pct==null?'—':w.pct+'%'}, ${w.done})`).join(', ') || '—';
@@ -4585,7 +4608,7 @@ function examResults(){
         <div style="font-size:38px;font-weight:800;line-height:1;color:${b.col}">${pct}%</div>
         <div><span class="band" style="color:${b.col};border-color:${b.col}">${b.txt}</span>
           <div style="font-size:12px;color:var(--dim);margin-top:6px">${r.correct} of ${r.n} correct${
-            blank ? ` · ${blank} left blank` : ''} · ${clock(r.usedMs)} used of ${EXAM.opts.min} min</div></div>
+            blank ? ` · ${blank} left blank` : ''} · ${clock(r.usedMs)} used of ${Number(EXAM.opts.min)||0} min</div></div>
       </div>
       <div style="font-size:11.5px;color:var(--faint);line-height:1.6">
         SCFHS bands: under 50% clear fail · 50–59.4% borderline fail · 60–69.4% borderline pass · 70% and above clear pass.
@@ -5118,7 +5141,7 @@ var OSCE_SHELL='<div id="oscView"></div><div class="otoast" id="oscToast"></div>
 
 function osceRpc(name,args){
   var t=null; try{ var raw=localStorage.getItem('sb-jnwbcfwtlnrupkthbluh-auth-token'); if(raw){ var s=JSON.parse(raw); t=(s&&s.access_token)||(s&&s.currentSession&&s.currentSession.access_token)||null; } }catch(e){}
-  var KEY='sb_publishable_9k0N91WSBVmliPE6hYER2w_3kQz4VHY';
+  var KEY=window.SB_CONFIG.key;
   // Send the same x-device header the main client attaches on every request. Without
   // it, device_ok() inside is_approved() fails for a resident under device
   // enforcement, so osce_cases() returns [] and the bank looks empty ("No stations
@@ -5126,12 +5149,12 @@ function osceRpc(name,args){
   var dev=null; try{ dev=localStorage.getItem('qbank.device'); }catch(e){}
   var H={'apikey':KEY,'Authorization':'Bearer '+(t||KEY),'Content-Type':'application/json'};
   if(dev) H['x-device']=dev;
-  return fetch('https://jnwbcfwtlnrupkthbluh.supabase.co/rest/v1/rpc/'+name,{method:'POST',headers:H,body:JSON.stringify(args||{})}).then(function(r){ if(!r.ok) return r.text().then(function(x){throw new Error(r.status+' '+x);}); return r.status===204?null:r.json(); });
+  return fetch(window.SB_CONFIG.url+'/rest/v1/rpc/'+name,{method:'POST',headers:H,body:JSON.stringify(args||{})}).then(function(r){ if(!r.ok) return r.text().then(function(x){throw new Error(r.status+' '+x);}); return r.status===204?null:r.json(); });
 }
 
 /* ===== simple walkthrough engine (isolated; every symbol osc-prefixed) ===== */
 var OSC_CASES=[]; var OSC=null;
-function oscEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+function oscEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);}); }
 function oscV(){ return document.getElementById('oscView'); }
 function oscToast(m){ var t=document.getElementById('oscToast'); if(!t)return; t.textContent=m; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('on');},1300); }
 function oscPrio(pr){ return ({essential:['ess','Essential'],important:['imp','Important'],useful:['imp','Useful'],low:['low','Lower yield'],irrelevant:['low','Avoid']})[pr]||['low','']; }
