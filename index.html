@@ -3805,66 +3805,67 @@ async function residentDetail(uid){
 // picks exactly which residents that consultant may monitor. A consultant sees
 // nothing else on the site: no question editor, no reported questions, no roster,
 // no business, no settings, and no resident other than the ones assigned here.
-// Shared by the manual email box and the "pick an existing user" list below it —
-// one promotion path, three underlying cases (signed-in profile / on the roster
-// but never signed in / brand new address), same outcome either way.
+// One promotion path for both the manual email box and the picker below it. The
+// server decides which of the three cases applies (signed-in profile / on the
+// roster but never signed in / brand new address) and keeps profiles and
+// allowed_emails in step, so a promoted person can never go missing from the
+// consultants list.
 async function promoteToConsultant(email, name){
-  email = (email || '').trim().toLowerCase();
-  const { data: prof } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
-  if (prof){
-    if (prof.role === 'admin') return { error: 'That is an administrator — cannot change.' };
-    const { error } = await sb.rpc('admin_grant_consultant', { target: prof.id });
-    if (error) return { error: 'Could not promote: ' + error.message };
-  } else {
-    const { data: existing } = await sb.from('allowed_emails').select('email,role').eq('email', email).maybeSingle();
-    if (existing){
-      if (existing.role === 'admin') return { error: 'That is an administrator — cannot change.' };
-      const { error } = await sb.from('allowed_emails')
-        .update({ role: 'consultant', full_name: name || undefined }).eq('email', email);
-      if (error) return { error: 'Could not update: ' + error.message };
-    } else {
-      const { error } = await sb.from('allowed_emails')
-        .insert({ email, full_name: name || null, role: 'consultant' });
-      if (error) return { error: 'Could not add: ' + error.message };
-    }
-  }
-  return { ok: true };
+  const { data, error } = await sb.rpc('admin_promote_consultant',
+    { p_email: (email||'').trim().toLowerCase(), p_name: name || null });
+  if (error) return { error: 'Could not promote: ' + error.message };
+  return { ok: true, pending: !!(data && data.pending) };
 }
 
 async function renderConsultants(){
   const v = $('#viewConsultants');
   v.innerHTML = '<div class="empty">Loading…</div>';
-  const [{ data: cons, error: e1 }, { data: allow }] = await Promise.all([
+  const [{ data: cons, error: e1 }, { data: allow }, { data: profs }] = await Promise.all([
     sb.rpc('admin_list_consultants'),
-    sb.from('allowed_emails').select('email,full_name,role').order('full_name')
+    sb.from('allowed_emails').select('email,full_name,role').order('full_name'),
+    sb.from('profiles').select('email')
   ]);
   if (e1){ v.innerHTML = '<div class="card"><div class="empty">Could not load consultants.</div></div>'; return; }
   const consList = cons || [];
+  const signedIn = new Set((profs||[]).map(p => (p.email||'').trim().toLowerCase()));
+
+  // A consultant who has never signed in has no account row for an assignment to
+  // point at, so assigning is held back until they do — said plainly rather than
+  // leaving a dead button.
   const rows = consList.map(c => `
-    <tr data-cid="${c.id}">
-      <td><b>${esc(c.name||'—')}</b><div style="font-size:11.5px;color:var(--dim)">${esc(c.email)}</div></td>
-      <td class="num">${c.residents}</td>
+    <tr${c.id ? ` data-cid="${c.id}"` : ''} data-email="${esc(c.email)}">
+      <td><b>${esc(c.name||'—')}</b>
+        <div style="font-size:11.5px;color:var(--dim)">${esc(c.email)}</div>
+        ${c.pending ? '<div style="font-size:11px;color:var(--warn);margin-top:3px">Has not signed in yet</div>' : ''}</td>
+      <td class="num">${c.pending ? '—' : c.residents}</td>
       <td style="white-space:nowrap">
-        <button data-manage>Manage residents</button>
+        ${c.pending
+          ? '<button disabled title="They become a consultant the first time they sign in. You can assign residents to them after that.">Manage residents</button>'
+          : '<button data-manage>Manage residents</button>'}
         <button data-revoke>Revoke</button></td>
     </tr>`).join('');
+  const pendingCount = consList.filter(c => c.pending).length;
 
   // Everyone on the roster except administrators — pick any of them to promote
   // in one click instead of retyping an email you can already see on screen.
   const pickable = (allow||[]).filter(a => a.role !== 'admin')
     .sort((a,b) => (a.full_name||a.email).localeCompare(b.full_name||b.email));
-  const pickRows = pickable.map(a => `
+  const pickRows = pickable.map(a => {
+    const isIn = signedIn.has((a.email||'').trim().toLowerCase());
+    return `
     <label data-row style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
       padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px">
       <span style="min-width:0">
         <div style="font-weight:600;overflow-wrap:anywhere">${esc(a.full_name || '(no name on file)')}</div>
         <div style="color:var(--faint);font-size:11px;overflow-wrap:anywhere">${esc(a.email)}</div>
+        ${isIn ? '' : '<div style="font-size:10.5px;color:var(--warn);margin-top:2px">Never signed in — can be made a consultant, but residents can only be assigned once they do</div>'}
       </span>
       ${a.role === 'consultant'
         ? '<span class="tag" style="flex:0 0 auto">Already a consultant</span>'
         : `<button data-pick="${esc(a.email)}" data-pickname="${esc(a.full_name||'')}"
              style="flex:0 0 auto">Make consultant</button>`}
-    </label>`).join('');
+    </label>`;
+  }).join('');
 
   v.innerHTML = `
     <div class="card">
@@ -3902,7 +3903,11 @@ async function renderConsultants(){
         style="width:100%;margin-bottom:10px">` : ''}
       ${consList.length ? `<div style="overflow-x:auto"><table id="consTable">
         <thead><tr><th>Consultant</th><th class="num">Residents</th><th></th></tr></thead>
-        <tbody>${rows}</tbody></table></div>`
+        <tbody>${rows}</tbody></table></div>
+        ${pendingCount ? `<div style="font-size:11.5px;color:var(--dim);margin-top:10px;line-height:1.5">
+          ${pendingCount} of these ${pendingCount===1?'has':'have'} not signed in yet. They become a
+          consultant automatically the first time they do, and you can assign residents to them
+          from that point.</div>` : ''}`
         : '<div class="empty">No consultants yet. Add one above to get started.</div>'}
     </div>`;
 
@@ -3923,12 +3928,15 @@ async function renderConsultants(){
       });
     };
   }
+  const PROMPT = ' a consultant?\n\nThey keep full access to the bank like any other member, '
+    + 'plus a "My residents" tab to monitor whichever residents you assign to them.';
   v.querySelectorAll('[data-pick]').forEach(b => b.onclick = async () => {
     const email = b.dataset.pick, name = b.dataset.pickname;
-    if (!confirm('Make ' + email + ' a consultant?\n\nThey keep full access to the bank like any other member, plus a "My residents" tab to monitor whichever residents you assign to them.')) return;
+    if (!confirm('Make ' + email + PROMPT)) return;
     b.disabled = true;
-    const { error } = await promoteToConsultant(email, name);
+    const { error, pending } = await promoteToConsultant(email, name);
     if (error){ alertBar(error); b.disabled = false; return; }
+    if (pending) alertBar(email + ' is a consultant. They have not signed in yet — assign residents to them once they do.');
     renderConsultants();
   });
   // Any email, in one flow — the admin should never have to know or care whether
@@ -3939,18 +3947,22 @@ async function renderConsultants(){
     const email = $('#consEmail').value.trim().toLowerCase();
     const name  = $('#consName').value.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msg('Enter a valid email address.', true); return; }
-    if (!confirm('Make ' + email + ' a consultant?\n\nThey keep full access to the bank like any other member, plus a "My residents" tab to monitor whichever residents you assign to them.')) return;
+    if (!confirm('Make ' + email + PROMPT)) return;
 
-    const { error } = await promoteToConsultant(email, name);
+    const { error, pending } = await promoteToConsultant(email, name);
     if (error){ msg(error, true); return; }
-    msg(email + ' is now a consultant.');
+    msg(pending
+      ? email + ' is now a consultant. They have not signed in yet — you can assign residents once they do.'
+      : email + ' is now a consultant.');
     $('#consEmail').value=''; $('#consName').value=''; renderConsultants();
   };
   v.querySelectorAll('[data-revoke]').forEach(b => b.onclick = async () => {
-    const tr = b.closest('tr'), cid = tr.dataset.cid;
+    const tr = b.closest('tr');
     const nm = tr.querySelector('b') ? tr.querySelector('b').textContent : 'this consultant';
     if (!confirm('Revoke ' + nm + '?\n\nThey go back to being an ordinary member and every resident assignment is removed. Nothing about the residents themselves changes.')) return;
-    const { error } = await sb.rpc('admin_revoke_consultant', { target: cid });
+    // Keyed by email so it works for someone who has not signed in yet and so has
+    // no account id to revoke against.
+    const { error } = await sb.rpc('admin_revoke_consultant_email', { p_email: tr.dataset.email });
     if (error){ alertBar('Could not revoke: ' + error.message); return; }
     renderConsultants();
   });
