@@ -1257,6 +1257,12 @@ const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
 let ME = null, PROFILE = null, ALL = [], ANSWERS = new Map();
+// Whether the bank actually carries a difficulty rating or a training level. Both
+// facets exist in the schema and in build_block, but nothing has been graded yet, so
+// offering the filters would hand a resident a control that can only ever return
+// "no questions match". Recomputed on every load: fill either column in and the
+// matching control comes back on its own, with no further change here.
+let HAS_DIFF = false, HAS_PGY = false;
 // answer + explanation + source, held ONLY for questions this user has answered.
 // The browser never receives the key for an unanswered question.
 let KEYS = new Map();
@@ -1720,7 +1726,11 @@ async function loadQuestions(){
       // wording and still contains the sentence that gives an imaging finding
       // away; the SELECT grant on it has been withdrawn from residents.
       // stem_no_image is the resident-visible text and is always populated.
-      .select('uid,n,year,years,track,tracks,topic,stem_no_image,image_path,options,flags,rebuilt,needs_review,repeat_count')
+      // difficulty and pgy_level are carried so the block builder can tell whether
+      // those two facets have been filled in at all. Both are still empty across the
+      // whole bank today, and a filter on an empty column silently matches nothing -
+      // which is why the controls are hidden until there is something to filter on.
+      .select('uid,n,year,years,track,tracks,topic,stem_no_image,image_path,options,flags,rebuilt,needs_review,repeat_count,difficulty,pgy_level')
       .order('year', { ascending:false }).order('n', { ascending:true })
       .range(from, from + page - 1);
     if (error){ console.error('question load failed', error); break; }
@@ -1728,6 +1738,8 @@ async function loadQuestions(){
     if (data.length < page) break;
   }
   ALL = acc;
+  HAS_DIFF = ALL.some(q => q.difficulty !== null && q.difficulty !== undefined);
+  HAS_PGY  = ALL.some(q => q.pgy_level  !== null && q.pgy_level  !== undefined && q.pgy_level !== '');
 }
 async function loadAnswers(){
   ANSWERS = new Map(); KEYS = new Map();
@@ -2089,19 +2101,20 @@ $('#bBlock').onclick = () => {
             <option value="flagged">Starred</option>
             <option value="needs_check">Needs check</option>
           </select></div>
-        <div class="fld"><label for="blPgy">Level</label>
+        ${HAS_PGY ? `<div class="fld"><label for="blPgy">Level</label>
           <select id="blPgy"><option value="">Any level</option>
-            ${['PGY1','PGY2','PGY3','PGY4','PGY5'].map(g=>`<option>${g}</option>`).join('')}
-          </select></div>
+            ${[...new Set(ALL.map(q=>q.pgy_level).filter(Boolean))].sort()
+              .map(g=>`<option>${esc(g)}</option>`).join('')}
+          </select></div>` : ''}
         <div class="fld"><label for="blN">How many</label>
           <input id="blN" type="number" min="1" max="250" value="40"></div>
       </div>
-      <div class="fld"><label>Difficulty</label>
+      ${HAS_DIFF ? `<div class="fld"><label>Difficulty</label>
         <div class="row" style="margin-bottom:0">${[1,2,3,4,5].map(d =>
           `<label style="font-size:12.5px;display:inline-flex;align-items:center;gap:5px">
-             <input type="checkbox" class="bldiff" value="${d}" style="width:auto">${d}</label>`).join('')}
+             <input type="checkbox" class="bldiff" value="${d}">${d}</label>`).join('')}
           <span style="font-size:11.5px;color:var(--faint)">1 easiest, 5 hardest. Leave all clear for any.</span>
-        </div></div>
+        </div></div>` : ''}
       <div class="two">
         <div class="fld"><label for="blTrack">Track</label>
           <select id="blTrack"><option value="">Every track</option>
@@ -2127,7 +2140,7 @@ $('#bBlock').onclick = () => {
       p_topics:     $('#blTopic').value ? [$('#blTopic').value] : null,
       p_tracks:     $('#blTrack').value ? [$('#blTrack').value] : null,
       p_years:      null,
-      p_pgy:        $('#blPgy').value || null,
+      p_pgy:        ($('#blPgy') && $('#blPgy').value) || null,
       p_difficulty: diffs.length ? diffs : null,
       p_n:          Math.max(1, Math.min(250, +$('#blN').value || 40)),
       p_shuffle:    $('#blShuffle').checked
