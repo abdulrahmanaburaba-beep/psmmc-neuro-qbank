@@ -1519,6 +1519,44 @@ sb.auth.onAuthStateChange((_e, session) => {
   };
 })();
 
+// ------------------------------------------------ magic-link confirm (own domain)
+// Once the branded Send Email Hook is wired up server-side, the sign-in email
+// points back HERE with the raw token instead of straight to Supabase's own
+// /auth/v1/verify endpoint. That is deliberate: a mail-security scanner that
+// silently pre-fetches links in the inbox will only ever GET this page - it
+// can't click a button - so the single-use token is never burned before the
+// resident actually opens the mail and taps Confirm themselves.
+// Inert today: nothing currently sends a link shaped like this.
+(() => {
+  const params = new URLSearchParams(location.search);
+  const tokenHash = params.get('token_hash');
+  const otpType = params.get('type');
+  if (!tokenHash || !otpType) return;
+
+  history.replaceState(null, '', location.pathname + location.hash);
+
+  gmsg('This link needs one tap to confirm it is you.', 'info');
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.id = 'confirmSignin';
+  btn.style.width = '100%';
+  btn.style.marginTop = '10px';
+  btn.textContent = 'Confirm sign-in to CerebrobanQ';
+  $('#gatemsg').insertAdjacentElement('afterend', btn);
+
+  btn.onclick = async () => {
+    btn.disabled = true;
+    gmsg('Signing in…');
+    const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
+    if (error) {
+      gmsg('That link has already been used or has expired. Request a new one below.', 'err');
+      btn.disabled = false;
+    }
+    // On success, onAuthStateChange (registered above) picks up the new
+    // session and calls start(user) - nothing else to do here.
+  };
+})();
+
 async function start(user){
   if (BOOTED) return;
   BOOTED = true;
