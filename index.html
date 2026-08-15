@@ -584,7 +584,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
    <div class="fcols">
     <h3>Support</h3>
     <p>Something wrong with a question, a payment, or getting in?
-      Write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> and you will get
+      Write to <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a> and you will get
       a reply. If a question itself looks wrong, the <b>Report a problem</b> button under it is
       faster — it tells us exactly which one you meant.</p>
 
@@ -623,7 +623,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       </div>
       <p>Owned and operated by <b>CerebroPilot Establishment</b> (مؤسسة سيريبروبايلوت), Riyadh,
         Saudi Arabia · <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a> ·
-        <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a><br>
+        <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a><br>
         Payments are processed by Tap Payments. Card details are never entered on or stored by this site.</p>
     </div>
   </div>
@@ -700,7 +700,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   </div>
 
   <div class="appfoot">
-    Need help? <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
+    Need help? <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a> ·
     <a href="#" id="aboutLink">About &amp; disclaimer</a> ·
     <a href="#" data-policy="refund">Refund policy</a> ·
     <a href="#" data-policy="terms">Terms</a>
@@ -746,7 +746,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 <script>
 Sentry.init({
   dsn: 'https://aa4462d51bb88afd91462e06c77190e1@o4511874742812672.ingest.de.sentry.io/4511874802057296',
-  environment: location.hostname === 'saudi-board.com' ? 'production' : 'dev',
+  environment: location.hostname === 'cerebrobanq.com' ? 'production' : 'dev',
   release: 'saudi-qbank@2026-08-08',
   integrations: [ Sentry.captureConsoleIntegration({ levels: ['error'] }) ],
   beforeSend(event){
@@ -826,13 +826,13 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 // not been through a lawyer. The version string is checked by the database: if this
 // file is a stale cached build, recording a consent fails loudly rather than filing
 // an agreement against wording the person never actually saw.
-const POLICY_VERSION = '2026-08-09';
+const POLICY_VERSION = '2026-08-15';
 
 const POLICY = {
   refund: {
     title: { en: 'Refund and Cancellation Policy', ar: 'سياسة الاسترجاع والاسترداد' },
     en: `
-<div class="meta">CerebrobanQ — saudi-board.com<br>
+<div class="meta">CerebrobanQ — cerebrobanq.com<br>
   Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
   Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
 <p>CerebrobanQ, operated by CerebroPilot Establishment, is committed to providing
@@ -843,7 +843,7 @@ const POLICY = {
 
 <h3>1. Scope of this Policy</h3>
 <p>This Policy applies to all subscriptions, digital educational services, and digital content
-  purchased or provided through saudi-board.com, including the question bank, practice and mock
+  purchased or provided through cerebrobanq.com, including the question bank, practice and mock
   examinations, explanations, answers and references, progress and performance tools, and any
   other paid digital features made available through the Platform.</p>
 <p>This Policy covers both individual subscriptions and subscriptions purchased or arranged by
@@ -954,20 +954,20 @@ const POLICY = {
 
 <h3>13. Service Provider Information</h3>
 <p>Platform: CerebrobanQ<br>
-  Website: saudi-board.com<br>
+  Website: cerebrobanq.com<br>
   Service Provider: CerebroPilot Establishment<br>
   Unified National Number: 7054697367<br>
   Entity Type: Establishment<br>
   Country: Kingdom of Saudi Arabia</p>
 <p>For questions regarding subscriptions, payments, cancellations, or refunds, users should contact
   the official support channels displayed on the Platform:
-  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+  <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a>.</p>
 <p>By completing a purchase or activating a subscription, the user acknowledges that they have
   reviewed and understood this Refund and Cancellation Policy and the applicable subscription
   terms, without prejudice to any mandatory rights available under the laws and regulations of the
   Kingdom of Saudi Arabia.</p>`,
     ar: `
-<div class="meta">CerebrobanQ — saudi-board.com<br>
+<div class="meta">CerebrobanQ — cerebrobanq.com<br>
   مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
   المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
 <p>نحرص في CerebrobanQ، والمقدم من CerebroPilot Establishment، على تقديم خدمات ومحتوى
@@ -977,7 +977,7 @@ const POLICY = {
 
 <h3>1. نطاق السياسة</h3>
 <p>تنطبق هذه السياسة على جميع الاشتراكات والخدمات والمحتويات التعليمية الرقمية التي يتم شراؤها أو
-  توفيرها من خلال saudi-board.com، بما في ذلك بنك الأسئلة، الاختبارات التدريبية والتجريبية،
+  توفيرها من خلال cerebrobanq.com، بما في ذلك بنك الأسئلة، الاختبارات التدريبية والتجريبية،
   الشروحات والإجابات والمراجع، أدوات متابعة التقدم والأداء، وأي خدمات أو مزايا رقمية أخرى تقدمها
   المنصة.</p>
 <p>تشمل هذه السياسة الاشتراكات الفردية والاشتراكات المقدمة من خلال المنشآت والجهات، مع تطبيق
@@ -1067,13 +1067,13 @@ const POLICY = {
 
 <h3>13. بيانات مقدم الخدمة</h3>
 <p>اسم المنصة: CerebrobanQ<br>
-  الموقع الإلكتروني: saudi-board.com<br>
+  الموقع الإلكتروني: cerebrobanq.com<br>
   مقدم الخدمة: CerebroPilot Establishment<br>
   الرقم الوطني الموحد: 7054697367<br>
   نوع الكيان: Establishment<br>
   الدولة: المملكة العربية السعودية</p>
 <p>للاستفسارات المتعلقة بالاشتراكات أو المدفوعات أو طلبات الاسترجاع، يرجى التواصل من خلال قنوات
-  الدعم الرسمية الموضحة في الموقع: <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+  الدعم الرسمية الموضحة في الموقع: <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a>.</p>
 <p>بإتمام عملية الشراء أو تفعيل الاشتراك، يقر المستخدم بأنه اطلع على سياسة الاسترجاع والاسترداد
   وشروط الاشتراك وفهمها، وذلك دون الإخلال بأي حقوق إلزامية مقررة بموجب الأنظمة واللوائح المعمول بها
   في المملكة العربية السعودية.</p>`
@@ -1082,12 +1082,12 @@ const POLICY = {
   terms: {
     title: { en: 'Terms and Conditions', ar: 'الشروط والأحكام' },
     en: `
-<div class="meta">CerebrobanQ — saudi-board.com<br>
+<div class="meta">CerebrobanQ — cerebrobanq.com<br>
   Service Provider: CerebroPilot Establishment · Unified National Number 7054697367<br>
   Kingdom of Saudi Arabia · Version ${POLICY_VERSION}</div>
 
 <h3>1. Who you are contracting with</h3>
-<p>saudi-board.com ("the Platform") is owned and operated by CerebroPilot Establishment, a Saudi
+<p>cerebrobanq.com ("the Platform") is owned and operated by CerebroPilot Establishment, a Saudi
   establishment registered with the Ministry of Commerce under Unified National Number 7054697367,
   Riyadh, Kingdom of Saudi Arabia. Using the Platform means you accept these Terms and the Refund
   and Cancellation Policy, which forms part of them.</p>
@@ -1154,7 +1154,7 @@ const POLICY = {
   from. Your personal notes are private to you.</p>
 <p>Your information is not sold, and is not shared with other users or with third parties except as
   necessary to process a payment or as required by law. To request a copy of your data, or its
-  deletion, write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+  deletion, write to <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a>.</p>
 
 <h3>11. Availability</h3>
 <p>The Platform is provided on a reasonable-efforts basis. It may be unavailable at times for
@@ -1178,15 +1178,15 @@ const POLICY = {
 
 <h3>15. Contact</h3>
 <p>CerebroPilot Establishment · Riyadh, Kingdom of Saudi Arabia ·
-  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
+  <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a> ·
   <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a></p>`,
     ar: `
-<div class="meta">CerebrobanQ — saudi-board.com<br>
+<div class="meta">CerebrobanQ — cerebrobanq.com<br>
   مقدم الخدمة: CerebroPilot Establishment · الرقم الوطني الموحد 7054697367<br>
   المملكة العربية السعودية · الإصدار ${POLICY_VERSION}</div>
 
 <h3>1. الطرف المتعاقد</h3>
-<p>موقع saudi-board.com («المنصة») مملوك ومُشغّل من CerebroPilot Establishment، وهي مؤسسة سعودية
+<p>موقع cerebrobanq.com («المنصة») مملوك ومُشغّل من CerebroPilot Establishment، وهي مؤسسة سعودية
   مسجلة لدى وزارة التجارة بالرقم الوطني الموحد 7054697367، الرياض، المملكة العربية السعودية.
   استخدامك للمنصة يعني موافقتك على هذه الشروط وعلى سياسة الاسترجاع والاسترداد التي تُعد جزءًا
   منها.</p>
@@ -1248,7 +1248,7 @@ const POLICY = {
   ومعلومات تقنية عن الأجهزة التي تسجل الدخول منها. أما ملاحظاتك الشخصية فهي خاصة بك وحدك.</p>
 <p>لا تُباع معلوماتك ولا تُشارك مع مستخدمين آخرين أو مع أطراف ثالثة إلا بالقدر اللازم لمعالجة عملية
   دفع أو حين تقتضي الأنظمة ذلك. ولطلب نسخة من بياناتك أو حذفها، يرجى المراسلة على
-  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a>.</p>
+  <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a>.</p>
 
 <h3>11. توافر الخدمة</h3>
 <p>تُقدَّم المنصة على أساس بذل العناية المعقولة، وقد تتوقف أحيانًا للصيانة أو لأسباب خارجة عن
@@ -1270,7 +1270,7 @@ const POLICY = {
 
 <h3>15. التواصل</h3>
 <p>CerebroPilot Establishment · الرياض، المملكة العربية السعودية ·
-  <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> ·
+  <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a> ·
   <a href="https://cerebropilot.com" rel="noopener">cerebropilot.com</a></p>`
   }
 };
@@ -1712,9 +1712,9 @@ sb.auth.onAuthStateChange((_e, session) => {
         p_residents_count: n,
         p_note: $('#bNote').value.trim() || null
       });
-      if (error){ $('#bSend').disabled = false; bmsg('Could not send that. Please try again or email admin@saudi-board.com directly.', true); return; }
+      if (error){ $('#bSend').disabled = false; bmsg('Could not send that. Please try again or email support@cerebrobanq.com directly.', true); return; }
       host.innerHTML = '<div class="msg info" style="margin-top:14px">Thanks — we usually reply within a day. '
-        + 'You can also write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> directly.</div>';
+        + 'You can also write to <a href="mailto:support@cerebrobanq.com">support@cerebrobanq.com</a> directly.</div>';
     };
   };
 })();
