@@ -129,7 +129,12 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
 /* The glow sits behind everything and never moves, so it costs one paint and nothing
    after that. No animation on the landing: this is the door to a revision tool, and a
    moving background is the first thing that gets tiring. */
-.gate{min-height:100vh;display:grid;place-items:center;padding:24px;position:relative;overflow:hidden}
+/* minmax(0,1fr) pins the single track to the container width. With the default
+   auto track, .land's percentage width resolved against a max-content-sized
+   track instead, so on any phone narrower than ~468px the whole landing was
+   440px wide and clipped off the right edge. */
+.gate{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;
+ padding:24px;position:relative;overflow:hidden}
 .gate::before{content:'';position:absolute;inset:-40% -10% auto;height:70vh;pointer-events:none;
  background:radial-gradient(60% 55% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%)}
 .land{width:100%;max-width:940px;position:relative}
@@ -147,7 +152,43 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
 .landgrid{display:grid;grid-template-columns:1fr 400px;gap:28px;align-items:start}
 .pitch{font-size:18px;line-height:1.55;margin:0 0 20px;letter-spacing:-.015em}
 .pitch b{font-weight:650;color:var(--accent)}
-.feats{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+/* NYKN-style quantified strip + AAN-style uppercase section labels. Same palette,
+   same tokens - only the organisation of the landing changed. */
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);
+ font-weight:700;margin:2px 0 10px}
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 14px}
+.statchip{background:color-mix(in srgb, var(--panel) 82%, transparent);border:1px solid var(--line);
+ border-radius:10px;padding:10px 6px;text-align:center}
+.statchip b{display:block;font-size:20px;letter-spacing:-.02em;color:var(--accent);
+ font-variant-numeric:tabular-nums}
+.statchip span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+.introtrust{font-size:11.5px;color:var(--faint);margin:0;line-height:1.7}
+.landsec{margin-top:30px}
+.seclabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);
+ font-weight:700;margin:0 0 10px}
+.chev{color:var(--dim);flex:none;transition:transform .2s}
+.bundlebar{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+.bundlebar>button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+ background:none;border:none;border-radius:0;padding:13px 16px}
+.bundlebar>button b{font-size:13.5px;flex:none}
+.bundlebar .bsub{font-size:11.5px;color:var(--dim);flex:1;min-width:0;white-space:nowrap;
+ overflow:hidden;text-overflow:ellipsis}
+.bundlebar>button[aria-expanded="true"] .chev{transform:rotate(180deg)}
+#bundleBody{padding:0 16px 16px;border-top:1px solid var(--line)}
+.bblurb{font-size:12.5px;color:var(--dim);line-height:1.6;margin:12px 0}
+.bperk{margin:12px 0 0;padding:10px 12px;border:1px solid var(--accent);border-radius:10px;
+ font-size:12.5px;color:var(--dim);line-height:1.55;
+ background:color-mix(in srgb, var(--accent) 8%, transparent)}
+.bperk b{color:var(--accent);display:block;margin-bottom:2px}
+.brow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brow label{font-size:12px;color:var(--faint)}
+.brow input{width:80px;text-align:center;flex:none}
+.brow button{margin-left:auto}
+.landfoot .fcols{columns:2 320px;column-gap:40px}
+.landfoot .fcols h3{break-after:avoid}
+.landfoot .fcols p{break-inside:avoid}
+.feats{list-style:none;padding:0;margin:0;display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
 .feats li{background:color-mix(in srgb, var(--panel) 82%, transparent);
  border:1px solid var(--line);border-radius:12px;padding:13px 15px;
  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -188,10 +229,16 @@ button.on,button.primary{background:var(--accent);border-color:var(--accent);col
 #aboutBox{max-width:70ch;margin:14px auto 0;text-align:left;line-height:1.65}
 #aboutBox p{margin:0 0 10px}
 @media(max-width:820px){
-  .landgrid{grid-template-columns:1fr}
+  .landgrid{grid-template-columns:1fr;gap:20px}
   .land{max-width:440px}
-  .pitch{font-size:16px}
+  .pitch{font-size:16px;margin-bottom:14px}
+  .gate{padding:18px 14px 30px;place-items:start center}
   .gate::before{height:44vh}
+  .landtop{margin-bottom:20px}
+  .statrow{margin:14px 0 12px}
+  .statchip b{font-size:17px}
+  .gatebox{max-width:none}
+  .landsec{margin-top:26px}
 }
 @media (prefers-reduced-motion: reduce){ .feats li{transition:none} }
 .gatebox{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
@@ -233,6 +280,29 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 .stat.good b{color:var(--ok)} .stat.bad b{color:var(--bad)}
 .pbar{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-bottom:10px}
 .pbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+/* On a phone the full filter bar was eating half the viewport before the first
+   question appeared. Under 720px it folds behind this handle: tap or drag down
+   to open, drag up to close - and scrolling down the page tucks it away on its
+   own. On a laptop the handle does not exist and nothing changes. */
+.fhandle{display:none;align-items:center;gap:9px;width:100%;background:var(--panel);
+ border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:8px;
+ font-size:12.5px;color:var(--dim);text-align:left;touch-action:pan-x}
+.fhandle .fsum{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fhandle .fsum b{color:var(--ink);font-weight:600}
+.fhandle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+@media(max-width:720px){
+  .fhandle{display:flex}
+  #filtersWrap{overflow:hidden;max-height:0;opacity:.35;
+    transition:max-height .26s ease,opacity .26s ease}
+  #filtersWrap.open{max-height:76vh;opacity:1;overflow-y:auto}
+  .bar{padding-bottom:8px}
+  .bar select{flex:1 1 42%;min-width:0}
+  .stats{gap:9px;padding:6px 0 9px;font-size:11.5px}
+  .stats .stat:last-child{display:none}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:none}
+}
 
 /* ---------- question ---------- */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin:12px 0}
@@ -290,6 +360,20 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .meter i{display:block;height:100%;background:var(--accent)}
 .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:6px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px}
+/* Admin activity feed + roster search (Residents tab reorganisation) */
+.feedrow{display:flex;gap:10px;align-items:baseline;padding:7px 0;
+ border-bottom:1px solid var(--line);font-size:12.5px;flex-wrap:wrap}
+.feedrow:last-child{border-bottom:none}
+.ftag{font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);
+ color:var(--dim);flex:none;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.ftag.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-bg)}
+.ftag.warn{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
+.ftag.pay{color:var(--accent);border-color:var(--accent)}
+.feedrow b{font-weight:600;word-break:break-all}
+.fdet{color:var(--dim);flex:1;min-width:120px}
+.ftime{color:var(--faint);font-size:11px;flex:none;margin-left:auto}
+.rbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.rbar input[type=search]{flex:1;min-width:150px;width:auto}
 .kpi b{display:block;font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .kpi span{font-size:11.5px;color:var(--dim)}
 .empty{text-align:center;padding:56px 20px;color:var(--dim)}
@@ -411,30 +495,25 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
   </div>
 
   <div class="landgrid">
-    <div>
-      <p class="pitch"><b>2,489 questions</b> covering the Saudi Neurology Board blueprint — each
-        one with a worked explanation and a source you can go and check.</p>
-      <ul class="feats">
-        <li><b>Every answer explained</b><span>Not just the right letter. Why it is right, why
-          the other three are not, and the reference it came from.</span></li>
-        <li><b>Exam mode</b><span>Timed papers built to the blueprint, marked against the real
-          pass bands, with a topic breakdown at the end.</span></li>
-        <li><b>Kept current</b><span>Questions are reviewed, corrected and expanded over time.
-          Anything doubtful is flagged rather than quietly left wrong.</span></li>
-        <li><b>Answer from the keyboard</b><span>A–D or 1–4 to answer, N and P to move. Built
-          for long revision sessions, not for clicking.</span></li>
-        <li><b>Find your weak topics</b><span>Your score by topic and track — so you
-          revise what actually needs it.</span></li>
-        <li><b>Ward or home</b><span>Phone between cases, laptop in the evening. One account,
-          nothing to install.</span></li>
-      </ul>
+    <div class="landintro">
+      <p class="eyebrow">Saudi Board · Neurology · MCQ + OSCE</p>
+      <p class="pitch">Board revision that <b>shows its work</b> — every question written to the
+        Saudi Neurology Board blueprint, with a worked explanation and a source you can go
+        and check.</p>
+      <div class="statrow" aria-label="What is inside">
+        <div class="statchip"><b>2,489</b><span>Questions</span></div>
+        <div class="statchip"><b>3</b><span>Board tracks</span></div>
+        <div class="statchip"><b>OSCE</b><span>Case practice</span></div>
+      </div>
+      <p class="introtrust">Written and kept current by a neurologist · Independent — not
+        affiliated with SCFHS · Registered Saudi establishment</p>
     </div>
 
     <div class="gatebox">
       <h1>Sign in</h1>
       <p class="lede">No password. We email you a link that signs you in.</p>
       <label for="email">Your email address</label>
-      <input id="email" type="email" autocomplete="email" placeholder="name@example.com" maxlength="200" autofocus>
+      <input id="email" type="email" autocomplete="email" placeholder="name@example.com" maxlength="200">
       <button id="send" class="primary">Email me a sign-in link</button>
       <div id="gatemsg" class="msg info hide" role="status" aria-live="polite"></div>
       <div id="gateBuy" class="hide" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
@@ -462,32 +541,51 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
   </div>
 
-  <div class="card" style="margin:0 0 28px;border-color:var(--accent)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap">
-      <div style="flex:1;min-width:240px">
-        <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);
-          font-weight:700;margin-bottom:4px">For programme directors</div>
-        <h3 style="margin:0 0 6px;font-size:16px">Bundle your whole programme</h3>
-        <div style="font-size:12.5px;color:var(--dim);line-height:1.6">
-          Buy seats for your residents as one group, get a weekly report on each individual
-          resident's progress, and assign a consultant of your choice to monitor them.
-          Billed yearly — just tell us how many residents and we'll follow up with a quote.
+  <div class="landsec">
+    <h2 class="seclabel">Why residents use it</h2>
+    <ul class="feats">
+      <li><b>Every answer explained</b><span>Not just the right letter. Why it is right, why
+        the other three are not, and the reference it came from.</span></li>
+      <li><b>Exam mode</b><span>Timed papers built to the blueprint, marked against the real
+        pass bands, with a topic breakdown at the end.</span></li>
+      <li><b>Kept current</b><span>Questions are reviewed, corrected and expanded over time.
+        Anything doubtful is flagged rather than quietly left wrong.</span></li>
+      <li><b>Answer from the keyboard</b><span>A–D or 1–4 to answer, N and P to move. Built
+        for long revision sessions, not for clicking.</span></li>
+      <li><b>Find your weak topics</b><span>Your score by topic and track — so you
+        revise what actually needs it.</span></li>
+      <li><b>Ward or home</b><span>Phone between cases, laptop in the evening. One account,
+        nothing to install.</span></li>
+    </ul>
+  </div>
+
+  <div class="landsec" style="margin-bottom:28px">
+    <h2 class="seclabel">For programme directors</h2>
+    <div class="bundlebar">
+      <button id="bundleToggle" type="button" aria-expanded="false" aria-controls="bundleBody">
+        <b>Bundle your whole programme</b>
+        <span class="bsub">1,000+ director-only mock-exam MCQs · weekly reports · group seats</span>
+        <span class="chev" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="bundleBody" class="hide">
+        <div class="bperk"><b>Director's mock-exam bank included</b>1,000+ additional MCQs that are
+          NOT in the residents' question bank — reserved for programme directors, so you can
+          run internal mock exams your residents have never seen.</div>
+        <div class="bblurb">Buy seats for your residents as one group, get a weekly report on each
+          individual resident's progress, and assign a consultant of your choice to monitor them.
+          Billed yearly — just tell us how many residents and we'll follow up with a quote.</div>
+        <div class="brow">
+          <label for="bundleN">Residents</label>
+          <input id="bundleN" type="number" min="1" max="500" value="10">
+          <button id="bundleOpen" class="primary">Request this bundle</button>
         </div>
-      </div>
-      <div style="flex:0 0 auto;min-width:200px;text-align:right">
-        <label for="bundleN" style="font-size:11.5px;color:var(--faint)">Residents</label>
-        <div style="display:flex;justify-content:flex-end;margin:4px 0 6px">
-          <input id="bundleN" type="number" min="1" max="500" value="10" style="width:76px;text-align:center">
-        </div>
+        <div id="bundleForm" class="hide"></div>
       </div>
     </div>
-    <div class="nav" style="margin-top:14px;justify-content:flex-end">
-      <button id="bundleOpen" class="primary">Request this bundle</button>
-    </div>
-    <div id="bundleForm" class="hide"></div>
   </div>
 
   <div class="landfoot">
+   <div class="fcols">
     <h3>Support</h3>
     <p>Something wrong with a question, a payment, or getting in?
       Write to <a href="mailto:admin@saudi-board.com">admin@saudi-board.com</a> and you will get
@@ -516,6 +614,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       or save either as a PDF.<br>
       <a href="#" data-policy="refund">Refund and Cancellation Policy · سياسة الاسترجاع والاسترداد</a><br>
       <a href="#" data-policy="terms">Terms and Conditions · الشروط والأحكام</a></p>
+   </div>
 
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
       <h3>Registration</h3>
@@ -557,19 +656,25 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
 
     <div id="practiceBar">
-      <div class="bar">
-        <select id="fTrack" aria-label="Filter by track"></select>
-        <select id="fTopic" aria-label="Filter by topic"></select>
-        <input type="search" id="fSearch" aria-label="Search question stems" placeholder="Search stems…" maxlength="120">
-        <span class="spacer"></span>
-        <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
-        <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
-        <button id="bReview" title="Questions flagged for a final check where published sources may disagree">Needs check</button>
-        <button id="bFlagged" title="Only questions you starred">Starred</button>
-        <button id="bShuffle" title="Randomise order">Shuffle</button>
-        <button id="bBlock" title="Build a custom block by level, difficulty and status">Custom block…</button>
+      <button id="filterHandle" type="button" class="fhandle" aria-expanded="false" aria-controls="filtersWrap">
+        <span class="fsum"><b>Filters</b> · <span id="fSummary">All questions</span></span>
+        <span class="chev" aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="filtersWrap">
+        <div class="bar">
+          <select id="fTrack" aria-label="Filter by track"></select>
+          <select id="fTopic" aria-label="Filter by topic"></select>
+          <input type="search" id="fSearch" aria-label="Search question stems" placeholder="Search stems…" maxlength="120">
+          <span class="spacer"></span>
+          <button id="bUnseen" title="Only questions you have not answered yet">Unseen</button>
+          <button id="bWrong" title="Only questions you answered wrongly">Wrong only</button>
+          <button id="bReview" title="Questions flagged for a final check where published sources may disagree">Needs check</button>
+          <button id="bFlagged" title="Only questions you starred">Starred</button>
+          <button id="bShuffle" title="Randomise order">Shuffle</button>
+          <button id="bBlock" title="Build a custom block by level, difficulty and status">Custom block…</button>
+        </div>
+        <div id="blockPanel" class="hide"></div>
       </div>
-      <div id="blockPanel" class="hide"></div>
       <div class="pbar"><i id="prog"></i></div>
       <div class="stats">
         <span class="stat">Question <b id="sPos">0</b> of <b id="sTot">0</b></span>
@@ -1580,6 +1685,13 @@ sb.auth.onAuthStateChange((_e, session) => {
   } catch (e) {}
   $('#gatePay').onclick = () => openPay($('#email').value.trim(), 'buy');
 
+  // The programme-bundle pitch folds behind one row so it no longer dominates
+  // the landing. Everything inside (blurb, seat count, request form) is the
+  // same markup with the same ids - only the wrapper is collapsible.
+  if ($('#bundleToggle')) $('#bundleToggle').onclick = () => {
+    const nowHidden = $('#bundleBody').classList.toggle('hide');
+    $('#bundleToggle').setAttribute('aria-expanded', nowHidden ? 'false' : 'true');
+  };
   if ($('#bundleOpen')) $('#bundleOpen').onclick = () => {
     const host = $('#bundleForm');
     if (!host.classList.contains('hide')){ host.classList.add('hide'); host.innerHTML=''; return; }
@@ -1642,26 +1754,24 @@ sb.auth.onAuthStateChange((_e, session) => {
 
   history.replaceState(null, '', location.pathname + location.hash);
 
-  gmsg('This link needs one tap to confirm it is you.', 'info');
-  const btn = document.createElement('button');
-  btn.className = 'primary';
-  btn.id = 'confirmSignin';
-  btn.style.width = '100%';
-  btn.style.marginTop = '10px';
-  btn.textContent = 'Confirm sign-in to CerebrobanQ';
-  $('#gatemsg').insertAdjacentElement('afterend', btn);
-
-  btn.onclick = async () => {
-    btn.disabled = true;
-    gmsg('Signing in…');
+  // Verification runs by itself now - no confirm tap - but only once the tab is
+  // actually VISIBLE. Mail scanners prefetch and prerender in hidden documents,
+  // where this code just waits, so the single-use token still survives a bare
+  // GET. A resident tapping the link in a real browser sees one "Signing you
+  // in..." line and lands inside.
+  let used = false;
+  const verify = async () => {
+    if (used) return; used = true;
+    gmsg('Signing you in…', 'info');
     const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
-    if (error) {
-      gmsg('That link has already been used or has expired. Request a new one below.', 'err');
-      btn.disabled = false;
-    }
+    if (error)
+      gmsg('That link has already been used or has expired. Enter your email below and we will send a fresh one.', 'err');
     // On success, onAuthStateChange (registered above) picks up the new
     // session and calls start(user) - nothing else to do here.
   };
+  if (document.visibilityState === 'visible') setTimeout(verify, 150);
+  else document.addEventListener('visibilitychange',
+    () => { if (document.visibilityState === 'visible') verify(); }, { once: true });
 })();
 
 async function start(user){
@@ -2150,6 +2260,69 @@ function syncHeaderHeight(){
 window.addEventListener('resize', syncHeaderHeight);
 window.addEventListener('orientationchange', syncHeaderHeight);
 syncHeaderHeight();
+
+// ------------------------------------------------- phone filter fold
+// Under 720px the practice filters fold behind a one-line handle (see the
+// .fhandle CSS). The handle always shows WHAT is filtering via a summary, so a
+// resident is never confused about why the list looks short while the controls
+// are tucked away.
+function filterSummaryText(){
+  const parts = [];
+  const tr = $('#fTrack'), tp = $('#fTopic'), q = $('#fSearch');
+  if (tr && tr.value) parts.push((tr.options[tr.selectedIndex] || {}).text || tr.value);
+  if (tp && tp.value) parts.push((tp.options[tp.selectedIndex] || {}).text || tp.value);
+  [['#bUnseen','Unseen'],['#bWrong','Wrong only'],['#bReview','Needs check'],
+   ['#bFlagged','Starred'],['#bShuffle','Shuffled']].forEach(([id, label]) => {
+    const b = $(id); if (b && b.classList.contains('on')) parts.push(label);
+  });
+  if (q && q.value.trim()) parts.push('“' + q.value.trim() + '”');
+  if (BLOCK) parts.push('Custom block');
+  return parts.length ? parts.join(' · ') : 'All questions';
+}
+function refreshFilterSummary(){
+  const el = $('#fSummary');
+  if (el) el.textContent = filterSummaryText();
+}
+function setFiltersOpen(open){
+  const w = $('#filtersWrap'), h = $('#filterHandle');
+  if (!w || !h) return;
+  w.classList.toggle('open', open);
+  h.setAttribute('aria-expanded', open ? 'true' : 'false');
+  refreshFilterSummary();
+  // The header is sticky and the exam clock offsets against its height, so
+  // remeasure once the fold animation has finished moving things.
+  setTimeout(syncHeaderHeight, 300);
+}
+(function wireFilterFold(){
+  const h = $('#filterHandle'); if (!h) return;
+  h.onclick = () => setFiltersOpen(!$('#filtersWrap').classList.contains('open'));
+  // Drag works too: pull the handle down to open, up to close.
+  let y0 = null;
+  h.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  h.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    const dy = e.touches[0].clientY - y0;
+    if (dy > 22){ setFiltersOpen(true);  y0 = null; }
+    else if (dy < -22){ setFiltersOpen(false); y0 = null; }
+  }, { passive: true });
+  h.addEventListener('touchend', () => { y0 = null; }, { passive: true });
+  // Keep the summary honest whenever any control in the bar changes.
+  const bar = $('#practiceBar');
+  bar.addEventListener('change', refreshFilterSummary);
+  bar.addEventListener('input',  refreshFilterSummary);
+  bar.addEventListener('click', e => {
+    if (e.target.closest('button')) setTimeout(refreshFilterSummary, 0);
+  });
+  // Scrolling down into the questions puts the bar away on its own.
+  let lastY = window.scrollY;
+  window.addEventListener('scroll', () => {
+    const dy = window.scrollY - lastY; lastY = window.scrollY;
+    if (dy > 8 && window.scrollY > 60
+        && window.matchMedia('(max-width:720px)').matches
+        && $('#filtersWrap').classList.contains('open')) setFiltersOpen(false);
+  }, { passive: true });
+  refreshFilterSummary();
+})();
 
 // ---------------------------------------------------------------- tabs
 $$('.tabs button').forEach(b => b.onclick = () => {
@@ -3945,6 +4118,17 @@ async function bizRetention(){
     </div>`;
 }
 
+// Compact relative time for the admin activity feed.
+function ago(t){
+  const s = (Date.now() - new Date(t).getTime()) / 1000;
+  if (!isFinite(s) || s < 0) return '';
+  if (s < 90) return 'just now';
+  const m = s / 60;  if (m < 90) return Math.round(m) + ' min ago';
+  const h = m / 60;  if (h < 36) return Math.round(h) + ' h ago';
+  const d = h / 24;  if (d < 45) return Math.round(d) + ' d ago';
+  return Math.round(d / 30) + ' mo ago';
+}
+
 async function renderAdmin(){
   const v = $('#viewAdmin');
   v.innerHTML = '<div class="empty">Loading…</div>';
@@ -3952,12 +4136,15 @@ async function renderAdmin(){
   // and leave the whole Residents tab reading "Loading…" for the rest of the
   // session, and a plain {error} result quietly rendered a roster of zeroes as
   // though every resident had answered nothing.
-  const [r1, r2, r3] = await Promise.allSettled([
+  const [r1, r2, r3, r4] = await Promise.allSettled([
     sb.from('profiles').select('id,email,full_name,role,created_at,last_seen_at'),
     sb.from('allowed_emails')
-      .select('email,role,full_name,added_at,subscribed_at,duration_months,expires_at,paused')
+      .select('email,role,full_name,added_at,subscribed_at,duration_months,duration_days,expires_at,paused,promo_limited')
       .order('added_at'),
-    sb.from('attempts').select('user_id,correct,question_uid')
+    sb.from('attempts').select('user_id,correct,question_uid'),
+    // The activity feed + money KPIs. Deliberately OUTSIDE the fatal check
+    // below: if this one call fails the roster must still render.
+    sb.rpc('admin_recent_activity')
   ]);
   if ([r1,r2,r3].some(r => r.status === 'rejected' || (r.value && r.value.error))){
     console.error('admin load failed', r1, r2, r3);
@@ -3966,6 +4153,8 @@ async function renderAdmin(){
     return;
   }
   const people = r1.value.data, allow = r2.value.data, att = r3.value.data;
+  const act = (r4.status === 'fulfilled' && r4.value && !r4.value.error) ? r4.value.data : null;
+  const kk  = (act && act.kpis) || {};
 
   const stat = {};
   (att||[]).forEach(a => {
@@ -3991,10 +4180,12 @@ async function renderAdmin(){
           `<option value="${m}"${m === (a.duration_months||2) ? ' selected' : ''}>${m} mo</option>`).join('')
       + '</select>';
 
-    return `<tr data-email="${esc(a.email)}"${p ? ` data-uid="${p.id}"` : ''}>
+    return `<tr data-email="${esc(a.email)}"${p ? ` data-uid="${p.id}"` : ''}
+      data-k="${sub.k}" data-trial="${a.promo_limited ? 1 : 0}"
+      data-search="${esc(((a.email||'') + ' ' + (a.full_name||'')).toLowerCase())}">
       <td data-open style="cursor:${p?'pointer':'default'}">${esc(a.full_name || '—')}
         <div style="font-size:11.5px;color:var(--dim)">${esc(a.email)}</div>
-        <div style="font-size:11px;color:var(--faint)">${esc(a.role)} · ${seen}</div></td>
+        <div style="font-size:11px;color:var(--faint)">${esc(a.role)}${a.promo_limited ? ' · <span style="color:var(--warn)">free trial</span>' : ''} · ${seen}</div></td>
       <td><input type="date" data-start value="${esc(a.subscribed_at || '')}"
             style="width:132px;padding:4px 6px;font-size:12px"${isAdmin?' disabled':''}>
           <div style="margin-top:4px">${durSel}</div></td>
@@ -4011,17 +4202,68 @@ async function renderAdmin(){
   }).join('');
 
   const totalDone = Object.values(stat).reduce((s,x)=>s+x.done,0);
+  const trialsActive = (allow||[]).filter(a =>
+    a.promo_limited && !a.paused && subStatus(a).k !== 'expired').length;
+
+  // The feed is everything the owner used to have to reconstruct from four
+  // different places: joins, captured payments, promo redemptions, bundle
+  // requests, newest first.
+  const FEEDTAG = { signup:['member','ok'], payment:['payment','pay'],
+                    promo:['promo','warn'], bundle:['bundle','pay'] };
+  const feedRows = act
+    ? (((act.events||[]).map(e => {
+        const t = FEEDTAG[e.kind] || [e.kind, ''];
+        return `<div class="feedrow"><span class="ftag ${t[1]}">${esc(t[0])}</span>`
+             + `<b>${esc(e.email || '')}</b><span class="fdet">${esc(e.detail || '')}</span>`
+             + `<span class="ftime">${ago(e.at)}</span></div>`;
+      }).join('')) || '<div class="empty">Nothing yet.</div>')
+    : '<div class="empty">Activity feed could not load — reload the page to retry.</div>';
+
   v.innerHTML = `
+    <h2 class="seclabel" style="margin-top:14px">Overview</h2>
     <div class="grid">
       <div class="kpi"><b>${(allow||[]).length}</b><span>on the allowlist</span></div>
       <div class="kpi"><b>${tally.active + tally.ending}</b><span>subscriptions running</span></div>
+      <div class="kpi"><b>${trialsActive}</b><span>free trials active</span></div>
       <div class="kpi"><b>${tally.ending}</b><span>ending within 7 days</span></div>
-      <div class="kpi"><b>${tally.expired}</b><span>ended</span></div>
       <div class="kpi"><b>${tally.paused}</b><span>paused by you</span></div>
+      <div class="kpi"><b>${tally.expired}</b><span>ended</span></div>
+      <div class="kpi"><b>${kk.sar_captured != null ? kk.sar_captured + ' SAR' : '—'}</b>
+        <span>collected · ${kk.payments_captured != null ? kk.payments_captured + ' payments' : 'payments'}</span></div>
+      <div class="kpi"><b>${kk.signups_7d != null ? kk.signups_7d : '—'}</b><span>joined this week</span></div>
       <div class="kpi"><b>${totalDone}</b><span>questions answered by all</span></div>
     </div>
+
+    <h2 class="seclabel" style="margin-top:18px">Recent activity</h2>
+    <div class="card" style="padding-top:8px;padding-bottom:8px">${feedRows}</div>
+
+    <h2 class="seclabel" style="margin-top:18px">Roster</h2>
     <div class="card">
-      <h3 style="margin:0 0 10px;font-size:14px">Add a resident</h3>
+      <div class="rbar">
+        <input type="search" id="rSearch" placeholder="Search name or email…" aria-label="Search the roster">
+        <button class="rchip on" data-k="all">All</button>
+        <button class="rchip" data-k="active">Active</button>
+        <button class="rchip" data-k="trial">Trials</button>
+        <button class="rchip" data-k="ending">Ending soon</button>
+        <button class="rchip" data-k="paused">Paused</button>
+        <button class="rchip" data-k="expired">Ended</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
+        Click a resident's name for their topic breakdown and wrong answers.
+        Changing the start date or the duration saves immediately; access ends on its own at the expiry date,
+        and <b>Pause</b> stops it before then without deleting anything.
+      </div>
+      <div style="overflow-x:auto">
+      <table id="rosterTable"><thead><tr><th>Resident</th><th>Subscription</th><th>Expires</th>
+        <th class="num">Answered</th><th class="num">Score</th><th></th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>
+      <div id="rosterNone" class="empty hide">No one on the roster matches that.</div>
+    </div>
+    <div id="residentDetail"></div>
+
+    <h2 class="seclabel" style="margin-top:18px">Add a resident</h2>
+    <div class="card">
       <div class="row">
         <input id="newEmail" type="email" maxlength="200" placeholder="name@example.com">
         <input id="newName" maxlength="120" placeholder="Full name (optional)">
@@ -4032,28 +4274,38 @@ async function renderAdmin(){
       </div>
       <div id="addMsg" style="font-size:12.5px;color:var(--dim)"></div>
       <div style="font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5">
-        Only addresses listed below can sign in. Adding someone here does not email them —
+        Only addresses listed in the roster can sign in. Adding someone here does not email them —
         send them the site link and they request their own sign-in link.
       </div>
     </div>
-    <div id="residentDetail"></div>
+
     <div id="payPanel"></div>
-    <div id="devicePanel"></div>
-    <div class="card">
-      <div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">
-        Click a resident's name for their topic breakdown and wrong answers.
-        Changing the start date or the duration saves immediately; access ends on its own at the expiry date,
-        and <b>Pause</b> stops it before then without deleting anything.
-      </div>
-      <div style="overflow-x:auto">
-      <table><thead><tr><th>Resident</th><th>Subscription</th><th>Expires</th>
-        <th class="num">Answered</th><th class="num">Score</th><th></th><th></th></tr></thead>
-        <tbody>${rows}</tbody></table>
-      </div>
-    </div>`;
+    <div id="devicePanel"></div>`;
 
   renderPayPanel();
   renderDevicePanel();
+
+  // Roster search + one-tap status filters. Pure client-side: the rows carry
+  // data-search / data-k / data-trial, so this never refetches anything.
+  const applyRoster = () => {
+    const q = ($('#rSearch').value || '').trim().toLowerCase();
+    const on = v.querySelector('.rchip.on');
+    const k = on ? on.dataset.k : 'all';
+    let shown = 0;
+    v.querySelectorAll('#rosterTable tbody tr').forEach(tr => {
+      const okQ = !q || (tr.dataset.search || '').indexOf(q) !== -1;
+      const okK = k === 'all' || (k === 'trial' ? tr.dataset.trial === '1' : tr.dataset.k === k);
+      const show = okQ && okK;
+      tr.style.display = show ? '' : 'none';
+      if (show) shown++;
+    });
+    $('#rosterNone').classList.toggle('hide', shown > 0);
+  };
+  $('#rSearch').oninput = applyRoster;
+  v.querySelectorAll('.rchip').forEach(c => c.onclick = () => {
+    v.querySelectorAll('.rchip').forEach(x => x.classList.toggle('on', x === c));
+    applyRoster();
+  });
 
   const emailOf = el => el.closest('tr').dataset.email;
   const note = (msg, bad) => { const m = $('#addMsg'); m.style.color = bad ? 'var(--bad)' : 'var(--dim)'; m.textContent = msg; };
