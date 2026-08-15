@@ -441,6 +441,22 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
         <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">Not a member yet?</div>
         <button id="gatePay" style="width:100%">See plans and subscribe</button>
       </div>
+      <div style="margin-top:14px;text-align:center">
+        <a href="#" id="gatePromoToggle" style="font-size:12.5px">Have a free trial code?</a>
+      </div>
+      <div id="gatePromoBox" class="hide" style="margin-top:10px;padding-top:12px;border-top:1px solid var(--line)">
+        <label for="gatePromoCode">Trial code</label>
+        <input id="gatePromoCode" maxlength="24" placeholder="e.g. TRIAL7"
+          style="text-transform:uppercase;letter-spacing:.06em">
+        <label class="agree" for="gatePromoAgree" style="margin-top:8px">
+          <input type="checkbox" id="gatePromoAgree">
+          <span>I have read and agree to the
+            <a href="#" data-policy="refund">Refund and Cancellation Policy</a> and the
+            <a href="#" data-policy="terms">Terms and Conditions</a>.</span>
+        </label>
+        <button id="gatePromoSend" style="width:100%;margin-top:10px">Redeem code and email me a link</button>
+        <div id="gatePromoMsg" class="msg info hide" role="status" aria-live="polite" style="margin-top:8px"></div>
+      </div>
       <div class="priv">Only addresses on the list can receive a link. If you have just paid,
         use the same address you paid with.</div>
     </div>
@@ -565,6 +581,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
     </div>
   </header>
 
+  <div id="trialBanner" class="hide"></div>
   <div id="profileWall" class="hide"></div>
   <div id="viewPractice"></div>
   <div id="viewProgress" class="hide"></div>
@@ -1439,6 +1456,96 @@ $('#send').onclick = async () => {
 };
 $('#email').addEventListener('keydown', e => { if (e.key === 'Enter') $('#send').click(); });
 
+// ------------------------------------------------------ free trial promo code
+// Shared by the plain sign-in button and the trial-code panel below: requests a
+// magic link and reports the outcome through whichever message element/button the
+// caller is using. Wording is identical either way (see the per-address cap note
+// above) - only successPrefix differs, to show what a redeemed code granted.
+async function requestSignInLink(email, msgId, btnId, successPrefix){
+  const say = (t, k) => {
+    const el = $(msgId);
+    el.className = 'msg ' + k;
+    el.textContent = t;
+    el.classList.remove('hide');
+  };
+  const rk = 'qbank.links.' + email.toLowerCase();
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
+  hist = hist.filter(t => Date.now() - t < 3600000);
+  if (hist.length >= 2){
+    say('Two sign-in links have already been sent to that address in the last hour. '
+       + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    return;
+  }
+  hist.push(Date.now());
+  try { localStorage.setItem(rk, JSON.stringify(hist)); } catch (e) {}
+  sb.rpc('log_link_request', { p_email: email }).then(()=>{}, ()=>{});
+
+  if ($(btnId)) $(btnId).disabled = true;
+  say('Sending…', 'info');
+
+  let timedOut = false;
+  const withTimeout = (pr, ms) => Promise.race([
+    pr,
+    new Promise(res => setTimeout(() => { timedOut = true; res(null); }, ms))
+  ]);
+
+  try {
+    await withTimeout(sb.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: new URL('.', window.location.href).href }
+    }), 12000);
+  } catch (_) { /* fall through - the reply below is deliberately uniform */ }
+
+  if (timedOut){
+    say('Could not reach the sign-in service. Check your connection and try again.', 'err');
+  } else {
+    say((successPrefix ? successPrefix + ' ' : '')
+       + 'If that address is approved for this bank, a sign-in link is on its way. '
+       + 'Check your inbox, and your spam folder.', 'good');
+  }
+  if ($(btnId)) $(btnId).disabled = false;
+}
+
+$('#gatePromoToggle').onclick = e => {
+  e.preventDefault();
+  $('#gatePromoBox').classList.toggle('hide');
+};
+
+$('#gatePromoSend').onclick = async () => {
+  const email = $('#email').value.trim();
+  const code = $('#gatePromoCode').value.trim().toUpperCase();
+  const say = (t, k) => {
+    const el = $('#gatePromoMsg');
+    el.className = 'msg ' + k; el.textContent = t; el.classList.remove('hide');
+  };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    say('Enter your email address in the box above first.', 'err'); return;
+  }
+  if (!code) { say('Please enter a trial code.', 'err'); return; }
+  if (!$('#gatePromoAgree').checked) {
+    say('Please read and accept the policy and terms first.', 'err'); return;
+  }
+  $('#gatePromoSend').disabled = true;
+  say('Checking that code…', 'info');
+  try {
+    // Recorded before access is granted, against the address that will hold it -
+    // the same order payment_start requires before a paid checkout.
+    const { error: cErr } = await sb.rpc('record_policy_consent',
+      { p_email: email, p_version: POLICY_VERSION });
+    if (cErr) throw new Error(/out of date/i.test(cErr.message || '')
+      ? 'This page is out of date. Reload it, read the current policy, and try again.'
+      : 'Your agreement could not be recorded. Try again in a moment.');
+    const out = await callFn('redeem-promo', { email, code });
+    if (!out || !out.ok) throw new Error((out && out.error) || 'That code could not be redeemed.');
+    await requestSignInLink(email, '#gatePromoMsg', '#gatePromoSend',
+      `Code accepted — your access runs until ${esc(out.expires_at)}.`);
+  } catch (e) {
+    say(e.message || 'That code could not be redeemed.', 'err');
+    $('#gatePromoSend').disabled = false;
+  }
+};
+
 if ($('#aboutLink')) $('#aboutLink').onclick = e => {
   e.preventDefault();
   $('#aboutBox').classList.toggle('hide');
@@ -1669,6 +1776,27 @@ async function boot(user){
   // My progress if they want their own pacing numbers.
   const iAmStaff = !!(PROFILE && (PROFILE.role === 'admin' || PROFILE.role === 'consultant'));
   if (MYPROF && !MYPROF.profile_done && !iAmStaff) showProfileWall();
+  renderTrialBanner();
+}
+
+// Shown across every tab for a free-trial (promo-code) sign-up, so the smaller
+// question count they see reads as "this is the trial" rather than as the bank
+// being broken. Nothing here grants or restricts access — that's the RLS policy
+// on questions; this only explains what the resident is already seeing.
+function renderTrialBanner(){
+  const el = $('#trialBanner');
+  if (!el) return;
+  if (!MYPROF || !MYPROF.promo_limited){ el.classList.add('hide'); el.innerHTML = ''; return; }
+  const days = MYPROF.days_left;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 16px;
+      background:var(--warn-bg);color:var(--warn);border-bottom:1px solid var(--line);font-size:13px">
+      <span>Free trial — a 370-question sample (70 Promotion, 100 Part 1, 200 Part 2).
+        ${days > 0 ? `<b>${days} day${days === 1 ? '' : 's'}</b> left.` : 'Your trial has ended.'}</span>
+      <button id="trialUpgrade" style="margin-left:auto;flex:0 0 auto;padding:5px 12px;font-size:12.5px">Get full access</button>
+    </div>`;
+  el.classList.remove('hide');
+  $('#trialUpgrade').onclick = () => openPay(MYPROF.email || (PROFILE && PROFILE.email) || '', 'renew');
 }
 
 // The account can be open on one device at a time. This page holds it while it
@@ -3686,7 +3814,9 @@ async function bizPromos(){
         ${list.map(p => `<tr>
           <td><code style="font-size:13px;letter-spacing:.05em">${esc(p.code)}</code>
             ${p.note ? `<div style="font-size:11px;color:var(--faint)">${esc(p.note)}</div>` : ''}</td>
-          <td>${p.kind === 'percent' ? esc(String(p.value)) + '% off' : esc(money(p.value, p.currency || 'SAR')) + ' off'}</td>
+          <td>${p.kind === 'percent' ? esc(String(p.value)) + '% off'
+              : p.kind === 'free_days' ? esc(String(p.value)) + (p.value == 1 ? ' day free' : ' days free')
+              : esc(money(p.value, p.currency || 'SAR')) + ' off'}</td>
           <td class="num">${p.used_count}${p.max_uses ? ' / ' + p.max_uses : ''}</td>
           <td style="font-size:12px">${esc(p.starts_on || 'now')} → ${esc(p.expires_on || 'open')}</td>
           <td>${p.active ? '<span class="pill ok">on</span>' : '<span class="pill dim">off</span>'}</td>
@@ -3700,10 +3830,15 @@ async function bizPromos(){
           <input id="pmCode" maxlength="24" placeholder="RAMADAN25" style="text-transform:uppercase"></div>
         <div class="fld"><label for="pmKind">Kind</label>
           <select id="pmKind"><option value="percent">Percentage off</option>
-            <option value="fixed">Fixed amount off</option></select></div>
-        <div class="fld"><label for="pmValue">Value <span class="req">*</span></label>
+            <option value="fixed">Fixed amount off</option>
+            <option value="free_days">Free access (no payment)</option></select></div>
+        <div class="fld"><label for="pmValue" id="pmValueLabel">Value <span class="req">*</span></label>
           <input id="pmValue" type="number" min="1" step="0.01" value="20"></div>
       </div>
+      <div id="pmFreeNote" class="hide" style="font-size:12px;color:var(--dim);margin:-6px 0 11px">
+        Redeemed on the sign-in page, not at checkout — the resident enters their email and this
+        code, agrees to the policy, and gets access for the number of days above with nothing to
+        pay. Whole days only, 1–31 (a day to a month).</div>
       <div class="three">
         <div class="fld"><label for="pmMax">Maximum uses</label>
           <input id="pmMax" type="number" min="1" placeholder="unlimited"></div>
@@ -3718,9 +3853,24 @@ async function bizPromos(){
     </div>`;
 
   // Priced from the same payment_plans rows the charge is built from, so the preview
-  // cannot drift from what would actually be taken.
+  // cannot drift from what would actually be taken. A free_days code never touches a
+  // price at all, so it gets its own preview line instead.
   const preview = () => {
     const kind = $('#pmKind').value, val = +$('#pmValue').value || 0;
+    const label = $('#pmValueLabel');
+    const freeNote = $('#pmFreeNote');
+    if (kind === 'free_days'){
+      label.innerHTML = 'Days of free access <span class="req">*</span>';
+      freeNote.classList.remove('hide');
+      $('#pmValue').min = 1; $('#pmValue').max = 31; $('#pmValue').step = 1;
+      $('#pmPrev').innerHTML = val
+        ? `<b>Grants ${esc(String(Math.round(val)))} day${Math.round(val) === 1 ? '' : 's'} of full access, no payment.</b>`
+        : '';
+      return;
+    }
+    label.innerHTML = 'Value <span class="req">*</span>';
+    freeNote.classList.add('hide');
+    $('#pmValue').min = 1; $('#pmValue').max = ''; $('#pmValue').step = 0.01;
     if (!val || !plans.length){ $('#pmPrev').innerHTML = ''; return; }
     $('#pmPrev').innerHTML = '<b>What this would charge:</b><br>' + plans.map(pl => {
       const disc = kind === 'percent' ? Math.round(pl.amount * val) / 100 : Math.min(val, pl.amount);
@@ -3735,14 +3885,17 @@ async function bizPromos(){
     const code = $('#pmCode').value.trim().toUpperCase();
     if (!/^[A-Z0-9-]{4,24}$/.test(code)){
       $('#pmMsg').textContent = 'Codes are 4–24 characters, letters, digits and hyphens only.'; return; }
+    const kind = $('#pmKind').value;
     const val = +$('#pmValue').value;
     if (!val || val <= 0){ $('#pmMsg').textContent = 'Give the code a value.'; return; }
-    if ($('#pmKind').value === 'percent' && val > 100){
+    if (kind === 'percent' && val > 100){
       $('#pmMsg').textContent = 'A percentage cannot be more than 100.'; return; }
+    if (kind === 'free_days' && (val < 1 || val > 31 || Math.round(val) !== val)){
+      $('#pmMsg').textContent = 'Free access is whole days, from 1 to 31.'; return; }
     const btn = $('#pmSave'); btn.disabled = true;
     const { data, error: e2 } = await sb.rpc('admin_save_promo', { p: {
-      code, kind: $('#pmKind').value, value: val,
-      currency: $('#pmKind').value === 'fixed' ? (plans[0] ? plans[0].currency : 'SAR') : null,
+      code, kind, value: val,
+      currency: kind === 'fixed' ? (plans[0] ? plans[0].currency : 'SAR') : null,
       max_uses: $('#pmMax').value, starts_on: $('#pmStart').value,
       expires_on: $('#pmEnd').value, active: true, note: $('#pmNote').value.trim() } });
     btn.disabled = false;
