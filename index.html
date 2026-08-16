@@ -4718,22 +4718,43 @@ async function renderPDExamsCard(){
   const host = $('#pdExamsCard'); if (!host) return;
   host.innerHTML = '<div class="empty" style="padding:12px">Loading exam list…</div>';
   const { data: exams, error } = await sb.from('exams')
-    .select('id,title,duration_minutes,question_uids,published,created_at,opens_at,closes_at')
+    .select('id,title,duration_minutes,question_uids,published,created_at,opens_at,closes_at,digest_sent_at')
     .order('created_at', { ascending: false });
   if (error){ host.innerHTML = '<div class="empty">Could not load exams.</div>'; return; }
-  const rows = (exams||[]).map(e => `
+  // Fetch submission counts per exam so we can badge "N new since last opened"
+  const { data: sess } = await sb.from('exam_sessions').select('exam_id,submitted_at');
+  const seenKey = uid => 'pd_exam_seen_' + (PROFILE && PROFILE.id ? PROFILE.id : 'anon') + '_' + uid;
+  const submittedByExam = {};
+  (sess || []).forEach(s => {
+    if (!s.submitted_at) return;
+    (submittedByExam[s.exam_id] = submittedByExam[s.exam_id] || []).push(new Date(s.submitted_at).getTime());
+  });
+  const rows = (exams||[]).map(e => {
+    const subs = submittedByExam[e.id] || [];
+    const nDone = subs.length;
+    let lastSeen = 0;
+    try { lastSeen = parseInt(localStorage.getItem(seenKey(e.id)) || '0', 10) || 0; } catch(_){}
+    const newSince = subs.filter(t => t > lastSeen).length;
+    const closed = e.closes_at && new Date(e.closes_at) < new Date();
+    const chip = e.published
+      ? (closed ? '<span class="tag" style="background:var(--dim);color:#fff">closed</span>'
+                : '<span class="tag" style="background:var(--ok);color:#fff">published</span>')
+      : '<span class="tag">draft</span>';
+    const closesLine = e.closes_at ? ' · closes ' + new Date(e.closes_at).toLocaleString() : '';
+    const resultsLabel = nDone === 0 ? 'Results'
+      : (newSince > 0 ? `Results (${newSince} new)` : `Results (${nDone})`);
+    return `
     <tr>
       <td><b>${esc(e.title)}</b>
         <div style="font-size:11px;color:var(--dim)">
-          ${(e.question_uids||[]).length} questions · ${e.duration_minutes} min ·
-          ${e.published ? '<span class="tag" style="background:var(--ok);color:#fff">published</span>'
-                       : '<span class="tag">draft</span>'}
+          ${(e.question_uids||[]).length} questions · ${e.duration_minutes} min · ${chip}${closesLine}
         </div></td>
       <td class="num" style="width:110px;font-size:11px;color:var(--dim)">${new Date(e.created_at).toLocaleDateString()}</td>
-      <td style="width:80px"><button class="pdExRes" data-id="${e.id}">Results</button></td>
+      <td style="width:150px"><button class="pdExRes ${newSince>0?'primary':''}" data-id="${e.id}">${resultsLabel}</button></td>
       <td style="width:90px">${e.published ? '' :
         `<button class="pdExPub primary" data-id="${e.id}">Publish</button>`}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   host.innerHTML = `
     <h3 style="margin:0 0 4px;font-size:14px">Mock exams for your residents</h3>
     <div style="font-size:11.5px;color:var(--faint);margin-bottom:12px;line-height:1.55">
@@ -4793,11 +4814,16 @@ async function renderPDExamsCard(){
   host.querySelectorAll('.pdExRes').forEach(b => b.onclick = async () => {
     const { data, error } = await sb.rpc('exam_results', { p_exam_id: b.dataset.id });
     if (error){ alertBar('Could not load results: ' + error.message); return; }
-    showPDExamResults(data);
+    // Mark this exam as "seen now" so the badge count resets
+    try { localStorage.setItem(seenKey(b.dataset.id), Date.now().toString()); } catch(_){}
+    showPDExamResults(data, b.dataset.id);
+    // Repaint the list so the (N new) badge clears immediately
+    setTimeout(() => renderPDExamsCard(), 300);
   });
 }
-function showPDExamResults(d){
+function showPDExamResults(d, examId){
   const total = (d.exam && d.exam.n_items) || 0;
+  const submitted = (d.sessions||[]).filter(s => s.submitted_at);
   const sess = (d.sessions||[]).map(s => {
     const done = !!s.submitted_at;
     const pct = done && total ? Math.round(100 * (s.score||0) / total) : null;
@@ -4821,17 +4847,39 @@ function showPDExamResults(d){
     <div style="max-width:840px;margin:0 auto;background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--text)">
       <div class="qhead"><b style="font-size:16px">${esc(d.exam.title)}</b>
         <button id="pdResClose" style="margin-left:auto">Close</button></div>
-      <div style="font-size:12px;color:var(--dim);margin-bottom:14px">${total} questions · ${(d.sessions||[]).length} sessions</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:14px">${total} questions · ${(d.sessions||[]).length} sessions · ${submitted.length} submitted</div>
       <h3 style="font-size:13px;margin:14px 0 6px">Per resident</h3>
       <div class="tscroll"><table><thead><tr><th>Resident</th><th class="num">Score</th><th></th><th>Submitted</th></tr></thead>
         <tbody>${sess || '<tr><td colspan="4" class="empty">Nobody has sat this yet.</td></tr>'}</tbody></table></div>
       ${topics ? `<h3 style="font-size:13px;margin:18px 0 6px">By topic (submitted sessions only)</h3>
         <div class="tscroll"><table><thead><tr><th>Topic</th><th class="num">Attempts</th><th class="num">Correct</th></tr></thead>
           <tbody>${topics}</tbody></table></div>` : ''}
+      ${examId && submitted.length ? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button id="pdEmailDigest">Email me these results now</button>
+        <span style="font-size:11px;color:var(--faint)">A digest is sent automatically when the exam window closes. Use this to get the same summary in your inbox before then.</span>
+      </div>` : ''}
     </div>`;
   document.body.appendChild(modal);
   modal.querySelector('#pdResClose').onclick = () => modal.remove();
   modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  const em = modal.querySelector('#pdEmailDigest');
+  if (em) em.onclick = () => sendPDDigestNow(examId, em);
+}
+
+// PD-initiated "email me the digest now" — calls a SECURITY DEFINER RPC that
+// verifies the caller owns the exam (or is admin), then forwards to the
+// digest edge function server-side with the caller's own email as the target.
+async function sendPDDigestNow(examId, btn){
+  if (!examId) return;
+  const me = (PROFILE && PROFILE.email) || '';
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Sending…';
+  const { data, error } = await sb.rpc('exam_email_digest_now', { p_exam_id: examId });
+  if (error){
+    btn.disabled = false; btn.textContent = orig;
+    alertBar('Could not send digest: ' + error.message);
+    return;
+  }
+  btn.textContent = 'Sent to ' + (me || 'you');
 }
 
 async function consultantDetail(uid){
