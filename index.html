@@ -268,6 +268,9 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px s
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
  padding:6px 10px;color:var(--dim);font-size:13.5px}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
+/* Red dot on a tab that has something new waiting (e.g. a new PD exam) */
+.tabs button.has-alert{position:relative}
+.tabs button.has-alert::after{content:'';position:absolute;top:4px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--bad,#e11d48);box-shadow:0 0 0 2px var(--bg,#000)}
 .adminsep{align-self:center;margin:0 3px 0 7px;padding-left:9px;border-left:1px solid var(--line);
   color:var(--faint);font-size:10px;letter-spacing:.09em;text-transform:uppercase}
 .bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:10px}
@@ -1868,6 +1871,9 @@ async function boot(user){
   const iAmStaff = !!(PROFILE && (PROFILE.role === 'admin' || PROFILE.role === 'consultant'));
   if (MYPROF && !MYPROF.profile_done && !iAmStaff) showProfileWall();
   renderTrialBanner();
+  // Red dot on the Exam tab if a PD has published a paper waiting for me
+  refreshExamBadge();
+  setInterval(refreshExamBadge, 180000);   // recheck every 3 min while the tab is open
 }
 
 // Shown across every tab for a free-trial (promo-code) sign-up, so the smaller
@@ -2040,6 +2046,24 @@ async function loadAnswers(){
                                source:a.source, changed:a.changed,
                                image_finding:a.image_finding });
   });
+}
+
+// Red dot on the Exam tab when the current user has a published exam they
+// haven't submitted yet. RLS on `exams` already filters to what they may sit,
+// so a bare .select() returns exactly the right rows.
+async function refreshExamBadge(){
+  const btn = document.querySelector('.tabs [data-tab="exam"]');
+  if (!btn) return;
+  try {
+    const { data: exams, error: e1 } = await sb.from('exams')
+      .select('id').eq('published', true);
+    if (e1 || !exams || exams.length === 0){ btn.classList.remove('has-alert'); return; }
+    const { data: sess } = await sb.from('exam_sessions')
+      .select('exam_id,submitted_at');
+    const submittedIds = new Set((sess||[]).filter(s => s.submitted_at).map(s => s.exam_id));
+    const unstarted = exams.filter(e => !submittedIds.has(e.id));
+    btn.classList.toggle('has-alert', unstarted.length > 0);
+  } catch (_) { btn.classList.remove('has-alert'); }
 }
 // Was called from start() but never defined, so start() threw a ReferenceError
 // before it reached buildFilters() - which is why every filter dropdown rendered
@@ -5197,6 +5221,7 @@ async function startMockExam(examId){
     </div>`;
     $('#mkxDone').onclick = () => {
       wrap.remove(); document.body.style.overflow=''; render();
+      if (typeof refreshExamBadge === 'function') refreshExamBadge();
     };
   }
   paint();
