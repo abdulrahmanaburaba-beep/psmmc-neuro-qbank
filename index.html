@@ -5493,7 +5493,8 @@ const QFILTER = { s:'', track:'', topic:'', imgOnly:false, needsPic:false, revie
 const wantsPic = q => !q.image_path && (q.flags||[]).includes('image-dependent');
 const BLANK = () => ({ uid:'', year:new Date().getFullYear(), track:'', topic:'', stem:'',
                        options:{A:'',B:'',C:'',D:''}, answer:'A', explanation:'', source:'',
-                       needs_review:false, image_path:'', stem_no_image:'', image_finding:'' });
+                       needs_review:false, image_path:'', stem_no_image:'', image_finding:'',
+                       difficulty:null, pgy_level:'', director_only:false, promo_pool:false });
 
 // Used to let you lift the give-away sentence out of a stem once a real picture
 // exists. Keeps abbreviations like "e.g." reasonably intact by requiring the
@@ -5713,7 +5714,8 @@ function drawEditor(quiet){
   host.innerHTML = `
   <div class="card" style="border-color:var(--accent)">
     <div class="qhead"><b style="font-size:15px">${isNew ? 'New question' : 'Editing ' + esc(q.uid)}</b>
-      ${isNew ? '<span class="tag">the number is assigned on save</span>' : ''}</div>
+      ${isNew ? '<span class="tag">the number is assigned on save</span>' : ''}
+      ${isNew ? '' : `<span class="spacer"></span><button id="qHist" style="font-size:12px">History</button>`}</div>
 
     <div class="three">
       <div class="fld"><label for="fYearIn">Year</label><input id="fYearIn" type="number" min="1990" max="2100" value="${esc(String(q.year||''))}"></div>
@@ -5739,6 +5741,31 @@ function drawEditor(quiet){
       <div class="fld"><label style="margin-top:22px">
         <input type="checkbox" id="fReview" ${q.needs_review?'checked':''} style="width:auto;margin-right:7px">
         Flag as “needs check” (shown to residents as a caution)</label></div>
+    </div>
+
+    <!-- P0-4 tagging + private-bank toggle. All four fields are nullable —
+         leaving Difficulty and PGY blank keeps the question filter-neutral. -->
+    <div class="two">
+      <div class="fld"><label for="fDiff">Difficulty (1 = easiest, 5 = hardest)</label>
+        <select id="fDiff">
+          <option value=""${q.difficulty==null?' selected':''}>— not set —</option>
+          ${[1,2,3,4,5].map(n => `<option value="${n}"${q.difficulty===n?' selected':''}>${n}</option>`).join('')}
+        </select></div>
+      <div class="fld"><label for="fPgy">PGY level</label>
+        <select id="fPgy">
+          <option value=""${!q.pgy_level?' selected':''}>— any / not set —</option>
+          ${['PGY1','PGY2','PGY3','PGY4','PGY5'].map(p =>
+            `<option value="${p}"${q.pgy_level===p?' selected':''}>${p}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="two">
+      <div class="fld"><label style="margin-top:6px">
+        <input type="checkbox" id="fDir" ${q.director_only?'checked':''} style="width:auto;margin-right:7px">
+        <b>Private bank</b> — only Programme Directors and admins can see this question.
+        Residents can only encounter it through an exam a PD publishes.</label></div>
+      <div class="fld"><label style="margin-top:6px">
+        <input type="checkbox" id="fPromo" ${q.promo_pool?'checked':''} style="width:auto;margin-right:7px">
+        <b>Trial pool</b> — free-trial users may see this question. Off = paid-only.</label></div>
     </div>
 
     <div class="fld"><label for="fExp">Explanation</label>
@@ -5782,7 +5809,10 @@ function drawEditor(quiet){
   });
   $('#qCancel').onclick = () => { QDRAFT = null; $('#qEditor').innerHTML = ''; };
   $('#qSave').onclick = saveQuestion;
-  if (!isNew) $('#qDel').onclick = () => deleteQuestion(q.uid);
+  if (!isNew){
+    $('#qDel').onclick = () => deleteQuestion(q.uid);
+    const hb = $('#qHist'); if (hb) hb.onclick = () => showQuestionHistory(q.uid);
+  }
 
   if (QDRAFT.focusPic){
     QDRAFT.focusPic = false;                       // once, not on every redraw
@@ -5809,6 +5839,11 @@ function captureForm(){
   q.explanation = $('#fExp').value;
   q.source = $('#fSrc').value;
   q.needs_review = $('#fReview').checked;
+  // P0-4 tagging + private-bank toggle
+  const d = $('#fDiff');   if (d) q.difficulty    = d.value ? parseInt(d.value, 10) : null;
+  const p = $('#fPgy');    if (p) q.pgy_level     = p.value || '';
+  const g = $('#fDir');    if (g) q.director_only = !!g.checked;
+  const t = $('#fPromo');  if (t) q.promo_pool    = !!t.checked;
 }
 
 async function saveQuestion(){
@@ -5843,7 +5878,12 @@ async function saveQuestion(){
     // Never send null here. A database trigger repairs it, but the intent
     // belongs in the payload: stem_no_image is what residents read.
     stem_no_image: (hasPicture && movedNow.length) ? kept  : q.stem,
-    image_finding: (hasPicture && movedNow.length) ? moved : null
+    image_finding: (hasPicture && movedNow.length) ? moved : null,
+    // P0-4 tagging + private-bank toggle
+    difficulty:    (q.difficulty == null || q.difficulty === '') ? null : q.difficulty,
+    pgy_level:     q.pgy_level || null,
+    director_only: !!q.director_only,
+    promo_pool:    !!q.promo_pool
   };
 
   let { data: uid, error } = await sb.rpc('admin_save_question', { p: payload });
@@ -5888,6 +5928,77 @@ async function deleteQuestion(uid){
   buildFilters(); apply();
   renderQuestions();
   alertBar('Deleted ' + uid + (data && data.attempts_removed ? ' and ' + data.attempts_removed + ' attempt(s).' : '.'));
+}
+
+// P0-3: question history modal + revert. Shows the last 50 changes with editor
+// name, timestamp, operation, and which fields moved. Reverts route through the
+// server RPC so the revert itself is logged.
+async function showQuestionHistory(uid){
+  const { data, error } = await sb.rpc('admin_question_history', { p_uid: uid, p_limit: 50 });
+  if (error){ alertBar('Could not load history: ' + error.message); return; }
+  const rows = (data || []).map(h => {
+    const when = new Date(h.changed_at).toLocaleString();
+    const who  = esc(h.changed_by_email || '—');
+    const opColor = { INSERT:'var(--ok)', DELETE:'var(--bad)', REVERT:'var(--warn)', UPDATE:'var(--dim)' }[h.op] || 'var(--dim)';
+    const fields = (h.changed_fields || []).filter(f => f !== 'updated_at' && f !== 'updated_by').slice(0, 6);
+    const fieldsHtml = fields.length
+      ? fields.map(f => `<span class="tag" style="margin-right:4px">${esc(f)}</span>`).join('')
+      : (h.op === 'INSERT' ? '<span style="color:var(--dim);font-size:11px">first save</span>'
+        : h.op === 'DELETE' ? '<span style="color:var(--bad);font-size:11px">deleted</span>'
+        : '<span style="color:var(--dim);font-size:11px">non-content change</span>');
+    // Show a diff line for the most interesting change — the answer letter — if it moved
+    let diffLine = '';
+    if (h.op === 'UPDATE' && h.before && h.after && (h.before.answer !== h.after.answer)){
+      diffLine = `<div style="font-size:11px;color:var(--warn);margin-top:4px">
+        answer: <b>${esc(h.before.answer)} → ${esc(h.after.answer)}</b></div>`;
+    }
+    const canRevert = (h.op === 'UPDATE' || h.op === 'REVERT' || h.op === 'DELETE') && !!h.before;
+    const restoreLabel = h.op === 'DELETE' ? 'Restore deleted' : 'Revert to before this edit';
+    return `<tr>
+      <td style="font-size:11px;color:var(--dim);white-space:nowrap">${esc(when)}</td>
+      <td><b style="color:${opColor}">${esc(h.op)}</b>
+        <div style="font-size:11px;color:var(--dim)">${who}</div></td>
+      <td>${fieldsHtml}${diffLine}</td>
+      <td style="width:150px;text-align:right">${canRevert
+        ? `<button class="qhistRevert" data-uid="${esc(uid)}" data-hid="${h.id}">${restoreLabel}</button>`
+        : ''}</td>
+    </tr>`;
+  }).join('');
+  const modal = document.createElement('div');
+  modal.id = 'qhistModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;overflow:auto;padding:20px';
+  modal.innerHTML = `<div style="max-width:920px;margin:0 auto;background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--text)">
+      <div class="qhead"><b style="font-size:16px">History — ${esc(uid)}</b>
+        <span class="spacer"></span><button id="qhistClose">Close</button></div>
+      <div style="font-size:12px;color:var(--dim);margin:6px 0 12px">
+        Every edit to this question is logged, including who made it and what changed.
+        Reverting rolls the row back to the snapshot before that edit and is itself recorded.
+      </div>
+      ${rows ? `<div class="tscroll"><table><thead><tr>
+        <th style="width:170px">When</th><th style="width:140px">Change</th>
+        <th>Fields</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : '<div class="empty">No history recorded for this question yet.</div>'}
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('#qhistClose').onclick = close;
+  modal.onclick = e => { if (e.target === modal) close(); };
+  modal.querySelectorAll('.qhistRevert').forEach(b => b.onclick = async () => {
+    if (!confirm('Revert this question to the snapshot before the selected change?\n\nThe revert itself is logged, so nothing is lost.')) return;
+    b.disabled = true; b.textContent = 'Reverting…';
+    const { data: r, error } = await sb.rpc('admin_revert_question',
+      { p_uid: b.dataset.uid, p_history_id: parseInt(b.dataset.hid, 10) });
+    if (error){ b.disabled = false; b.textContent = 'Revert to before this edit'; alertBar('Revert failed: ' + error.message); return; }
+    close();
+    alertBar('Reverted ' + b.dataset.uid + '.');
+    // Reload the bank cache so the editor sees the reverted content next open
+    await loadQuestions();
+    // If the editor is currently open on this question, reopen it fresh
+    if (QDRAFT && QDRAFT.q && QDRAFT.q.uid === b.dataset.uid){
+      openEditor(b.dataset.uid);
+    }
+  });
 }
 </script>
 <!-- ===== Saudi Neuro OSCE tab (v2 — simple read→reveal walkthrough) =====
