@@ -7549,4 +7549,383 @@ function oscFinal(){
   else boot();
 })();
 </script>
+<!-- ===== CerebroBanQ · Reference Cards tab ==========================
+     Self-contained, additive. Mirrors the proven OSCE tab pattern in this
+     file: its own fetch-based RPC helper (the module-scoped `sb` client is
+     not reachable from a classic script), its own view panel created at
+     runtime, and hideAppViews() so it hides EVERY other view including the
+     newer Exam / My residents / Consultants / Questions / Business panels.
+
+     Backend already live: reference_cards(), reference_figures(),
+     cards_ui_state(), cards_set_live(v) — 100 cards, 36 inline SVG figures.
+     All CSS is prefixed .cbq- so it cannot collide.
+===================================================================== -->
+<style id="cards-css">
+.cbq-deck {
+  --cbq-logo: none;
+  --cbq-bg:       #f4f5f9;
+  --cbq-surface:  #ffffff;
+  --cbq-text:     #14181f;
+  --cbq-muted:    #5a6377;
+  --cbq-brand:    #1a3557;
+  --cbq-accent:   #1f8a8c;
+  --cbq-border:   #dfe3ec;
+  --cbq-divider:  #e6e8ef;
+  --cbq-plate:    #fbfcfe;
+  --cbq-p-background: #fbeee0; --cbq-h-background: #b36f1f; --cbq-b-background: #edd8b4;
+  --cbq-p-patho:      #f7d9de; --cbq-h-patho:      #a33042; --cbq-b-patho:      #efc0ca;
+  --cbq-p-clinical:   #e5dff3; --cbq-h-clinical:   #5b3e9e; --cbq-b-clinical:   #d3c9e8;
+  --cbq-p-diagnosis:  #daecea; --cbq-h-diagnosis:  #1f6e70; --cbq-b-diagnosis:  #b9dad6;
+  --cbq-p-management: #dbead5; --cbq-h-management: #3e7a2f; --cbq-b-management: #bfd9b4;
+  color: var(--cbq-text);
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+}
+@media (prefers-color-scheme: dark) {
+  .cbq-deck:not(.cbq-light) {
+    --cbq-bg: #0e1117; --cbq-surface: #171b23; --cbq-text: #eef1f7; --cbq-muted: #9ba5b8;
+    --cbq-brand: #6b95c8; --cbq-accent: #55c4c6; --cbq-border: #262c38; --cbq-divider: #2a303c;
+    --cbq-p-background: #3a2f22; --cbq-h-background: #e4b672; --cbq-b-background: #5a4630;
+    --cbq-p-patho:      #3a2226; --cbq-h-patho:      #f0a9b3; --cbq-b-patho:      #5a343a;
+    --cbq-p-clinical:   #25233c; --cbq-h-clinical:   #c4b6ef; --cbq-b-clinical:   #3a3555;
+    --cbq-p-diagnosis:  #1e332f; --cbq-h-diagnosis:  #7ec9c4; --cbq-b-diagnosis:  #2f4a45;
+    --cbq-p-management: #233521; --cbq-h-management: #9dd18a; --cbq-b-management: #354d31;
+  }
+}
+.cbq-deck.cbq-dark {
+  --cbq-bg: #0e1117; --cbq-surface: #171b23; --cbq-text: #eef1f7; --cbq-muted: #9ba5b8;
+  --cbq-brand: #6b95c8; --cbq-accent: #55c4c6; --cbq-border: #262c38; --cbq-divider: #2a303c;
+  --cbq-p-background: #3a2f22; --cbq-h-background: #e4b672; --cbq-b-background: #5a4630;
+  --cbq-p-patho:      #3a2226; --cbq-h-patho:      #f0a9b3; --cbq-b-patho:      #5a343a;
+  --cbq-p-clinical:   #25233c; --cbq-h-clinical:   #c4b6ef; --cbq-b-clinical:   #3a3555;
+  --cbq-p-diagnosis:  #1e332f; --cbq-h-diagnosis:  #7ec9c4; --cbq-b-diagnosis:  #2f4a45;
+  --cbq-p-management: #233521; --cbq-h-management: #9dd18a; --cbq-b-management: #354d31;
+}
+.cbq-deck *, .cbq-deck *::before, .cbq-deck *::after { box-sizing: border-box; }
+.cbq-deck ul { margin: 0; padding: 0; list-style: none; }
+.cbq-deck svg { display: block; max-width: 100%; }
+.cbq-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-block-end: 1.25rem; }
+.cbq-search {
+  flex: 1 1 16rem; min-inline-size: 12rem;
+  padding: .5rem .75rem; border-radius: .5rem; font: inherit; font-size: .9rem;
+  color: var(--cbq-text); background: var(--cbq-surface);
+  border: 1px solid var(--cbq-border);
+  inline-size: auto; width: auto;
+}
+.cbq-search:focus-visible { outline: 2px solid var(--cbq-accent); outline-offset: 1px; }
+.cbq-filter {
+  padding: .5rem .75rem; border-radius: .5rem; font: inherit; font-size: .9rem;
+  color: var(--cbq-text); background: var(--cbq-surface);
+  border: 1px solid var(--cbq-border); inline-size: auto; width: auto;
+}
+.cbq-count { font-size: .82rem; color: var(--cbq-muted); margin-inline-start: auto; }
+.cbq-stack { display: flex; flex-direction: column; gap: 2rem; }
+.cbq-card {
+  background: var(--cbq-surface); border: 1px solid var(--cbq-border);
+  border-radius: 1rem; overflow: clip;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 14px 40px -18px rgb(0 0 0 / .3);
+  content-visibility: auto; contain-intrinsic-block-size: auto 720px;
+}
+.cbq-head {
+  display: grid; grid-template-columns: 1fr auto; gap: 1rem;
+  padding: 1.25rem 1.5rem .85rem; border-bottom: 1px solid var(--cbq-divider);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--cbq-brand) 8%, transparent), transparent);
+}
+.cbq-eyebrow { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--cbq-accent); }
+.cbq-title {
+  font-family: Newsreader, "Iowan Old Style", Georgia, serif;
+  font-weight: 700; margin: .1rem 0; line-height: 1.15; text-wrap: balance;
+  font-size: clamp(1.35rem, .9rem + 1.5vw, 1.85rem); color: var(--cbq-text);
+}
+.cbq-specialty { font-size: .85rem; color: var(--cbq-muted); font-style: italic; }
+.cbq-head-r { display: flex; flex-direction: column; align-items: end; gap: .35rem; }
+.cbq-logo {
+  display: inline-block; inline-size: 2.4rem; block-size: 2.4rem; opacity: .9;
+  background-image: var(--cbq-logo); background-size: contain;
+  background-repeat: no-repeat; background-position: center;
+}
+.cbq-logo.cbq-sm { inline-size: 1rem; block-size: 1rem; opacity: .5; }
+.cbq-num {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .78rem;
+  color: var(--cbq-muted); padding: .12rem .55rem; border-radius: .35rem;
+  background: color-mix(in oklab, var(--cbq-brand) 10%, transparent);
+}
+.cbq-body { display: grid; grid-template-columns: 1.05fr 1fr; gap: 1rem; padding: 1.15rem 1.15rem .9rem; }
+.cbq-col { display: flex; flex-direction: column; gap: .85rem; min-inline-size: 0; }
+.cbq-col > .cbq-panel:last-child { flex: 1 1 auto; }
+.cbq-full { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.cbq-plate { background: var(--cbq-plate); border: 1px solid var(--cbq-border); border-radius: .65rem; padding: .35rem; }
+.cbq-illus { aspect-ratio: 400 / 300; }
+.cbq-illus svg { inline-size: 100%; block-size: 100%; }
+.cbq-illus text { font-family: Inter, system-ui, sans-serif; font-size: 12.5px; font-weight: 600; fill: #3c5675; }
+.cbq-illus text.sm { font-size: 11.5px; font-weight: 500; fill: #6b7f99; }
+.cbq-illus .lead { stroke: #a9c0da; stroke-width: 1.2; fill: none; }
+.cbq-panel { background: var(--cbq-pbg); border: 1px solid var(--cbq-pbr); border-radius: .65rem; padding: .8rem .95rem .85rem; }
+.cbq-panel h3 {
+  font-family: Newsreader, Georgia, serif; font-size: .95rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em; color: var(--cbq-phd); margin: 0 0 .5rem;
+}
+.cbq-p-background { --cbq-pbg: var(--cbq-p-background); --cbq-phd: var(--cbq-h-background); --cbq-pbr: var(--cbq-b-background); }
+.cbq-p-patho      { --cbq-pbg: var(--cbq-p-patho);      --cbq-phd: var(--cbq-h-patho);      --cbq-pbr: var(--cbq-b-patho); }
+.cbq-p-clinical   { --cbq-pbg: var(--cbq-p-clinical);   --cbq-phd: var(--cbq-h-clinical);   --cbq-pbr: var(--cbq-b-clinical); }
+.cbq-p-diagnosis  { --cbq-pbg: var(--cbq-p-diagnosis);  --cbq-phd: var(--cbq-h-diagnosis);  --cbq-pbr: var(--cbq-b-diagnosis); }
+.cbq-p-management { --cbq-pbg: var(--cbq-p-management); --cbq-phd: var(--cbq-h-management); --cbq-pbr: var(--cbq-b-management); }
+.cbq-pts { display: flex; flex-direction: column; gap: .35rem; }
+.cbq-pts > li { display: flex; gap: .4rem; font-size: .82rem; line-height: 1.45; color: var(--cbq-text); }
+.cbq-star { color: var(--cbq-phd); font-weight: 700; flex: none; font-family: ui-monospace, Menlo, monospace; }
+.cbq-sub { margin-block-start: .25rem; display: flex; flex-direction: column; gap: .2rem; }
+.cbq-sub li { font-size: .78rem; padding-inline-start: .85rem; position: relative; color: color-mix(in oklab, var(--cbq-text) 82%, transparent); }
+.cbq-sub li::before { content: "~"; position: absolute; inset-inline-start: 0; color: var(--cbq-phd); opacity: .7; font-family: ui-monospace, Menlo, monospace; }
+.cbq-foot {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem 1.25rem .8rem; border-top: 1px solid var(--cbq-divider);
+  font-size: .72rem; color: var(--cbq-muted);
+  background: color-mix(in oklab, var(--cbq-brand) 3%, transparent);
+}
+@media (max-width: 820px) { .cbq-body { grid-template-columns: 1fr; } .cbq-full { grid-template-columns: 1fr; } }
+@media print { .cbq-toolbar { display: none; } .cbq-card { break-inside: avoid; box-shadow: none; } .cbq-stack { gap: 1rem; } }
+#viewCards { max-width: 980px; margin: 0 auto; padding: 0 4px 96px; }
+#viewCards .cbq-logo { display: none; }
+#viewCards .cbq-deck { max-width: 900px; margin: 0 auto; }
+</style>
+<script id="cards-renderer">
+/* CerebroBanQ — reference cards renderer. No dependencies. */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.CerebroBanQCards = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var PANELS = [
+    ['background',      'Background',        'cbq-p-background'],
+    ['pathophysiology', 'Pathophysiology',   'cbq-p-patho'],
+    ['clinical',        'Clinical Features', 'cbq-p-clinical'],
+    ['diagnosis',       'Diagnosis',         'cbq-p-diagnosis'],
+    ['management',      'Management',        'cbq-p-management']
+  ];
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function pad(n) { return String(n).padStart(3, '0'); }
+
+  function renderPanel(points, heading, cls) {
+    if (!Array.isArray(points) || !points.length) return '';
+    var items = points.map(function (p) {
+      var subs = Array.isArray(p.subs) && p.subs.length
+        ? '<ul class="cbq-sub">' + p.subs.map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul>'
+        : '';
+      return '<li><span class="cbq-star" aria-hidden="true">*</span><span>' + esc(p.main) + subs + '</span></li>';
+    }).join('');
+    return '<section class="cbq-panel ' + cls + '"><h3>' + esc(heading) + '</h3><ul class="cbq-pts">' + items + '</ul></section>';
+  }
+
+  function renderCard(card, figures) {
+    figures = figures || {};
+    var p = {};
+    PANELS.forEach(function (t) { p[t[0]] = renderPanel(card[t[0]], t[1], t[2]); });
+    var svg = figures[card.fig] || '';
+    var num = pad(card.id);
+    return '<article class="cbq-card" data-id="' + esc(card.id) + '" data-specialty="' + esc(card.specialty) + '">' +
+      '<header class="cbq-head"><div>' +
+        '<span class="cbq-eyebrow">CerebroBanQ &middot; High-Yield Neurology</span>' +
+        '<h2 class="cbq-title">' + esc(card.title) + '</h2>' +
+        '<span class="cbq-specialty">' + esc(card.specialty) + '</span>' +
+      '</div><div class="cbq-head-r">' +
+        '<span class="cbq-logo" role="img" aria-label="CerebroPilot"></span>' +
+        '<span class="cbq-num">#' + num + '</span>' +
+      '</div></header>' +
+      '<div class="cbq-body">' +
+        '<div class="cbq-col">' + p.background + p.clinical + '</div>' +
+        '<div class="cbq-col">' +
+          (svg ? '<div class="cbq-plate"><div class="cbq-illus" role="img" aria-label="' + esc(card.title) + ' illustration">' + svg + '</div></div>' : '') +
+          p.diagnosis +
+        '</div>' +
+        '<div class="cbq-full">' + p.pathophysiology + p.management + '</div>' +
+      '</div>' +
+      '<footer class="cbq-foot">' +
+        '<span class="cbq-logo cbq-sm" role="img" aria-label=""></span>' +
+        '<span>cerebrobanq.com &middot; card #' + num + ' &mdash; ' + esc(card.title) + '</span>' +
+      '</footer></article>';
+  }
+
+  function renderDeck(cards, figures) {
+    return cards.map(function (c) { return renderCard(c, figures); }).join('\n');
+  }
+
+  function mount(el, cards, figures, opts) {
+    opts = Object.assign({ toolbar: true, specialty: null, limit: null }, opts || {});
+    if (!el) throw new Error('CerebroBanQCards.mount: target element not found');
+    el.classList.add('cbq-deck');
+    var specialties = Array.from(new Set(cards.map(function (c) { return c.specialty; }))).sort();
+
+    var toolbar = opts.toolbar ? '<div class="cbq-toolbar">' +
+      '<input class="cbq-search" type="search" placeholder="Search conditions, findings, drugs…" aria-label="Search cards">' +
+      '<select class="cbq-filter" aria-label="Filter by specialty"><option value="">All specialties</option>' +
+      specialties.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('') +
+      '</select><span class="cbq-count"></span></div>' : '';
+
+    el.innerHTML = toolbar + '<div class="cbq-stack"></div>';
+    var stack = el.querySelector('.cbq-stack');
+    var search = el.querySelector('.cbq-search');
+    var filter = el.querySelector('.cbq-filter');
+    var count = el.querySelector('.cbq-count');
+
+    var index = cards.map(function (c) {
+      var parts = [c.title, c.specialty];
+      PANELS.forEach(function (t) {
+        (c[t[0]] || []).forEach(function (pt) {
+          parts.push(pt.main);
+          (pt.subs || []).forEach(function (s) { parts.push(s); });
+        });
+      });
+      return parts.join(' ').toLowerCase();
+    });
+
+    function apply() {
+      var q = ((search && search.value) || '').trim().toLowerCase();
+      var spec = (filter && filter.value) || opts.specialty || '';
+      var shown = cards.filter(function (c, i) {
+        if (spec && c.specialty !== spec) return false;
+        if (q && index[i].indexOf(q) === -1) return false;
+        return true;
+      });
+      if (opts.limit) shown = shown.slice(0, opts.limit);
+      stack.innerHTML = renderDeck(shown, figures);
+      if (count) count.textContent = shown.length + ' of ' + cards.length + ' cards';
+    }
+
+    if (search) { var t; search.addEventListener('input', function () { clearTimeout(t); t = setTimeout(apply, 120); }); }
+    if (filter) filter.addEventListener('change', apply);
+    if (opts.specialty && filter) filter.value = opts.specialty;
+    apply();
+    return { refresh: apply, element: el };
+  }
+
+  return { renderCard: renderCard, renderDeck: renderDeck, mount: mount, PANELS: PANELS };
+});
+</script>
+<script id="cards-gate">
+/* Tab + gating. Same shape as the OSCE installer directly above. */
+(function(){
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+
+  /* The app's supabase client is module-scoped and unreachable from a classic
+     script, so we call PostgREST directly — exactly like osceRpc(). The
+     x-device header matters: without it device_ok() inside is_approved()
+     fails for a resident under device enforcement and every RPC returns
+     empty, which is what made the OSCE bank look blank once. */
+  function cardsRpc(name, args){
+    var t=null;
+    try{
+      var raw=localStorage.getItem('sb-jnwbcfwtlnrupkthbluh-auth-token');
+      if(raw){ var s=JSON.parse(raw); t=(s&&s.access_token)||(s&&s.currentSession&&s.currentSession.access_token)||null; }
+    }catch(e){}
+    var KEY=window.SB_CONFIG.key;
+    var dev=null; try{ dev=localStorage.getItem('qbank.device'); }catch(e){}
+    var H={'apikey':KEY,'Authorization':'Bearer '+(t||KEY),'Content-Type':'application/json'};
+    if(dev) H['x-device']=dev;
+    return fetch(window.SB_CONFIG.url+'/rest/v1/rpc/'+name,{
+      method:'POST', headers:H, body:JSON.stringify(args||{})
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(x){ throw new Error(r.status+' '+x); });
+      return r.status===204?null:r.json();
+    });
+  }
+
+  function install(){
+    if(document.getElementById('tabCards')) return;
+    var tabsBar=document.querySelector('.tabs'); if(!tabsBar) return;
+
+    var host=document.getElementById('app')||document.body;
+    var v=document.createElement('div');
+    v.id='viewCards'; v.className='hide';
+    v.innerHTML='<div id="cardsAdminBar"></div><div id="cardsApp"></div>';
+    var foot=host.querySelector('.appfoot');
+    if(foot){ host.insertBefore(v, foot); } else { host.appendChild(v); }
+
+    var btn=document.createElement('button');
+    btn.id='tabCards'; btn.type='button'; btn.textContent='Reference'; btn.className='hide';
+    tabsBar.appendChild(btn);
+
+    var loaded=false;
+    function hideAppViews(){
+      Array.prototype.forEach.call(document.querySelectorAll('[id^="view"]'),function(e){
+        if(e.id!=='viewCards') e.classList.add('hide');
+      });
+      ['practiceBar','kbhint'].forEach(function(id){ var e=document.getElementById(id); if(e) e.classList.add('hide'); });
+    }
+    function show(){
+      hideAppViews();
+      v.classList.remove('hide');
+      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(x){ x.classList.toggle('on',x===btn); });
+      if(!loaded){ loaded=true; load(); }
+    }
+    btn.addEventListener('click', show);
+    tabsBar.addEventListener('click', function(e){
+      var b=e.target.closest('button');
+      if(b && b!==btn){ v.classList.add('hide'); btn.classList.remove('on'); }
+    });
+
+    function load(){
+      var hostEl=document.getElementById('cardsApp');
+      if(hostEl) hostEl.innerHTML='<div class="card"><div class="empty">Loading reference cards…</div></div>';
+      Promise.all([ cardsRpc('reference_cards'), cardsRpc('reference_figures') ])
+        .then(function(res){
+          var cards=res[0]||[], figs=res[1]||{};
+          if(!hostEl) return;
+          if(!cards.length){ hostEl.innerHTML='<div class="empty">No reference cards available yet.</div>'; return; }
+          hostEl.innerHTML='';
+          window.CerebroBanQCards.mount(hostEl, cards, figs);
+        })
+        .catch(function(e){
+          loaded=false;   // let a retry happen on the next click
+          if(hostEl) hostEl.innerHTML='<div class="empty">Could not load reference cards. '+
+            String((e&&e.message)||'').replace(/[<>]/g,'')+'</div>';
+        });
+    }
+
+    function renderAdminBar(live){
+      var bar=document.getElementById('cardsAdminBar'); if(!bar) return;
+      bar.innerHTML='';
+      var w=document.createElement('div');
+      w.style.cssText='background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:12px 0 0;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+      var label=document.createElement('span');
+      function setLabel(){ label.innerHTML='Reference cards are currently <b style="color:'+(live?'var(--ok)':'var(--warn)')+'">'+(live?'LIVE for all residents':'HIDDEN (visible to admins only)')+'</b>'; }
+      setLabel();
+      var t=document.createElement('button'); t.className='primary';
+      t.textContent=live?'Hide from residents':'Show to everyone';
+      t.addEventListener('click', function(){
+        t.disabled=true;
+        cardsRpc('cards_set_live',{v:!live}).then(function(){
+          t.disabled=false; live=!live; setLabel();
+          t.textContent=live?'Hide from residents':'Show to everyone';
+        }).catch(function(err){
+          t.disabled=false; alert('Could not update: '+((err&&err.message)||''));
+        });
+      });
+      var note=document.createElement('span');
+      note.style.cssText='color:var(--faint);font-size:11.5px';
+      note.textContent='Only admins see this control.';
+      w.appendChild(label); w.appendChild(t); w.appendChild(note); bar.appendChild(w);
+    }
+
+    function gate(){
+      cardsRpc('cards_ui_state').then(function(d){
+        d=d||{};
+        var live=!!d.live, admin=!!d.admin;
+        btn.classList.toggle('hide', !(live||admin));
+        if(admin) renderAdminBar(live);
+        else { var bar=document.getElementById('cardsAdminBar'); if(bar) bar.innerHTML=''; }
+      }).catch(function(){});
+    }
+    gate(); setTimeout(gate,2000); setTimeout(gate,5000);
+  }
+  ready(install);
+})();
+</script>
+
 </body></html>
