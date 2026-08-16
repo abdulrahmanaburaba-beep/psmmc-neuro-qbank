@@ -1259,7 +1259,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <button data-tab="practice" class="on">Practice</button>
       <button data-tab="progress">My progress</button>
       <button data-tab="exam">Exam</button>
-      <button data-tab="myres" id="tabMyres" class="hide">My residents</button>
+      <button data-tab="myres" id="tabMyres" class="hide">Cohort</button>
       <span class="adminsep hide" id="adminSep" aria-hidden="true">Admin</span>
       <button data-tab="admin" id="tabAdmin" class="hide">Residents</button>
       <button data-tab="consultants" id="tabConsultants" class="hide">Consultants</button>
@@ -2437,7 +2437,11 @@ async function boot(user){
   // progress, everything a normal member has — plus one extra tab to monitor
   // whichever residents the administrator has assigned to them. It is not a
   // separate restricted mode; the only thing added is "My residents".
-  if (prof.role === 'consultant'){
+  // Admins get it too. consultant_dashboard() already scopes an admin to every
+  // resident rather than an assigned subset, and the owner of the programme
+  // could otherwise not open the cohort view at all - the one screen that says
+  // which residents are dormant, slipping or behind pace.
+  if (prof.role === 'consultant' || prof.role === 'admin'){
     $('#tabMyres').classList.remove('hide');
   }
   // Revealing those tabs can wrap the header onto a second row, which moves where
@@ -5592,8 +5596,11 @@ async function renderMyResidents(){
         + pdBars(data.by_pgy || [], 'pgy', 'pct', 'n') + '</div></div></div>'
       + '<div class="panel"><div class="ph"><h3>Weakest topics</h3>'
         + '<span class="phsub">cohort-wide · at least 5 answers</span>'
-        + '<span class="phact"><button id="consReport" style="min-height:30px">Printable report</button>'
-        + '</span></div>'
+        + (data.scope === 'your residents'
+             ? '<span class="phact"><button id="consReport" style="min-height:30px">'
+               + 'Printable report</button></span>'
+             : '')
+        + '</div>'
         + '<div class="pb"><div class="bars">'
         + pdBars((data.by_topic || []).slice(0, 8), 'topic', 'pct', 'attempts') + '</div></div></div>'
     + '</div>'
@@ -5865,8 +5872,20 @@ async function consultantDetail(uid){
   if (host.dataset.open === uid){ host.innerHTML=''; host.dataset.open=''; return; }
   host.dataset.open = uid;
   host.innerHTML = '<div class="card"><div class="empty">Loading…</div></div>';
-  const { data: d, error } = await sb.rpc('consultant_resident_detail', { target: uid });
-  if (error || !d){ host.innerHTML = '<div class="card"><div class="empty">Could not load.</div></div>'; return; }
+  /* consultant_resident_detail refuses anyone who is not a consultant, and
+     refuses a consultant for a resident who is not assigned to them. Admins can
+     now open this view, so fall back to the admin RPC - the two return the same
+     shape for everything rendered below (admin_resident_detail additionally
+     returns by_year, which this view does not use). */
+  let { data: d, error } = await sb.rpc('consultant_resident_detail', { target: uid });
+  if ((error || !d) && PROFILE && PROFILE.role === 'admin'){
+    ({ data: d, error } = await sb.rpc('admin_resident_detail', { target: uid }));
+  }
+  if (error || !d){
+    host.innerHTML = '<div class="card"><div class="empty">Could not load this resident.<br>'
+      + '<span style="font-size:12px">' + esc((error && error.message) || 'No response.') + '</span></div></div>';
+    return;
+  }
   const bar = pct => `<div class="meter"><i style="width:${pct||0}%;background:${
     pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div>`;
   const topics = (d.by_topic||[]).map(t =>
@@ -7384,19 +7403,33 @@ function oscFinal(){
     if (!isFinite(target) || target <= 0 || target > 9999999) return;
     var dp = m[3] ? m[3].length : 0;
     var pre = m[1], post = m[4];
-    var dur = target < 12 ? 380 : 720, t0 = 0;
+    /* requestAnimationFrame does not fire in a background tab. Zeroing the
+       value first and relying on rAF to walk it up therefore leaves the tile
+       reading 0 forever if the page was hidden when it rendered - an admin
+       opening the app in a background tab would see "Collected 0 SAR". So:
+       never start the animation unless the page is actually visible, and put a
+       timer behind it that writes the real value no matter what happens. */
+    if (document.visibilityState !== 'visible') return;
+
+    var dur = target < 12 ? 380 : 720, t0 = 0, done = false;
+    function settle(){
+      if (done) return;
+      done = true;
+      clearTimeout(guard);
+      el.textContent = final;                     // exact original string back
+    }
+    var guard = setTimeout(settle, dur + 600);
     function frame(ts){
+      if (done) return;
       if (!t0) t0 = ts;
       var p = Math.min(1, (ts - t0) / dur);
-      var e = 1 - Math.pow(1 - p, 3);            // ease-out cubic
-      if (p < 1){
-        var v = target * e;
-        el.textContent = pre + (dp ? v.toFixed(dp)
-                                   : Math.round(v).toLocaleString('en')) + post;
-        requestAnimationFrame(frame);
-      } else {
-        el.textContent = final;                   // exact original string back
-      }
+      // If the tab is hidden mid-flight, stop guessing and show the truth.
+      if (p >= 1 || document.visibilityState !== 'visible'){ settle(); return; }
+      var e = 1 - Math.pow(1 - p, 3);             // ease-out cubic
+      var v = target * e;
+      el.textContent = pre + (dp ? v.toFixed(dp)
+                                 : Math.round(v).toLocaleString('en')) + post;
+      requestAnimationFrame(frame);
     }
     el.textContent = pre + (dp ? (0).toFixed(dp) : '0') + post;
     requestAnimationFrame(frame);
