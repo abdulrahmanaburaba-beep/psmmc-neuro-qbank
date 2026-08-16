@@ -1984,23 +1984,35 @@ function showDeviceWait(d){
 // Per-user localStorage cache. Returning users get an instant load; a background
 // revalidate keeps the copy fresh. Key includes user id because RLS gives paid
 // residents, trial users, consultants and admins different views of the bank.
+//
+// v3 fixes an earlier bug where an empty first fetch (e.g. device briefly
+// pending, is_approved() false) got cached and left the user staring at an
+// empty bank for the whole TTL. Now: (a) never write an empty cache, (b) any
+// cached rows array of length 0 is ignored + refetched synchronously, (c) the
+// version bump v2->v3 invalidates any bad cached rows that shipped from the
+// earlier code path.
 const QBANK_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 function _qbankCacheKey(){
   const uid = (window.PROFILE && PROFILE.id) || null;
-  return uid ? ('cbq_qbank_v2_' + uid) : null;
+  return uid ? ('cbq_qbank_v3_' + uid) : null;
 }
 async function loadQuestions(){
   try {
     const k = _qbankCacheKey();
     if (k){
+      // Best-effort sweep of the v2 keys so we don't leave stale caches behind
+      try { localStorage.removeItem('cbq_qbank_v2_' + PROFILE.id); } catch(_){}
       const raw = localStorage.getItem(k);
       if (raw){
         const c = JSON.parse(raw);
-        if (c && Array.isArray(c.rows) && c.savedAt && (Date.now() - c.savedAt) < QBANK_CACHE_TTL_MS){
+        // Reject an empty cache even if fresh — that state means the previous
+        // fetch failed silently, and the user must not be left with no bank.
+        if (c && Array.isArray(c.rows) && c.rows.length > 0
+            && c.savedAt && (Date.now() - c.savedAt) < QBANK_CACHE_TTL_MS){
           ALL = c.rows;
           HAS_DIFF = ALL.some(q => q.difficulty !== null && q.difficulty !== undefined);
           HAS_PGY  = ALL.some(q => q.pgy_level  !== null && q.pgy_level  !== undefined && q.pgy_level !== '');
-          // background revalidate so a bank edit shows up next open, not this one
+          // Background revalidate so a bank edit shows up next open, not this one
           setTimeout(() => { _fetchQuestions().catch(()=>{}); }, 100);
           return;
         }
@@ -2018,9 +2030,7 @@ async function _fetchQuestions(){
       // away; the SELECT grant on it has been withdrawn from residents.
       // stem_no_image is the resident-visible text and is always populated.
       // difficulty and pgy_level are carried so the block builder can tell whether
-      // those two facets have been filled in at all. Both are still empty across the
-      // whole bank today, and a filter on an empty column silently matches nothing -
-      // which is why the controls are hidden until there is something to filter on.
+      // those two facets have been filled in at all.
       .select('uid,n,year,years,track,tracks,topic,stem_no_image,image_path,options,flags,rebuilt,needs_review,repeat_count,difficulty,pgy_level')
       .order('year', { ascending:false }).order('n', { ascending:true })
       .range(from, from + page - 1);
@@ -2031,9 +2041,15 @@ async function _fetchQuestions(){
   ALL = acc;
   HAS_DIFF = ALL.some(q => q.difficulty !== null && q.difficulty !== undefined);
   HAS_PGY  = ALL.some(q => q.pgy_level  !== null && q.pgy_level  !== undefined && q.pgy_level !== '');
+  // Only write the cache when we actually got questions — never poison it with []
   try {
     const k = _qbankCacheKey();
-    if (k) localStorage.setItem(k, JSON.stringify({ savedAt: Date.now(), rows: ALL }));
+    if (k && ALL.length > 0){
+      localStorage.setItem(k, JSON.stringify({ savedAt: Date.now(), rows: ALL }));
+    } else if (k && ALL.length === 0){
+      // Explicitly clear a possibly-stale cache so a later retry doesn't reuse it
+      try { localStorage.removeItem(k); } catch(_){}
+    }
   } catch(_) {}
 }
 async function loadAnswers(){
