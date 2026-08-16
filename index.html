@@ -4250,6 +4250,9 @@ async function renderAdmin(){
     <h2 class="seclabel" style="margin-top:18px">Recent activity</h2>
     <div class="card" style="padding-top:8px;padding-bottom:8px">${feedRows}</div>
 
+    <h2 class="seclabel" style="margin-top:18px">Mock exams</h2>
+    <div id="pdExamsCard" class="card"></div>
+
     <h2 class="seclabel" style="margin-top:18px">Roster</h2>
     <div class="card">
       <div class="rbar">
@@ -4381,6 +4384,9 @@ async function renderAdmin(){
 
   v.querySelectorAll('tr[data-uid] [data-open]').forEach(td =>
     td.onclick = () => residentDetail(td.closest('tr').dataset.uid));
+  // Same builder as the consultant's "My residents" tab, mirrored here so the
+  // admin can create mock exams from their own account.
+  if (typeof renderPDExamsCard === 'function') renderPDExamsCard();
 }
 
 async function residentDetail(uid){
