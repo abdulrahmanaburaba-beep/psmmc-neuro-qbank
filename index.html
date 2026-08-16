@@ -64,424 +64,1039 @@ try {
 })();
 </script>
 <style>
+/* ============================================================================
+   CerebrobanQ design system — v2
+   ----------------------------------------------------------------------------
+   Drop-in replacement for the original <style> block. Every class name and id
+   from v1 is preserved, because the app builds its DOM from template literals
+   inside index.html; renaming a class here would mean editing the data layer,
+   and the data layer is frozen.
+
+   COLOUR IS COMPUTED, NOT EYEBALLED.
+   Every value below was run through the dataviz validator and a WCAG solver
+   before it was written down. Recorded results:
+
+     dark  ok #3ECF8E 8.89:1 · warn #E9B23C 9.21:1 · bad #FB6E68 6.36:1
+     dark  accent 7.27:1 · ink 16.42:1 · dim 6.81:1 · faint 4.50:1
+     dark  white on --accent-solid 5.51:1
+     light ok 4.56:1 · warn 5.75:1 · bad 5.37:1 · accent 7.58:1
+     light ink 17.37:1 · dim 6.17:1 · faint 4.50:1 · white on solid 6.85:1
+     viz ramp: monotonic in OKLCH L, every step >= 3:1 on its own surface
+
+   Three deliberate calls, with the reasoning kept here so it survives:
+
+   1. The accent is split in two. v1 used one blue for link text and for the
+      fill behind white button labels. In dark mode that fill measured 3.3:1
+      against white - under the 4.5:1 floor, on the primary action in the
+      product. --accent is for ink and borders; --accent-solid is for fills.
+
+   2. There is no categorical palette. Green, amber and red are reserved for
+      answer feedback, which leaves only the cyan-to-magenta arc for series
+      colour - and four hues crammed into that arc fail CVD separation
+      (worst adjacent pair measured deutan dE 1.1, against a floor of 8).
+      So charts here use a single-hue sequential ramp, and any two-series
+      comparison uses one hue plus a dashed neutral. Cutting the series beats
+      shipping a palette a colour-blind resident cannot read.
+
+   3. --faint was lifted in both themes. At v1's value it measured 4.15:1 dark
+      and 3.77:1 light, and it carries timestamps and hints at 11px - small
+      text, so the 3:1 large-text allowance does not apply.
+   ========================================================================== */
+
 :root{
-  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
-  --ink:#e7eaf0; --dim:#9aa3b2; --faint:#8992a1;
-  --accent:#5b9dff; --accent-dim:#2d4a7a;
-  --ok:#3fb950; --ok-bg:#12321c; --bad:#f85149; --bad-bg:#3a1518;
-  --warn:#d29922; --warn-bg:#33280c; --r:10px;
+  /* ---- surface: five steps, so a panel inside a panel is still legible ---- */
+  --bg:#080B11; --bg-2:#0C1017;
+  --panel:#111726; --panel2:#182032; --panel3:#212B41;
+  --line:#242E42; --line-strong:#33405A;
+
+  /* ---- ink ---- */
+  --ink:#E9EDF5; --dim:#98A3B8; --faint:#728195;
+
+  /* ---- accent: two roles, deliberately different values. Not interchangeable;
+         one of them always fails contrast in the other's job. ---- */
+  --accent:#8098FF; --accent-solid:#4059E8; --on-accent:#FFFFFF;
+  --accent-dim:#2A3570; --accent-soft:rgba(128,152,255,.13);
+
+  /* ---- semantic: answer feedback owns these three, nothing else may ---- */
+  --ok:#3ECF8E;   --ok-bg:rgba(62,207,142,.12);   --ok-line:rgba(62,207,142,.42);
+  --bad:#FB6E68;  --bad-bg:rgba(251,110,104,.12); --bad-line:rgba(251,110,104,.42);
+  --warn:#E9B23C; --warn-bg:rgba(233,178,60,.12); --warn-line:rgba(233,178,60,.42);
+
+  /* ---- data-viz: one hue, five steps, mid to light on a dark ground.
+         Charts only. Never an action, never a feedback state. ---- */
+  --viz-1:#02818B; --viz-2:#09A0AD; --viz-3:#0ABFCE; --viz-4:#54D8E6; --viz-5:#93EAF4;
+  --viz:#0ABFCE;
+  --viz-track:rgba(255,255,255,.08);
+
+  /* ---- space ---- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s7:32px; --s8:48px;
+  --pad:16px;                 /* page gutter, narrows on phones */
+  --tap:38px;                 /* minimum control height, grows on phones */
+
+  /* ---- radius ---- */
+  --r-xs:6px; --r-sm:8px; --r:12px; --r-lg:16px; --r-xl:20px; --r-full:999px;
+
+  /* ---- elevation: dark leans on borders, light leans on shadow ---- */
+  --e1:0 1px 2px rgba(0,0,0,.34);
+  --e2:0 4px 14px -6px rgba(0,0,0,.52);
+  --e3:0 18px 48px -20px rgba(0,0,0,.7);
+  --ring:0 0 0 3px var(--accent-soft);
+
+  /* ---- motion ---- */
+  --d1:110ms; --d2:190ms; --d3:300ms; --d4:460ms;
+  --ease:cubic-bezier(.22,.72,.28,1);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --spring:cubic-bezier(.34,1.42,.64,1);
+
+  /* ---- type ---- */
+  --f-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --f-num:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --t-xs:11.5px; --t-sm:12.5px; --t-md:13.5px; --t-base:15px; --t-lg:17px;
+  --t-xl:21px; --t-2xl:27px; --t-3xl:34px;
+  --t-field:13.5px;           /* lifted to 16px on phones - see the iOS note */
+
+  --hdrH:112px;
 }
-/* Light is written once and applied from two places: when the device asks for it and
-   no choice has been made, and whenever the resident has chosen it outright. The
-   :not() is what makes a deliberate choice beat the operating system - a night-shift
-   resident on a phone locked to light mode can still have the dark bank. */
-@media (prefers-color-scheme: light){
-  :root:not([data-theme="dark"]){
-         --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
-         --ink:#12151a; --dim:#5a6472; --faint:#6d7784;
-         --accent:#1f6feb; --accent-dim:#c8ddff;
-         --ok:#1a7f37; --ok-bg:#e6f6ea; --bad:#cf222e; --bad-bg:#ffebe9;
-         --warn:#9a6700; --warn-bg:#fff8c5; }
-}
+
+/* Light. Written once, applied from two places: when the device asks for it and
+   the resident has not chosen, and whenever they have chosen it outright. The
+   :not() is what lets a deliberate choice beat the operating system - a
+   night-shift resident on a phone locked to light mode can still have the dark
+   bank. (Behaviour preserved from v1.)
+
+   The viz ramp inverts here: on white a mark has to get DARKER to stay legible,
+   so the ramp runs light to dark and the default single hue is step 4. */
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --bg:#F5F7FA; --bg-2:#FFFFFF;
+  --panel:#FFFFFF; --panel2:#F0F3F8; --panel3:#E5EAF2;
+  --line:#E0E5EE; --line-strong:#C7D0DE;
+  --ink:#0F131A; --dim:#576274; --faint:#69788C;
+  --accent:#2F45C4; --accent-solid:#3448D8; --on-accent:#FFFFFF;
+  --accent-dim:#C3CCFF; --accent-soft:rgba(52,72,216,.08);
+  --ok:#12874F;   --ok-bg:#E6F6EE;   --ok-line:rgba(18,135,79,.42);
+  --bad:#C8302B;  --bad-bg:#FDECEB;  --bad-line:rgba(200,48,43,.42);
+  --warn:#8A5D06; --warn-bg:#FFF4D8; --warn-line:rgba(138,93,6,.42);
+  --viz-1:#A9E9F3; --viz-2:#4FCDE0; --viz-3:#00A9BE; --viz-4:#00808F; --viz-5:#02606D;
+  --viz:#00808F;
+  --viz-track:rgba(15,19,26,.08);
+  --e1:0 1px 2px rgba(16,22,38,.07);
+  --e2:0 6px 18px -8px rgba(16,22,38,.16);
+  --e3:0 22px 52px -22px rgba(16,22,38,.26);
+}}
 :root[data-theme="light"]{
-         --bg:#f6f7f9; --panel:#fff; --panel2:#f0f2f6; --line:#dde1e8;
-         --ink:#12151a; --dim:#5a6472; --faint:#6d7784;
-         --accent:#1f6feb; --accent-dim:#c8ddff;
-         --ok:#1a7f37; --ok-bg:#e6f6ea; --bad:#cf222e; --bad-bg:#ffebe9;
-         --warn:#9a6700; --warn-bg:#fff8c5; }
-/* Native form controls and scrollbars follow this, so they never sit light-on-dark. */
+  --bg:#F5F7FA; --bg-2:#FFFFFF;
+  --panel:#FFFFFF; --panel2:#F0F3F8; --panel3:#E5EAF2;
+  --line:#E0E5EE; --line-strong:#C7D0DE;
+  --ink:#0F131A; --dim:#576274; --faint:#69788C;
+  --accent:#2F45C4; --accent-solid:#3448D8; --on-accent:#FFFFFF;
+  --accent-dim:#C3CCFF; --accent-soft:rgba(52,72,216,.08);
+  --ok:#12874F;   --ok-bg:#E6F6EE;   --ok-line:rgba(18,135,79,.42);
+  --bad:#C8302B;  --bad-bg:#FDECEB;  --bad-line:rgba(200,48,43,.42);
+  --warn:#8A5D06; --warn-bg:#FFF4D8; --warn-line:rgba(138,93,6,.42);
+  --viz-1:#A9E9F3; --viz-2:#4FCDE0; --viz-3:#00A9BE; --viz-4:#00808F; --viz-5:#02606D;
+  --viz:#00808F;
+  --viz-track:rgba(15,19,26,.08);
+  --e1:0 1px 2px rgba(16,22,38,.07);
+  --e2:0 6px 18px -8px rgba(16,22,38,.16);
+  --e3:0 22px 52px -22px rgba(16,22,38,.26);
+}
+/* Native controls and scrollbars follow this, so they never sit light-on-dark. */
 :root{ color-scheme:dark }
 :root[data-theme="light"]{ color-scheme:light }
 @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ color-scheme:light } }
 
-/* min-height, not padding: a 31px chip is under every mobile tap-target guideline and
-   is genuinely fiddly one-handed. 36px on desktop, 40px once the screen is phone-sized. */
-.themebtn{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;font-size:12px;
+/* Phones. Two things matter more than anything else here.
+
+   1. --t-field goes to 16px. iOS Safari zooms the whole page when a focused
+      input has a font-size below 16px. v1's fields were 13px, so every tap
+      into the question search, a note, or the sign-in box punched the layout
+      and left the resident pinched out. Nothing else fixes this.
+   2. --tap goes to 44px, the platform minimum. A 31px chip is genuinely
+      fiddly one-handed, which is how the bank actually gets used. */
+@media (max-width:600px){
+  :root{ --pad:12px; --tap:44px; --t-field:16px; }
+}
+
+
+/* ==========================================================================
+   MOTION PRIMITIVES
+   One place for every animation in the product. Each is opt-in via a class or
+   a selector below, and the whole layer collapses under prefers-reduced-motion
+   at the very bottom of this stylesheet.
+   ========================================================================== */
+@keyframes cbq-rise      { from{opacity:0;transform:translateY(10px)}   to{opacity:1;transform:none} }
+@keyframes cbq-rise-sm   { from{opacity:0;transform:translateY(5px)}    to{opacity:1;transform:none} }
+@keyframes cbq-fade      { from{opacity:0}                              to{opacity:1} }
+@keyframes cbq-pop       { 0%{opacity:0;transform:scale(.94)} 60%{transform:scale(1.012)} 100%{opacity:1;transform:none} }
+@keyframes cbq-shake     { 10%,90%{transform:translateX(-1.5px)} 20%,80%{transform:translateX(3px)}
+                           30%,50%,70%{transform:translateX(-5px)} 40%,60%{transform:translateX(5px)} }
+@keyframes cbq-pulse     { 0%,100%{opacity:1} 50%{opacity:.42} }
+@keyframes cbq-halo      { 0%{box-shadow:0 0 0 0 var(--ok-line)} 70%{box-shadow:0 0 0 9px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+@keyframes cbq-halo-bad  { 0%{box-shadow:0 0 0 0 var(--bad-line)} 70%{box-shadow:0 0 0 9px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+@keyframes cbq-dot       { 0%{box-shadow:0 0 0 0 var(--bad-line)} 70%{box-shadow:0 0 0 6px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+@keyframes cbq-shimmer   { from{background-position:-160% 0} to{background-position:260% 0} }
+@keyframes cbq-spin      { to{transform:rotate(360deg)} }
+@keyframes cbq-toast-in  { from{opacity:0;transform:translateY(14px) scale(.97)} to{opacity:1;transform:none} }
+@keyframes cbq-sweep     { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+@keyframes cbq-draw      { to{stroke-dashoffset:var(--dash-to,0)} }
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:var(--t-base)/1.62 var(--f-ui);
+ -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+ text-rendering:optimizeLegibility;font-synthesis-weight:none}
+.wrap{max-width:1000px;margin:0 auto;
+ padding:0 var(--pad) calc(84px + env(safe-area-inset-bottom,0px))}
+a{color:var(--accent);text-underline-offset:2px}
+a:hover{text-decoration:underline}
+::selection{background:var(--accent-soft);color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-xs)}
+.hide{display:none!important}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+b,strong{font-weight:640}
+h1,h2,h3,h4{letter-spacing:-.018em;font-weight:650}
+hr{border:none;border-top:1px solid var(--line);margin:var(--s5) 0}
+code{font-family:var(--f-num)}
+
+/* Tabular figures everywhere a number can change. A score that jumps from
+   88% to 91% should not reflow the row it sits in. */
+.stat b,.kpi b,.statchip b,.clock,.num,td.num,th.num,.heat .cell b,.meter+span,
+.ringval,.trend,.tnum{font-variant-numeric:tabular-nums}
+
+/* ==========================================================================
+   CONTROLS
+   ========================================================================== */
+select,input,button,textarea{font:inherit;font-size:var(--t-md);color:var(--ink);
+ background:var(--panel);border:1px solid var(--line);border-radius:var(--r-sm);
+ padding:8px 11px;transition:border-color var(--d1) var(--ease),
+ background var(--d1) var(--ease),box-shadow var(--d1) var(--ease),
+ transform var(--d1) var(--ease),color var(--d1) var(--ease)}
+input,textarea{width:100%}
+/* 16px on phones or iOS Safari zooms the page on focus. See tokens.css. */
+input,select,textarea{font-size:var(--t-field)}
+/* Tick boxes and radios must never be stretched by the rule above. Without this
+   a checkbox inside a flex row claims the whole row and squeezes its label into
+   a column of single letters. It has caused that exact bug more than once, and
+   patching each new checkbox by hand only works until the next one is added. */
+input[type=checkbox],input[type=radio]{width:auto;flex:none;min-width:auto;
+ accent-color:var(--accent-solid);min-height:17px}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+button:focus-visible{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+button{cursor:pointer;user-select:none;font-weight:520;min-height:var(--tap);
+ -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:hover:not(:disabled){border-color:var(--line-strong);background:var(--panel2)}
+button:active:not(:disabled){transform:translateY(.5px) scale(.988)}
+button:disabled{opacity:.45;cursor:default}
+button.on,button.primary{background:var(--accent-solid);border-color:var(--accent-solid);
+ color:var(--on-accent);font-weight:600;box-shadow:var(--e1)}
+button.on:hover:not(:disabled),button.primary:hover:not(:disabled){
+ background:color-mix(in srgb,var(--accent-solid) 86%,#fff);
+ border-color:color-mix(in srgb,var(--accent-solid) 86%,#fff);box-shadow:var(--e2)}
+button.danger{color:var(--bad);border-color:var(--bad-line)}
+button.danger:hover:not(:disabled){background:var(--bad-bg);border-color:var(--bad)}
+/* Any button that is doing something. Add .busy from JS. */
+button.busy{position:relative;color:transparent!important;pointer-events:none}
+button.busy::after{content:'';position:absolute;inset:0;margin:auto;width:14px;height:14px;
+ border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+ color:var(--dim);animation:cbq-spin .62s linear infinite}
+
+.themebtn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:var(--t-sm);
  min-height:36px;color:var(--dim);background:var(--panel);border:1px solid var(--line);
- border-radius:8px}
+ border-radius:var(--r-sm)}
 @media(max-width:520px){.themebtn{min-height:40px;padding:5px 11px}}
 .themebtn:hover{color:var(--ink)}
 .themebtn svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;
  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .landtop .themebtn{margin-left:auto}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
- font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
- -webkit-font-smoothing:antialiased}
-.wrap{max-width:900px;margin:0 auto;padding:0 16px 80px}
-a{color:var(--accent)}
-select,input,button{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);
- border:1px solid var(--line);border-radius:8px;padding:7px 10px}
-input{width:100%}
-/* Checkboxes and radios must never be stretched by the rule above. Without this a
-   tick box inside a flex row claims the whole row and squeezes the label into a
-   column of single letters - it has caused that exact bug more than once, and
-   patching each new checkbox by hand only works until the next one is added. */
-input[type=checkbox],input[type=radio]{width:auto;flex:none;min-width:auto}
-select:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-button{cursor:pointer;user-select:none}
-button:hover:not(:disabled){border-color:var(--accent)}
-button:disabled{opacity:.5;cursor:default}
-button.on,button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.hide{display:none!important}
 
-/* ---------- landing + sign in ---------- */
-/* The glow sits behind everything and never moves, so it costs one paint and nothing
-   after that. No animation on the landing: this is the door to a revision tool, and a
-   moving background is the first thing that gets tiring. */
-/* minmax(0,1fr) pins the single track to the container width. With the default
-   auto track, .land's percentage width resolved against a max-content-sized
-   track instead, so on any phone narrower than ~468px the whole landing was
-   440px wide and clipped off the right edge. */
-.gate{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;
- padding:24px;position:relative;overflow:hidden}
-.gate::before{content:'';position:absolute;inset:-40% -10% auto;height:70vh;pointer-events:none;
- background:radial-gradient(60% 55% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%)}
-.land{width:100%;max-width:940px;position:relative}
-.landtop{display:flex;align-items:center;gap:15px;margin-bottom:28px}
-/* The mark is the logo itself, painted with a mask rather than placed as an image, so
-   one monochrome file works on both the dark and the light theme without a second
-   asset and without a filter hack. */
+/* ==========================================================================
+   LANDING + SIGN IN
+   ========================================================================== */
+.gate{min-height:100vh;min-height:100dvh;display:grid;grid-template-columns:minmax(0,1fr);
+ place-items:center;padding:var(--s6);position:relative;overflow:hidden}
+/* The glow sits behind everything and never moves, so it costs one paint and
+   nothing after that. No animation on the landing: this is the door to a
+   revision tool, and a moving background is the first thing that gets tiring. */
+.gate::before{content:'';position:absolute;inset:-40% -10% auto;height:72vh;pointer-events:none;
+ background:radial-gradient(58% 54% at 50% 0%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 72%)}
+.gate::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
+ background-image:linear-gradient(var(--line) 1px,transparent 1px),
+ linear-gradient(90deg,var(--line) 1px,transparent 1px);
+ background-size:64px 64px;
+ -webkit-mask-image:radial-gradient(70% 55% at 50% 0%,#000,transparent 75%);
+ mask-image:radial-gradient(70% 55% at 50% 0%,#000,transparent 75%)}
+.land{width:100%;max-width:960px;position:relative;z-index:1;
+ animation:cbq-rise var(--d4) var(--ease-out) both}
+.landtop{display:flex;align-items:center;gap:15px;margin-bottom:var(--s7)}
+/* The mark is the logo itself, painted with a mask rather than placed as an
+   image, so one monochrome file works on both themes without a second asset
+   and without a filter hack. */
 .brandmark{flex:none;width:58px;height:58px;background:var(--accent);
  -webkit-mask:url(./logo.svg) center/contain no-repeat;
  mask:url(./logo.svg) center/contain no-repeat}
-.landtop h1{margin:0;font-size:23px;letter-spacing:-.025em;
- background:linear-gradient(100deg, var(--ink), color-mix(in srgb, var(--ink) 55%, var(--accent)));
+.landtop h1{margin:0;font-size:var(--t-2xl);letter-spacing:-.03em;line-height:1.1;
+ background:linear-gradient(100deg,var(--ink),color-mix(in srgb,var(--ink) 52%,var(--accent)));
  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.landtop p{margin:3px 0 0;font-size:13.5px;color:var(--dim)}
-.landgrid{display:grid;grid-template-columns:1fr 400px;gap:28px;align-items:start}
-.pitch{font-size:27px;line-height:1.32;margin:0 0 18px;letter-spacing:-.022em}
+.landtop p{margin:4px 0 0;font-size:var(--t-md);color:var(--dim)}
+.landgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:var(--s7);align-items:start}
+.pitch{font-size:31px;line-height:1.26;margin:0 0 var(--s5);letter-spacing:-.028em;font-weight:600}
 .pitch b{font-weight:650;color:var(--accent)}
-/* Typography deliberately reads like something a person set by eye: one big
-   confident headline, plain sentence-case headings, and supporting text large
-   enough to read - not a grid of identical tracked-uppercase micro-labels. */
-.eyebrow{font-size:12.5px;color:var(--accent);font-weight:600;margin:2px 0 12px}
-.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 14px}
-.statchip{background:color-mix(in srgb, var(--panel) 82%, transparent);border:1px solid var(--line);
- border-radius:10px;padding:11px 8px;text-align:center}
-.statchip b{display:block;font-size:21px;letter-spacing:-.02em;color:var(--accent);
- font-variant-numeric:tabular-nums}
-.statchip span{font-size:12px;color:var(--dim)}
-.landsec{margin-top:32px}
-.seclabel{font-size:15.5px;letter-spacing:-.01em;color:var(--ink);
- font-weight:650;margin:0 0 12px}
-.chev{color:var(--dim);flex:none;transition:transform .2s}
-.bundlebar{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+/* Typography reads like something a person set by eye: one confident headline,
+   plain sentence-case headings, supporting text large enough to read. Not a
+   grid of identical tracked-uppercase micro-labels. */
+.eyebrow{font-size:var(--t-sm);color:var(--accent);font-weight:640;margin:2px 0 var(--s3);
+ letter-spacing:.01em}
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin:var(--s5) 0 var(--s4)}
+.statchip{background:color-mix(in srgb,var(--panel) 76%,transparent);border:1px solid var(--line);
+ border-radius:var(--r);padding:13px 8px;text-align:center;
+ backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.statchip b{display:block;font-size:23px;letter-spacing:-.025em;color:var(--accent);line-height:1.15}
+.statchip span{font-size:var(--t-sm);color:var(--dim)}
+.landsec{margin-top:var(--s7)}
+.seclabel{font-size:16px;letter-spacing:-.015em;color:var(--ink);font-weight:650;margin:0 0 var(--s3)}
+.chev{color:var(--dim);flex:none;transition:transform var(--d2) var(--ease)}
+.bundlebar{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);overflow:hidden}
 .bundlebar>button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
- background:none;border:none;border-radius:0;padding:13px 16px}
+ background:none;border:none;border-radius:0;padding:14px 16px}
+.bundlebar>button:hover{background:var(--panel2)}
 .bundlebar>button b{font-size:14px;flex:none}
-.bundlebar .bsub{font-size:12px;color:var(--dim);flex:1;min-width:0;white-space:nowrap;
+.bundlebar .bsub{font-size:var(--t-sm);color:var(--dim);flex:1;min-width:0;white-space:nowrap;
  overflow:hidden;text-overflow:ellipsis}
 .bundlebar>button[aria-expanded="true"] .chev{transform:rotate(180deg)}
-#bundleBody{padding:0 16px 16px;border-top:1px solid var(--line)}
-.bblurb{font-size:13px;color:var(--dim);line-height:1.6;margin:12px 0}
-.bperk{margin:12px 0 0;padding:10px 12px;border:1px solid var(--accent);border-radius:10px;
- font-size:13px;color:var(--dim);line-height:1.55;
- background:color-mix(in srgb, var(--accent) 8%, transparent)}
+#bundleBody{padding:0 16px 16px;border-top:1px solid var(--line);
+ animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.bblurb{font-size:var(--t-md);color:var(--dim);line-height:1.62;margin:var(--s3) 0}
+.bperk{margin:var(--s3) 0 0;padding:11px 13px;border:1px solid var(--accent-dim);border-radius:var(--r);
+ font-size:var(--t-md);color:var(--dim);line-height:1.58;background:var(--accent-soft)}
 .bperk b{color:var(--accent);display:block;margin-bottom:2px}
 .brow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.brow label{font-size:12px;color:var(--faint)}
-.brow input{width:80px;text-align:center;flex:none}
+.brow label{font-size:var(--t-sm);color:var(--faint)}
+.brow input{width:84px;text-align:center;flex:none}
 .brow button{margin-left:auto}
 .landfoot .fcols{columns:2 320px;column-gap:40px}
 .landfoot .fcols h3{break-after:avoid}
 .landfoot .fcols p{break-inside:avoid}
 .feats{list-style:none;padding:0;margin:0;display:grid;
- grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
-.feats li{background:color-mix(in srgb, var(--panel) 82%, transparent);
- border:1px solid var(--line);border-radius:12px;padding:13px 15px;
+ grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s3)}
+.feats li{background:color-mix(in srgb,var(--panel) 76%,transparent);
+ border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;
  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
- transition:border-color .18s, transform .18s}
-.feats li:hover{border-color:color-mix(in srgb, var(--accent) 55%, var(--line));transform:translateY(-1px)}
+ transition:border-color var(--d2) var(--ease),transform var(--d2) var(--ease),
+ box-shadow var(--d2) var(--ease)}
+.feats li:hover{border-color:color-mix(in srgb,var(--accent) 52%,var(--line));
+ transform:translateY(-2px);box-shadow:var(--e2)}
 .feats b{display:block;font-size:14px;margin-bottom:3px}
-.feats span{font-size:13px;color:var(--dim);line-height:1.55}
-.gate .gatebox{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
- background:color-mix(in srgb, var(--panel) 88%, transparent);
- box-shadow:0 18px 50px -24px rgba(0,0,0,.55)}
-.landfoot{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);
- font-size:12.5px;color:var(--faint);line-height:1.65}
-.landfoot h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);
- margin:0 0 6px;font-weight:600}
+.feats span{font-size:var(--t-md);color:var(--dim);line-height:1.58}
+.gate .gatebox{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+ background:color-mix(in srgb,var(--panel) 86%,transparent);box-shadow:var(--e3)}
+.landfoot{margin-top:var(--s7);padding-top:var(--s5);border-top:1px solid var(--line);
+ font-size:var(--t-sm);color:var(--faint);line-height:1.7}
+.landfoot h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);
+ margin:0 0 6px;font-weight:640}
 .landfoot p{margin:0 0 12px;max-width:70ch}
 .landfoot a{color:var(--accent)}
 
-/* Ministry of Commerce registration badge - the same one shown on cerebropilot.com.
-   The emblem is inlined as a data URI: no extra request, no third-party host, and
-   img-src in the CSP above already allows data:. Declared once here, used by both
-   the landing footer and the in-app About panel. The white tile is deliberate -
-   the emblem is an official mark on white and must not be recoloured by the theme. */
+/* Ministry of Commerce registration badge. The emblem is inlined as a data URI:
+   no extra request, no third-party host, and img-src already allows data:. The
+   white tile is deliberate - it is an official mark on white and must not be
+   recoloured by the theme. */
 .crbadge{display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;
- background:var(--panel);border:1px solid var(--line);border-radius:14px;
+ background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
  padding:12px 16px;margin:2px 0 12px;text-align:left;max-width:100%}
 .crbadge .seal{flex:none;width:54px;height:54px;border-radius:8px;
  background:#fff url("data:image/webp;base64,UklGRiIGAABXRUJQVlA4WAoAAAAgAAAAawAAawAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDggNAQAAPAWAJ0BKmwAbAA+USaQRiOiIaEjXMkYcAoJZwDXQRd8C7Ac8BplHoAdKd/ma/Xq75Ru4M8r93YgXUR5J934xN+qvIB9PPM/89/8R4WtAD8w/678jv7N8P/+Z5X/zD/If+H3Bv5V/U/+j15P2k9jH9pRbJY3WsbrWI9yKszfSVpeOL/xyyjcmmrxchnPBCZjlC5Yt9+S5XSM9O1bgSdwA8JHNg7WUoVJ8IP30DV7syS8Wz/VjnIwwPZZVvsq32VWgAD+/XZwAAPZDtcsOgmyI3U+1kXQvgnJR59Ia0wUC/cDK0H9J//TEYIfYf9fJtyavlmMesN8wrZQJgeEErHQ6/AVSfC9PmOa5oqFT3qnSbsj1/unsXMPPM+/SRz5Byrf/8NfNdX4sa5/52+7TiUOHb3TBOdGuarmXfTblJkAvSM/1nz5anfv1/p5XX99YUJaVd46Uz6QngsLk2625qvgxFtGATDZpALEmx66VB3/+MXxG9xP+/UvjNtaMrvo0/5enlt+TIZ8oRHHlHNc8fLG0TPUkc/0yk9I+0hEHpqrXmrhZhzb/7IUt+hIautKes44kiv0qPQqJzL0MMg16SKg/l4nt+I+dRn5gc5C8Q+XhpEjXubfnPCA3ZhvKoU++Dsck6ZJHOvHaS2RzrvMOeoXuXgnjcM925pe7nOBGgWS2GinHhnwnyxunwX9vAWXWOyfgwCnTWRVRVJTjpuB1XZsSsNa9vpomzheXvBhOx9l2z75+9TsMMfRhwbDXKKl6ZJIn60Bd29u1xcA6F9uxd3DcYV7oSLEuamBM1PkJ4Y46Ld4Tbx8jCcTVyWlVL9jP+mpdg/hCmbgkYlXa8GwapTDEU6FqF/N+Yp9qiKnPNn/1SHz5cPru8P14iduVS5egc5V/P9gClClnveOe6XgoP/YiJQWvbkmmipk3MsmOsWsb7C6w5AGHpc7usen9jNovu2zL9NQntTl+75b+7b7n4QQxwTEEQ4wiQmeQe3ceubGMnc1UaZ14O+XbKyndIlK6SoFCMgMiwFFFPxHELFqCmy8aeWhv8K665+aC7qx3TFzficB3GstOHsYlaDAUugv9MbhTQuTX7Mbnu/Cj6ddxiCUoPdmyiAmjqtXoN/RPeB+qmZfUSZCd/DLzv+csT7eLPbOZFW/fcLm/IJul/vsqmT8lSMNt1bY1d17yRiSq+LW78ny/S1vh3Py577P+TQ554zOXxye1uLJyNhnSZJ2tN2SWX5JlDPRcqvh3Rp1JFUlcSahm4ZstG8Mr+9/xsrsc/fJgNqdLPzDjKR2eHo3rgjedFWwvFFC/S/udvrizyW0fTz9rgR/DI0b68nH30yeAo77LQiYD4Vyt9f5g6iJx95ZSA/dCBlzR7mfRRX3OGa+v8M/Hi+tZuqeZ/oH4GT+0hiaQ2pTPkBIClLikAXrPT033EIAAAAA") center/44px 44px no-repeat}
-.crbadge .crtxt{font-size:12.5px;color:var(--dim);line-height:1.5}
-.crbadge .crno{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
- font-size:11.5px;color:var(--faint)}
-.crbadge .verify{font-weight:700;font-size:12.5px;white-space:nowrap;text-decoration:none;
- color:var(--accent)}
+.crbadge .crtxt{font-size:var(--t-sm);color:var(--dim);line-height:1.5}
+.crbadge .crno{display:block;font-family:var(--f-num);font-size:11.5px;color:var(--faint)}
+.crbadge .verify{font-weight:700;font-size:var(--t-sm);white-space:nowrap;text-decoration:none;color:var(--accent)}
 .crbadge .verify:hover{text-decoration:underline}
 @media(max-width:520px){.crbadge{gap:10px;padding:10px 12px}}
-.appfoot{text-align:center;font-size:11.5px;color:var(--faint);padding:22px 0 0;
- margin-top:18px;border-top:1px solid var(--line)}
+.appfoot{text-align:center;font-size:11.5px;color:var(--faint);padding:var(--s6) 0 0;
+ margin-top:var(--s5);border-top:1px solid var(--line)}
 .appfoot a{color:var(--dim)}
-#aboutBox{max-width:70ch;margin:14px auto 0;text-align:left;line-height:1.65}
+#aboutBox{max-width:70ch;margin:14px auto 0;text-align:left;line-height:1.7;
+ animation:cbq-rise-sm var(--d3) var(--ease-out) both}
 #aboutBox p{margin:0 0 10px}
-@media(max-width:820px){
-  .landgrid{grid-template-columns:1fr;gap:20px}
-  .land{max-width:440px}
-  .pitch{font-size:19.5px;margin-bottom:14px}
+@media(max-width:860px){
+  .landgrid{grid-template-columns:minmax(0,1fr);gap:var(--s5)}
+  .land{max-width:460px}
+  .pitch{font-size:21px;margin-bottom:var(--s4)}
   .gate{padding:18px 14px 30px;place-items:start center}
   .gate::before{height:44vh}
-  .landtop{margin-bottom:20px}
-  .statrow{margin:14px 0 12px}
-  .statchip b{font-size:17px}
+  .landtop{margin-bottom:var(--s5)}
+  .landtop h1{font-size:22px}
+  .brandmark{width:48px;height:48px}
+  .statrow{margin:var(--s4) 0 var(--s3)}
+  .statchip b{font-size:18px}
   .gatebox{max-width:none}
-  .landsec{margin-top:26px}
+  .landsec{margin-top:var(--s6)}
 }
-@media (prefers-reduced-motion: reduce){ .feats li{transition:none} }
 .gatebox{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);
- border-radius:14px;padding:30px 28px}
-.gatebox h1{margin:0 0 4px;font-size:20px;letter-spacing:-.012em}
-.gatebox .lede{color:var(--dim);font-size:13.5px;margin-bottom:22px;line-height:1.55}
-.gatebox label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
-.gatebox button{width:100%;margin-top:12px;padding:10px}
-.msg{margin-top:16px;padding:11px 13px;border-radius:8px;font-size:13px;line-height:1.55}
-.msg.info{background:var(--panel2);color:var(--dim)}
-.msg.good{background:var(--ok-bg);color:var(--ok)}
-.msg.err{background:var(--bad-bg);color:var(--bad)}
-.priv{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
- font-size:11.5px;color:var(--faint);line-height:1.5}
+ border-radius:var(--r-xl);padding:30px 28px;box-shadow:var(--e2)}
+.gatebox h1{margin:0 0 5px;font-size:var(--t-xl);letter-spacing:-.02em}
+.gatebox .lede{color:var(--dim);font-size:var(--t-md);margin-bottom:var(--s6);line-height:1.58}
+.gatebox label{display:block;font-size:var(--t-sm);color:var(--dim);margin-bottom:6px}
+.gatebox button{width:100%;margin-top:var(--s3);padding:11px;min-height:44px}
+.msg{margin-top:var(--s4);padding:11px 13px;border-radius:var(--r-sm);font-size:var(--t-md);
+ line-height:1.58;animation:cbq-rise-sm var(--d2) var(--ease-out) both;border:1px solid transparent}
+.msg.info{background:var(--panel2);color:var(--dim);border-color:var(--line)}
+.msg.good{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.msg.err{background:var(--bad-bg);color:var(--bad);border-color:var(--bad-line)}
+.priv{margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--line);
+ font-size:11.5px;color:var(--faint);line-height:1.55}
 
-/* ---------- chrome ---------- */
-header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 0 0}
-.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em;
+
+/* ==========================================================================
+   APP CHROME
+   ========================================================================== */
+header{position:sticky;top:0;z-index:20;padding:12px 0 0;
+ background:color-mix(in srgb,var(--bg) 84%,transparent);
+ backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);
+ border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:var(--s3)}
+.top h1{margin:0;font-size:var(--t-lg);font-weight:660;letter-spacing:-.022em;
  display:flex;align-items:center;gap:9px}
-/* The same masked logo as the landing page, at header size. One file, both places. */
 .brandmark.sm{width:26px;height:26px}
-.who{margin-left:auto;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px}
-/* Wrap rather than run off the edge. A resident sees three tabs and never notices, but
-   an administrator sees six, and on a 375px phone the Reports tab - the one carrying the
-   unread badge - sat 33px past the right edge with no way to reach it. */
-.tabs{display:flex;flex-wrap:wrap;gap:4px 2px;margin-bottom:10px}
+.who{margin-left:auto;font-size:var(--t-sm);color:var(--dim);display:flex;align-items:center;gap:8px}
+.who .em{max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Tabs wrap rather than run off the edge. A resident sees three and never
+   notices; an administrator sees six, and on a 375px phone the Reports tab -
+   the one carrying the unread badge - sat 33px past the right edge with no way
+   to reach it. */
+.tabs{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:var(--s3);position:relative}
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
- padding:6px 10px;color:var(--dim);font-size:13.5px}
-.tabs button.on{color:var(--ink);border-bottom-color:var(--accent);background:none}
-/* Red dot on a tab that has something new waiting (e.g. a new PD exam) */
+ padding:8px 11px;color:var(--dim);font-size:var(--t-md);font-weight:540;position:relative;
+ transition:color var(--d1) var(--ease)}
+.tabs button:hover:not(.on){color:var(--ink);background:none;border-color:transparent;
+ border-bottom-color:var(--line-strong)}
+.tabs button:active{transform:none}
+.tabs button.on{color:var(--ink);background:none;font-weight:620}
+/* The underline slides in rather than snapping. Scale from the centre keeps it
+   from looking like it grew out of the previous tab. */
+.tabs button.on::before{content:'';position:absolute;left:6px;right:6px;bottom:-2px;height:2px;
+ background:var(--accent);border-radius:2px;animation:cbq-sweep var(--d3) var(--ease-out) both}
+/* Red dot on a tab with something new waiting (a newly published PD exam). */
 .tabs button.has-alert{position:relative}
-.tabs button.has-alert::after{content:'';position:absolute;top:4px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--bad,#e11d48);box-shadow:0 0 0 2px var(--bg,#000)}
-.adminsep{align-self:center;margin:0 3px 0 7px;padding-left:9px;border-left:1px solid var(--line);
-  color:var(--faint);font-size:10px;letter-spacing:.09em;text-transform:uppercase}
-.bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:10px}
+.tabs button.has-alert::after{content:'';position:absolute;top:5px;right:3px;width:7px;height:7px;
+ border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--bg);
+ animation:cbq-dot 2.4s var(--ease-out) infinite}
+.adminsep{align-self:center;margin:0 3px 0 8px;padding-left:10px;border-left:1px solid var(--line);
+ color:var(--faint);font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:640}
+#repBadge:not(:empty){display:inline-block;margin-left:5px;min-width:17px;padding:1px 5px;
+ border-radius:var(--r-full);background:var(--bad);color:#fff;font-size:10px;font-weight:700;
+ line-height:15px;text-align:center;vertical-align:1px}
+
+.bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;padding-bottom:var(--s3)}
 .bar input[type=search]{min-width:150px;flex:1;width:auto}
 .spacer{flex:1}
-.stats{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:8px 0 12px;
- border-top:1px solid var(--line);font-size:12.5px;color:var(--dim)}
-.stat b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+.stats{display:flex;gap:var(--s4);flex-wrap:wrap;align-items:center;padding:9px 0 12px;
+ border-top:1px solid var(--line);font-size:var(--t-sm);color:var(--dim)}
+.stat b{color:var(--ink);font-weight:640}
 .stat.good b{color:var(--ok)} .stat.bad b{color:var(--bad)}
-.pbar{height:3px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-bottom:10px}
-.pbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
-/* On a phone the full filter bar was eating half the viewport before the first
-   question appeared. Under 720px it folds behind this handle: tap or drag down
-   to open, drag up to close - and scrolling down the page tucks it away on its
-   own. On a laptop the handle does not exist and nothing changes. */
+.pbar{height:4px;background:var(--panel2);border-radius:var(--r-full);overflow:hidden;
+ margin-bottom:var(--s3)}
+.pbar i{display:block;height:100%;width:0;border-radius:inherit;
+ background:linear-gradient(90deg,var(--accent-solid),var(--accent));
+ transition:width var(--d4) var(--ease-out)}
+
+/* On a phone the full filter bar ate half the viewport before the first
+   question appeared. Under 720px it folds behind this handle: tap to open,
+   scroll down and it tucks away on its own. On a laptop the handle does not
+   exist and nothing changes. */
 .fhandle{display:none;align-items:center;gap:9px;width:100%;background:var(--panel);
- border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:8px;
- font-size:12.5px;color:var(--dim);text-align:left;touch-action:pan-x}
+ border:1px solid var(--line);border-radius:var(--r);padding:10px 13px;margin-bottom:8px;
+ font-size:var(--t-sm);color:var(--dim);text-align:left;touch-action:pan-x;min-height:44px}
 .fhandle .fsum{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fhandle .fsum b{color:var(--ink);font-weight:600}
+.fhandle .fsum b{color:var(--ink);font-weight:640}
 .fhandle[aria-expanded="true"] .chev{transform:rotate(180deg)}
 @media(max-width:720px){
   .fhandle{display:flex}
   #filtersWrap{overflow:hidden;max-height:0;opacity:.35;
-    transition:max-height .26s ease,opacity .26s ease}
+    transition:max-height var(--d3) var(--ease),opacity var(--d3) var(--ease)}
   #filtersWrap.open{max-height:76vh;opacity:1;overflow-y:auto}
   .bar{padding-bottom:8px}
   .bar select{flex:1 1 42%;min-width:0}
   .stats{gap:9px;padding:6px 0 9px;font-size:11.5px}
   .stats .stat:last-child{display:none}
-  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+    scroll-snap-type:x proximity;margin-inline:calc(var(--pad) * -1);padding-inline:var(--pad)}
   .tabs::-webkit-scrollbar{display:none}
-  .tabs button{flex:none}
+  .tabs button{flex:none;scroll-snap-align:start}
 }
 
-/* ---------- question ---------- */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin:12px 0}
-.qhead{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
-.tag{font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;font-weight:600;padding:2.5px 7px;
- border-radius:5px;background:var(--panel2);color:var(--dim);border:1px solid var(--line);white-space:nowrap}
-.tag.yr{color:var(--accent);border-color:var(--accent-dim)}
-.tag.rep{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
-.tag.flag{color:var(--warn);background:var(--warn-bg);border-color:transparent;text-transform:none;
- letter-spacing:0;font-weight:500}
-.num{margin-left:auto;color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
-.stem{font-size:15.5px;line-height:1.62;margin:0 0 14px;white-space:pre-wrap}
-/* A word is a target the moment the stem is drawn. No hover glow on touch devices,
-   where there is no hover and it only ever looks stuck. */
-.stem .w{cursor:pointer;border-radius:3px;padding:0 1px;margin:0 -1px;
- transition:background .12s}
-@media (hover:hover){ .stem .w:hover{background:color-mix(in srgb, var(--accent) 16%, transparent)} }
-.stem .w.hl{font-weight:680;color:var(--ink);
- background:linear-gradient(transparent 62%, color-mix(in srgb, var(--accent) 34%, transparent) 0)}
-@media (prefers-reduced-motion: reduce){ .stem .w{transition:none} }
-.opts{display:flex;flex-direction:column;gap:7px}
-.opt{display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;background:var(--panel2);
- border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;line-height:1.5;
- transition:border-color .12s,background .12s}
-.opt:hover:not(:disabled){border-color:var(--accent)}
-.opt:disabled{cursor:default}
-.opt .L{flex:none;width:21px;height:21px;border-radius:5px;background:var(--bg);border:1px solid var(--line);
- display:grid;place-items:center;font-size:11.5px;font-weight:650;margin-top:1px}
-.opt.correct{border-color:var(--ok);background:var(--ok-bg)}
-.opt.correct .L{background:var(--ok);border-color:var(--ok);color:#fff}
-.opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
-.opt.wrong .L{background:var(--bad);border-color:var(--bad);color:#fff}
-.opt.muted{opacity:.55}
-.mark{margin-left:auto;font-size:11px;font-weight:650;padding-top:2px;white-space:nowrap}
-.opt.correct .mark{color:var(--ok)} .opt.wrong .mark{color:var(--bad)}
-.rb{font-size:10px;color:var(--faint);font-weight:500;margin-left:6px}
-.exp{margin-top:13px;padding:13px 15px;background:var(--panel2);border-left:3px solid var(--accent);
- border-radius:0 8px 8px 0}
-.exp h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
-.exp p{margin:0 0 9px;line-height:1.65}
-.src{font-size:12px;color:var(--dim);padding-top:9px;border-top:1px solid var(--line)}
-.src b{color:var(--ink);font-weight:600}
-.note{margin-top:9px;font-size:12.5px;color:var(--warn);background:var(--warn-bg);padding:8px 11px;
- border-radius:7px;line-height:1.5}
-/* Wraps. Star and Note joined this row in Aug 2026 and pushed Report 65px off the
-   right edge of a 375px phone - the same shape as the admin tab overflow before it. */
-.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+/* Views fade up whenever they are shown. The router only toggles .hide, and
+   going from display:none back to block restarts a CSS animation - so this
+   replays on every tab switch without a line of JavaScript. */
+#viewPractice,#viewProgress,#viewExam,#viewMyres,#viewAdmin,
+#viewConsultants,#viewQuestions,#viewReports,#viewBiz,#viewOsce{
+ animation:cbq-rise var(--d3) var(--ease-out) both}
 
-/* ---------- tables ---------- */
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-.meter{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;min-width:70px}
-.meter i{display:block;height:100%;background:var(--accent)}
-.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:6px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px}
-/* Admin activity feed + roster search (Residents tab reorganisation) */
-.feedrow{display:flex;gap:10px;align-items:baseline;padding:7px 0;
- border-bottom:1px solid var(--line);font-size:12.5px;flex-wrap:wrap}
-.feedrow:last-child{border-bottom:none}
-.ftag{font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);
- color:var(--dim);flex:none;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
-.ftag.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-bg)}
-.ftag.warn{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
-.ftag.pay{color:var(--accent);border-color:var(--accent)}
-.feedrow b{font-weight:600;word-break:break-all}
-.fdet{color:var(--dim);flex:1;min-width:120px}
-.ftime{color:var(--faint);font-size:11px;flex:none;margin-left:auto}
-.rbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
-.rbar input[type=search]{flex:1;min-width:150px;width:auto}
-.kpi b{display:block;font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.kpi span{font-size:11.5px;color:var(--dim)}
-.empty{text-align:center;padding:56px 20px;color:var(--dim)}
-.hint{font-size:11.5px;color:var(--faint);text-align:center;padding:14px 0 0}
-kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
- padding:1px 5px;font:600 10.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
-/* z-index below the app header, which is also sticky at top:0 - equal values
-   let the clock bar paint over the title and the Sign out button. It also has to
-   stick BELOW that header rather than at top:0, or the opaque header covers the
-   clock and the Finish button the moment a candidate scrolls into a long stem -
-   in a timed paper. --hdrH is measured from the real header on load and resize. */
-.examhdr{position:sticky;top:var(--hdrH,112px);z-index:15;background:var(--panel);border:1px solid var(--line);
-  border-radius:11px;padding:10px 13px;margin-bottom:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.clock{font-variant-numeric:tabular-nums;font-size:21px;font-weight:700;letter-spacing:.5px}
-.clock.warn{color:var(--warn)} .clock.bad{color:var(--bad)}
-.navgrid{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.qbtn{width:31px;height:28px;padding:0;font-size:11.5px;border-radius:6px}
-.qbtn.done{border-color:var(--accent);color:var(--accent)}
-.qbtn.flag{border-color:var(--warn);color:var(--warn)}
-.qbtn.here{background:var(--accent);border-color:var(--accent);color:#08131f;font-weight:700}
-.band{display:inline-block;padding:5px 13px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid}
-.qimg{margin:0 0 14px;position:relative}
-.qimg img{max-width:100%;max-height:460px;border-radius:10px;border:1px solid var(--line);display:block;background:var(--panel2)}
-.qimg .imgmsg{font-size:12px;color:var(--dim);padding:8px 0}
-.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid}
-.pill.ok{color:var(--ok);border-color:var(--ok)}
-.pill.warn{color:var(--warn);border-color:var(--warn)}
-.pill.bad{color:var(--bad);border-color:var(--bad)}
-.pill.dim{color:var(--dim);border-color:var(--line)}
-.fld{margin-bottom:11px}
-.fld label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
-.fld textarea{width:100%;min-height:88px;font:inherit;font-size:14px;line-height:1.55;padding:9px 11px;
-  border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);resize:vertical}
-.fld input,.fld select{width:100%}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.sent{display:block;width:100%;text-align:left;margin:0 0 6px;padding:8px 10px;border-radius:8px;
-  border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:13px;line-height:1.5;cursor:pointer}
-.sent.moved{border-color:var(--ok);color:var(--ok);background:transparent}
-@media(max-width:600px){.two,.three{grid-template-columns:1fr}}
-.row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.row input{width:auto;flex:1;min-width:180px}
-/* ---- profile, study tools, business (added Aug 2026) ---- */
-.fld .hint{text-align:left;padding:4px 0 0;line-height:1.5}
-.fld .req{color:var(--bad)}
-.wall{max-width:520px;margin:26px auto}
-.wall h3{margin:0 0 4px;font-size:16px}
-.wall .lede{font-size:12.5px;color:var(--dim);line-height:1.6;margin:0 0 16px}
-.phone{display:flex;gap:8px}
-.phone select{flex:none;width:172px}
-.phone input{flex:1;width:auto;font-variant-numeric:tabular-nums;letter-spacing:.04em}
-@media(max-width:520px){.phone{flex-wrap:wrap}.phone select{width:100%}.phone input{width:100%;flex:none}}
-.starbtn{flex:none;min-height:32px;padding:5px 10px}
-.starbtn.on{background:var(--warn);border-color:var(--warn);color:#08131f;font-weight:700}
+/* ==========================================================================
+   QUESTION
+   ========================================================================== */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+ padding:18px 20px;margin:var(--s3) 0;box-shadow:var(--e1);
+ animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.qhead{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:var(--s3)}
+.tag{font-size:10.5px;letter-spacing:.045em;text-transform:uppercase;font-weight:660;padding:3px 8px;
+ border-radius:var(--r-xs);background:var(--panel2);color:var(--dim);border:1px solid var(--line);
+ white-space:nowrap}
+.tag.yr{color:var(--accent);border-color:var(--accent-dim);background:var(--accent-soft)}
+.tag.rep{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+.tag.flag{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line);
+ text-transform:none;letter-spacing:0;font-weight:540}
+.num{margin-left:auto;color:var(--faint);font-size:11.5px}
+/* Stems run long and get read for hours. 15.5px at 1.68 with a capped measure
+   is the difference between revising and squinting. */
+.stem{font-size:15.5px;line-height:1.68;margin:0 0 var(--s4);white-space:pre-wrap;max-width:74ch;
+ letter-spacing:-.003em}
+/* A word is a highlight target the moment the stem is drawn. No hover glow on
+   touch devices, where there is no hover and it only ever looks stuck. */
+.stem .w{cursor:pointer;border-radius:3px;padding:0 1px;margin:0 -1px;
+ transition:background var(--d1) var(--ease)}
+@media (hover:hover){ .stem .w:hover{background:color-mix(in srgb,var(--accent) 16%,transparent)} }
+.stem .w.hl{font-weight:660;color:var(--ink);
+ background:linear-gradient(transparent 60%,color-mix(in srgb,var(--accent) 36%,transparent) 0)}
+
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;background:var(--panel2);
+ border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;cursor:pointer;
+ line-height:1.55;font-size:14.5px;font-weight:inherit;
+ transition:border-color var(--d1) var(--ease),background var(--d1) var(--ease),
+ transform var(--d1) var(--ease),box-shadow var(--d1) var(--ease);
+ animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.opts .opt:nth-child(1){animation-delay:20ms}
+.opts .opt:nth-child(2){animation-delay:55ms}
+.opts .opt:nth-child(3){animation-delay:90ms}
+.opts .opt:nth-child(4){animation-delay:125ms}
+.opt:hover:not(:disabled){border-color:var(--accent);background:var(--panel3);transform:translateX(2px)}
+.opt:active:not(:disabled){transform:scale(.995)}
+.opt:disabled{cursor:default}
+.opt .L{flex:none;width:23px;height:23px;border-radius:var(--r-xs);background:var(--bg);
+ border:1px solid var(--line);display:grid;place-items:center;font-size:11.5px;font-weight:680;
+ margin-top:1px;transition:background var(--d1) var(--ease),color var(--d1) var(--ease),
+ border-color var(--d1) var(--ease)}
+/* Feedback never rides on colour alone. Eight per cent of the men in any
+   neurology cohort are red-green colour deficient; the left rail, the glyph in
+   the .mark column and the weight change all carry the same signal. */
+.opt.correct{border-color:var(--ok);background:var(--ok-bg);box-shadow:inset 3px 0 0 var(--ok);
+ animation:cbq-pop var(--d3) var(--spring) both,cbq-halo var(--d4) var(--ease-out) both}
+.opt.correct .L{background:var(--ok);border-color:var(--ok);color:#04160D}
+.opt.wrong{border-color:var(--bad);background:var(--bad-bg);box-shadow:inset 3px 0 0 var(--bad);
+ animation:cbq-shake 420ms var(--ease) both,cbq-halo-bad var(--d4) var(--ease-out) both}
+.opt.wrong .L{background:var(--bad);border-color:var(--bad);color:#1A0605}
+.opt.muted{opacity:.5}
+.mark{margin-left:auto;font-size:11px;font-weight:680;padding-top:3px;white-space:nowrap;
+ letter-spacing:.02em}
+.opt.correct .mark{color:var(--ok)} .opt.wrong .mark{color:var(--bad)}
+.rb{font-size:10px;color:var(--faint);font-weight:520;margin-left:6px}
+
+.exp{margin-top:var(--s4);padding:14px 16px;background:var(--panel2);
+ border-left:3px solid var(--accent);border-radius:0 var(--r) var(--r) 0;max-width:76ch;
+ animation:cbq-rise-sm var(--d3) var(--ease-out) 90ms both}
+.exp h4{margin:0 0 7px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);
+ font-weight:680}
+.exp p{margin:0 0 10px;line-height:1.7}
+.exp p:last-child{margin-bottom:0}
+.src{font-size:var(--t-sm);color:var(--dim);padding-top:10px;border-top:1px solid var(--line);
+ margin-top:2px}
+.src b{color:var(--ink);font-weight:620}
+.note{margin-top:10px;font-size:var(--t-sm);color:var(--warn);background:var(--warn-bg);
+ border:1px solid var(--warn-line);padding:9px 12px;border-radius:var(--r-sm);line-height:1.55}
+/* Wraps. Star and Note joined this row in Aug 2026 and pushed Report 65px off
+   the right edge of a 375px phone - the same shape as the tab overflow before it. */
+.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:var(--s4);align-items:center}
+.nav button{min-height:38px}
+.starbtn{flex:none;min-height:38px;padding:6px 11px}
+.starbtn.on{background:var(--warn);border-color:var(--warn);color:#1A1202;font-weight:700}
 .notebox textarea{min-height:104px}
-.subtabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
-.subtabs button{font-size:12.5px;padding:5px 11px;min-height:34px}
-/* ---- refund policy and terms ---- */
-.polwrap{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:grid;
-  place-items:center;padding:16px}
-.polbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
-  width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;overflow:hidden}
-.polhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:13px 16px;
-  border-bottom:1px solid var(--line);background:var(--panel2)}
-.polhead h2{margin:0;font-size:15px;font-weight:650;flex:1;min-width:130px}
-.polhead button{min-height:34px}
-.polbody{overflow:auto;padding:18px 20px 24px;font-size:13.5px;line-height:1.75;color:var(--ink)}
-.polbody h3{font-size:15px;margin:22px 0 6px;color:var(--ink)}
-.polbody h3:first-child{margin-top:0}
-.polbody h4{font-size:13.5px;margin:18px 0 4px;color:var(--ink)}
-.polbody p{margin:0 0 10px}
-.polbody ol,.polbody ul{margin:0 0 10px;padding-inline-start:22px}
-.polbody li{margin-bottom:6px}
-.polbody .meta{font-size:12px;color:var(--dim);margin-bottom:14px;padding-bottom:12px;
-  border-bottom:1px solid var(--line)}
-.polbody[dir="rtl"]{text-align:right;font-size:14.5px;line-height:2}
-.polfoot{padding:11px 16px;border-top:1px solid var(--line);background:var(--panel2);
-  display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--dim)}
-.agree{display:flex;gap:9px;align-items:flex-start;margin:14px 0 4px;padding:11px 12px;
-  border:1px solid var(--line);border-radius:10px;background:var(--panel2);
-  font-size:12.5px;line-height:1.6;text-align:left;cursor:pointer}
-.agree input{width:auto;flex:none;margin-top:2px;min-width:17px;min-height:17px}
-.agree a{color:var(--accent);text-decoration:underline}
-@media(max-width:520px){.polwrap{padding:0}.polbox{max-height:100vh;height:100%;border-radius:0}}
-/* A wide admin table scrolls inside its own box. The page itself must never scroll
-   sideways - that is what hid the Reports tab on a 375px phone. */
-.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
-/* Visually hidden, still read aloud - for column headers that are a bar rather
-   than a word, which would otherwise be announced as an empty cell. */
-.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+.qimg{margin:0 0 var(--s4);position:relative;max-width:76ch}
+.qimg img{max-width:100%;max-height:460px;border-radius:var(--r);border:1px solid var(--line);
+ display:block;background:var(--panel2);animation:cbq-fade var(--d3) var(--ease-out) both}
+.qimg .imgmsg{font-size:var(--t-sm);color:var(--dim);padding:10px 0;
+ display:flex;align-items:center;gap:8px}
+.qimg .imgmsg::before{content:'';width:12px;height:12px;border:2px solid var(--line-strong);
+ border-top-color:var(--accent);border-radius:50%;animation:cbq-spin .7s linear infinite}
+
+/* ==========================================================================
+   DATA: tables, tiles, meters, heat
+   ========================================================================== */
+table{width:100%;border-collapse:collapse;font-size:var(--t-md)}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:660}
+/* Sticky headers only inside a real scroll container. Making every th sticky
+   parks it at the top of the viewport behind the app header, which is also
+   sticky at top:0 - the header wins the paint and the column labels vanish. */
+.scrolly table th{position:sticky;top:0;background:var(--panel);z-index:1}
+tbody tr{transition:background var(--d1) var(--ease)}
+tbody tr:hover{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px;
+ border-radius:var(--r-sm)}
 .tscroll table{min-width:520px}
 .tscroll .sub{font-size:11.5px;color:var(--dim);overflow-wrap:anywhere}
-.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:7px;margin:10px 0}
-.codes code{display:block;text-align:center;padding:8px 4px;border:1px dashed var(--line);border-radius:8px;
-  background:var(--panel2);font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.06em;user-select:all}
-.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:7px}
-.heat .cell{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--panel2)}
-.heat .cell b{display:block;font-size:16px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.2}
-.heat .cell span{display:block;font-size:11px;color:var(--dim);margin-top:2px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.meter{height:7px;background:var(--viz-track);border-radius:var(--r-full);overflow:hidden;min-width:72px}
+.meter i{display:block;height:100%;border-radius:inherit;background:var(--accent);
+ transform-origin:left center;animation:cbq-sweep var(--d4) var(--ease-out) both}
+
+.grid{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+ margin-bottom:var(--s2)}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+ position:relative;overflow:hidden;transition:border-color var(--d2) var(--ease),
+ transform var(--d2) var(--ease),box-shadow var(--d2) var(--ease);
+ animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.kpi:hover{border-color:var(--line-strong);transform:translateY(-1px);box-shadow:var(--e2)}
+/* A hairline of accent along the top edge. Cheap, and it stops a row of tiles
+   reading as an undifferentiated wall of boxes. */
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+ background:linear-gradient(90deg,var(--accent),transparent 70%);opacity:.55}
+.kpi b{display:block;font-size:24px;font-weight:660;letter-spacing:-.028em;line-height:1.2}
+.kpi span{font-size:11.5px;color:var(--dim);display:block;margin-top:2px}
+.grid .kpi:nth-child(2){animation-delay:35ms}
+.grid .kpi:nth-child(3){animation-delay:70ms}
+.grid .kpi:nth-child(4){animation-delay:105ms}
+.grid .kpi:nth-child(5){animation-delay:140ms}
+.grid .kpi:nth-child(6){animation-delay:175ms}
+.grid .kpi:nth-child(7){animation-delay:210ms}
+.grid .kpi:nth-child(8){animation-delay:245ms}
+.grid .kpi:nth-child(9){animation-delay:280ms}
+
+.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.heat .cell{border:1px solid var(--line);border-radius:var(--r);padding:10px 11px;
+ background:var(--panel2);transition:transform var(--d2) var(--ease),box-shadow var(--d2) var(--ease);
+ animation:cbq-pop var(--d3) var(--ease-out) both}
+.heat .cell:hover{transform:translateY(-2px);box-shadow:var(--e2)}
+.heat .cell b{display:block;font-size:17px;font-weight:660;line-height:1.2}
+.heat .cell span{display:block;font-size:11px;color:var(--dim);margin-top:3px;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .heat .cell.g0{border-color:var(--line)}
 .heat .cell.g1{border-color:var(--bad);background:var(--bad-bg)}
-.heat .cell.g2{border-color:var(--warn)}
+.heat .cell.g1 b{color:var(--bad)}
+.heat .cell.g2{border-color:var(--warn);background:var(--warn-bg)}
+.heat .cell.g2 b{color:var(--warn)}
 .heat .cell.g3{border-color:var(--ok);background:var(--ok-bg)}
-@media(max-width:600px){.wrap{padding:0 11px 70px}.stem{font-size:15px}
- .tabs button{padding:6px 7px;font-size:13px}.who span.em{display:none}}
+.heat .cell.g3 b{color:var(--ok)}
+
+.pill{display:inline-block;padding:3px 9px;border-radius:var(--r-full);font-size:11px;
+ font-weight:640;border:1px solid;letter-spacing:.01em}
+.pill.ok{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
+.pill.warn{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+.pill.bad{color:var(--bad);border-color:var(--bad-line);background:var(--bad-bg)}
+.pill.dim{color:var(--dim);border-color:var(--line);background:var(--panel2)}
+
+/* Admin activity feed + roster search */
+.feedrow{display:flex;gap:10px;align-items:baseline;padding:9px 0;
+ border-bottom:1px solid var(--line);font-size:var(--t-sm);flex-wrap:wrap;
+ transition:background var(--d1) var(--ease)}
+.feedrow:hover{background:var(--panel2)}
+.feedrow:last-child{border-bottom:none}
+.ftag{font-size:10px;padding:2px 8px;border-radius:var(--r-full);border:1px solid var(--line);
+ color:var(--dim);flex:none;text-transform:uppercase;letter-spacing:.06em;font-weight:660}
+.ftag.ok{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
+.ftag.warn{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg)}
+.ftag.pay{color:var(--accent);border-color:var(--accent-dim);background:var(--accent-soft)}
+.feedrow b{font-weight:620;word-break:break-all}
+.fdet{color:var(--dim);flex:1;min-width:120px}
+.ftime{color:var(--faint);font-size:11px;flex:none;margin-left:auto}
+.rbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:var(--s3)}
+.rbar input[type=search]{flex:1;min-width:150px;width:auto}
+/* Roster filter chips. .rchip.on is the single source of truth for the active
+   filter - applyRoster reads it - so the class must survive any restyle. */
+.rchip{min-height:34px;padding:5px 12px;border-radius:var(--r-full);font-size:var(--t-sm)}
+.rchip.on{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--on-accent)}
+
+.empty{text-align:center;padding:56px 20px;color:var(--dim);
+ animation:cbq-fade var(--d3) var(--ease-out) both}
+.hint{font-size:11.5px;color:var(--faint);text-align:center;padding:var(--s4) 0 0}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;
+ border-radius:var(--r-xs);padding:2px 6px;
+ font:660 10.5px/1.5 var(--f-num)}
+.codes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:var(--s3) 0}
+.codes code{display:block;text-align:center;padding:9px 4px;border:1px dashed var(--line-strong);
+ border-radius:var(--r-sm);background:var(--panel2);font-size:var(--t-md);
+ letter-spacing:.07em;user-select:all;transition:border-color var(--d1) var(--ease)}
+.codes code:hover{border-color:var(--accent);border-style:solid}
+
+.subtabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 var(--s4);padding:4px;
+ background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);width:fit-content;
+ max-width:100%}
+.subtabs button{font-size:var(--t-sm);padding:6px 13px;min-height:34px;background:none;
+ border:1px solid transparent;border-radius:var(--r-sm);color:var(--dim);font-weight:560}
+.subtabs button:hover:not(.on){background:var(--panel);border-color:transparent;color:var(--ink)}
+.subtabs button.on{background:var(--panel);border-color:var(--line);color:var(--ink);
+ box-shadow:var(--e1);font-weight:640}
+
+/* ==========================================================================
+   FORMS
+   ========================================================================== */
+.fld{margin-bottom:var(--s3)}
+.fld label{display:block;font-size:var(--t-sm);color:var(--dim);margin-bottom:5px;font-weight:540}
+.fld textarea{width:100%;min-height:92px;font:inherit;font-size:14px;line-height:1.6;
+ padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--panel2);
+ color:var(--ink);resize:vertical}
+.fld input,.fld select{width:100%}
+.fld .hint{text-align:left;padding:5px 0 0;line-height:1.55}
+.fld .req{color:var(--bad)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s3)}
+@media(max-width:600px){.two,.three{grid-template-columns:1fr}}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:var(--s3)}
+.row input{width:auto;flex:1;min-width:180px}
+.sent{display:block;width:100%;text-align:left;margin:0 0 6px;padding:9px 11px;
+ border-radius:var(--r-sm);border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+ font-size:var(--t-md);line-height:1.55;cursor:pointer}
+.sent:hover{border-color:var(--accent)}
+.sent.moved{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+.wall{max-width:540px;margin:var(--s7) auto}
+.wall h3{margin:0 0 5px;font-size:var(--t-lg)}
+.wall .lede{font-size:var(--t-sm);color:var(--dim);line-height:1.62;margin:0 0 var(--s4)}
+.phone{display:flex;gap:8px}
+.phone select{flex:none;width:172px}
+.phone input{flex:1;width:auto;letter-spacing:.05em;font-variant-numeric:tabular-nums}
+@media(max-width:520px){.phone{flex-wrap:wrap}.phone select{width:100%}.phone input{width:100%;flex:none}}
+
+/* ==========================================================================
+   EXAM
+   z-index below the app header, which is also sticky at top:0 - equal values
+   let the clock bar paint over the title and the Sign out button. It also has
+   to stick BELOW that header rather than at top:0, or the opaque header covers
+   the clock and the Finish button the moment a candidate scrolls into a long
+   stem, in a timed paper. --hdrH is measured from the real header on load.
+   ========================================================================== */
+.examhdr{position:sticky;top:var(--hdrH,112px);z-index:15;background:var(--panel);
+ border:1px solid var(--line);border-radius:var(--r);padding:11px 14px;margin-bottom:var(--s3);
+ display:flex;gap:var(--s3);align-items:center;flex-wrap:wrap;box-shadow:var(--e2)}
+.clock{font-size:22px;font-weight:700;letter-spacing:.6px;font-family:var(--f-num)}
+.clock.warn{color:var(--warn)}
+.clock.bad{color:var(--bad);animation:cbq-pulse 1s var(--ease) infinite}
+.navgrid{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.qbtn{width:32px;height:30px;padding:0;font-size:11.5px;border-radius:var(--r-xs);font-weight:600}
+.qbtn.done{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.qbtn.flag{border-color:var(--warn);color:var(--warn);background:var(--warn-bg)}
+.qbtn.here{background:var(--accent-solid);border-color:var(--accent-solid);
+ color:var(--on-accent);font-weight:700;box-shadow:var(--ring)}
+.band{display:inline-block;padding:6px 15px;border-radius:var(--r-full);font-size:var(--t-md);
+ font-weight:700;border:1px solid;animation:cbq-pop var(--d4) var(--spring) both}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
+.polwrap{position:fixed;inset:0;z-index:70;background:rgba(3,5,10,.62);display:grid;
+ place-items:center;padding:var(--s4);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+ animation:cbq-fade var(--d2) var(--ease-out) both}
+.polbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+ width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;
+ overflow:hidden;box-shadow:var(--e3);animation:cbq-pop var(--d3) var(--ease-out) both}
+.polhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 18px;
+ border-bottom:1px solid var(--line);background:var(--panel2)}
+.polhead h2{margin:0;font-size:var(--t-lg);font-weight:650;flex:1;min-width:130px}
+.polhead button{min-height:36px}
+.polbody{overflow:auto;padding:20px 22px 26px;font-size:14px;line-height:1.78;color:var(--ink)}
+.polbody h3{font-size:var(--t-lg);margin:24px 0 7px;color:var(--ink)}
+.polbody h3:first-child{margin-top:0}
+.polbody h4{font-size:14px;margin:19px 0 4px;color:var(--ink)}
+.polbody p{margin:0 0 11px;max-width:74ch}
+.polbody ol,.polbody ul{margin:0 0 11px;padding-inline-start:22px}
+.polbody li{margin-bottom:7px}
+.polbody .meta{font-size:var(--t-sm);color:var(--dim);margin-bottom:15px;padding-bottom:13px;
+ border-bottom:1px solid var(--line)}
+.polbody[dir="rtl"]{text-align:right;font-size:15px;line-height:2.05}
+.polfoot{padding:12px 18px;border-top:1px solid var(--line);background:var(--panel2);
+ display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--dim)}
+.agree{display:flex;gap:10px;align-items:flex-start;margin:var(--s4) 0 4px;padding:12px 13px;
+ border:1px solid var(--line);border-radius:var(--r);background:var(--panel2);
+ font-size:var(--t-sm);line-height:1.62;text-align:left;cursor:pointer;
+ transition:border-color var(--d1) var(--ease)}
+.agree:hover{border-color:var(--line-strong)}
+.agree input{width:auto;flex:none;margin-top:2px;min-width:17px;min-height:17px}
+.agree a{color:var(--accent);text-decoration:underline}
+@media(max-width:520px){.polwrap{padding:0}.polbox{max-height:100dvh;height:100%;border-radius:0}}
+
+@media(max-width:600px){
+  .wrap{padding:0 var(--pad) 74px}
+  .card{padding:15px 15px;border-radius:var(--r)}
+  .stem{font-size:15.5px}
+  .tabs button{padding:8px 8px;font-size:var(--t-md)}
+  .who span.em{display:none}
+  .kpi b{font-size:21px}
+}
+
+
+/* ==========================================================================
+   NEW IN v2 — dashboard + chart primitives
+   Everything below is additive. No v1 class is redefined here, so nothing that
+   already renders can change shape because of this block.
+   ========================================================================== */
+
+/* ---- section header: a title, a subtitle, and controls that stay put ---- */
+.sect{display:flex;align-items:flex-end;gap:var(--s3);flex-wrap:wrap;margin:var(--s6) 0 var(--s3)}
+.sect:first-child{margin-top:0}
+.sect h2{margin:0;font-size:var(--t-lg);font-weight:660;letter-spacing:-.022em}
+.sect .sub{font-size:var(--t-sm);color:var(--dim);margin:2px 0 0;line-height:1.5}
+.sect .act{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.sect-line{flex:1 1 100%;height:1px;background:var(--line);margin-top:var(--s1)}
+
+/* ---- panel: a card that hosts other things, with a proper head ---- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);
+ overflow:hidden;box-shadow:var(--e1);animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.panel>.ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 16px;
+ border-bottom:1px solid var(--line);background:var(--panel2)}
+.panel>.ph h3{margin:0;font-size:14px;font-weight:640;letter-spacing:-.01em}
+.panel>.ph .phsub{font-size:11.5px;color:var(--dim)}
+.panel>.ph .phact{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.panel>.pb{padding:16px}
+.panel>.pb.flush{padding:0}
+.panel>.pb.flush table th:first-child,.panel>.pb.flush table td:first-child{padding-left:16px}
+.panel>.pb.flush table th:last-child,.panel>.pb.flush table td:last-child{padding-right:16px}
+
+/* ---- stat: a KPI with a trend and an optional spark ---- */
+.statgrid{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(172px,1fr))}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+ padding:14px 16px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;
+ transition:border-color var(--d2) var(--ease),transform var(--d2) var(--ease),
+ box-shadow var(--d2) var(--ease);animation:cbq-rise-sm var(--d3) var(--ease-out) both}
+.stat-card:hover{border-color:var(--line-strong);transform:translateY(-1px);box-shadow:var(--e2)}
+.stat-card .lbl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;
+ font-weight:640}
+.stat-card .val{font-size:27px;font-weight:660;letter-spacing:-.03em;line-height:1.15;
+ font-variant-numeric:tabular-nums}
+.stat-card .foot{font-size:11.5px;color:var(--faint);line-height:1.45}
+.stat-card.acc{border-color:var(--accent-dim)}
+.stat-card.acc .val{color:var(--accent)}
+.stat-card.ok .val{color:var(--ok)} .stat-card.bad .val{color:var(--bad)}
+.stat-card.warn .val{color:var(--warn)}
+.trend{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:640}
+.trend.up{color:var(--ok)} .trend.down{color:var(--bad)} .trend.flat{color:var(--faint)}
+.trend::before{font-size:9px}
+.trend.up::before{content:'\25B2'} .trend.down::before{content:'\25BC'} .trend.flat::before{content:'\2014'}
+
+/* ---- ring: percentage as a drawn arc ---- */
+.ring{--pct:0;--ring-col:var(--accent);position:relative;width:var(--ring-size,104px);
+ height:var(--ring-size,104px);flex:none;display:grid;place-items:center}
+.ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:var(--ring-w,9);stroke-linecap:round}
+.ring .track{stroke:var(--viz-track)}
+.ring .arc{stroke:var(--ring-col);stroke-dasharray:var(--dash-len,264);
+ stroke-dashoffset:var(--dash-len,264);animation:cbq-draw var(--d4) var(--ease-out) 120ms forwards}
+.ring .ringval{font-size:23px;font-weight:680;letter-spacing:-.03em;line-height:1}
+.ring .ringlbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;
+ margin-top:3px;font-weight:640}
+.ring .inner{display:grid;place-items:center;text-align:center;z-index:1}
+.ring.sm{--ring-size:64px;--ring-w:7}
+.ring.sm .ringval{font-size:15px}
+.ring.sm .ringlbl{display:none}
+
+/* ---- bars: a horizontal ranked chart, the workhorse for topic breakdowns ---- */
+.bars{display:flex;flex-direction:column;gap:9px}
+.bars .b{display:grid;grid-template-columns:minmax(120px,42%) 1fr auto;gap:11px;align-items:center;
+ font-size:var(--t-sm)}
+.bars .b .bl{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bars .b .bt{height:9px;background:var(--viz-track);border-radius:var(--r-full);overflow:hidden}
+.bars .b .bt i{display:block;height:100%;border-radius:inherit;background:var(--viz);
+ transform-origin:left center;animation:cbq-sweep var(--d4) var(--ease-out) both}
+.bars .b .bv{color:var(--ink);font-weight:640;font-variant-numeric:tabular-nums;min-width:44px;
+ text-align:right}
+.bars .b.g1 .bt i{background:var(--bad)}
+.bars .b.g2 .bt i{background:var(--warn)}
+.bars .b.g3 .bt i{background:var(--ok)}
+.bars .b:nth-child(2) .bt i{animation-delay:40ms}
+.bars .b:nth-child(3) .bt i{animation-delay:80ms}
+.bars .b:nth-child(4) .bt i{animation-delay:120ms}
+.bars .b:nth-child(5) .bt i{animation-delay:160ms}
+.bars .b:nth-child(6) .bt i{animation-delay:200ms}
+.bars .b:nth-child(7) .bt i{animation-delay:240ms}
+.bars .b:nth-child(8) .bt i{animation-delay:280ms}
+
+/* ---- spark: tiny inline column chart, no library ---- */
+.spark{display:flex;align-items:flex-end;gap:2px;height:34px}
+.spark i{flex:1;min-width:2px;background:var(--accent-soft);border-radius:2px 2px 0 0;
+ transform-origin:bottom;animation:cbq-sweep var(--d3) var(--ease-out) both;
+ transform:scaleY(1)}
+.spark i.on{background:var(--accent)}
+
+/* ---- roster row: avatar, name, signal, action ---- */
+.plist{display:flex;flex-direction:column}
+.prow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;
+ padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer;
+ transition:background var(--d1) var(--ease)}
+.prow:last-child{border-bottom:none}
+.prow:hover{background:var(--panel2)}
+.prow .av{width:34px;height:34px;border-radius:var(--r-full);display:grid;place-items:center;
+ background:var(--panel3);color:var(--dim);font-size:12px;font-weight:680;flex:none;
+ border:1px solid var(--line);text-transform:uppercase}
+.prow .pn{min-width:0}
+.prow .pn b{display:block;font-size:var(--t-md);font-weight:620;overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap}
+.prow .pn span{display:block;font-size:11.5px;color:var(--faint);overflow:hidden;
+ text-overflow:ellipsis;white-space:nowrap}
+.prow .pr{display:flex;align-items:center;gap:11px;flex:none}
+.prow .pr .meter{width:78px;min-width:0}
+@media(max-width:560px){.prow .pr .meter{display:none}}
+
+/* ---- risk rail: the at-a-glance list a programme director actually reads ---- */
+.risk{display:flex;flex-direction:column;gap:1px;background:var(--line);
+ border-radius:var(--r);overflow:hidden}
+.risk .r{display:flex;gap:11px;align-items:center;padding:11px 14px;background:var(--panel);
+ font-size:var(--t-sm);transition:background var(--d1) var(--ease)}
+.risk .r:hover{background:var(--panel2)}
+.risk .r .why{color:var(--dim);flex:1;min-width:0}
+.risk .r b{font-weight:620}
+.risk .r .sev{width:3px;align-self:stretch;border-radius:2px;flex:none;background:var(--line)}
+.risk .r.hi .sev{background:var(--bad)}
+.risk .r.md .sev{background:var(--warn)}
+.risk .r.lo .sev{background:var(--viz-1)}
+
+/* ---- skeletons: shown while an RPC is in flight ---- */
+.sk{border-radius:var(--r-sm);background:linear-gradient(90deg,
+ var(--panel2) 0%,color-mix(in srgb,var(--panel3) 70%,transparent) 40%,var(--panel2) 80%);
+ background-size:220% 100%;animation:cbq-shimmer 1.25s linear infinite;color:transparent!important}
+.sk-line{height:11px;margin:8px 0}
+.sk-line.w40{width:40%} .sk-line.w60{width:60%} .sk-line.w80{width:80%}
+.sk-tile{height:78px;border-radius:var(--r)}
+.sk-row{height:44px;margin-bottom:6px;border-radius:var(--r-sm)}
+
+/* ---- toast ---- */
+.toasts{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+ transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;
+ align-items:center;pointer-events:none;width:min(440px,calc(100vw - 32px))}
+.toast{pointer-events:auto;background:var(--panel);border:1px solid var(--line-strong);
+ border-radius:var(--r);padding:11px 15px;font-size:var(--t-md);color:var(--ink);
+ box-shadow:var(--e3);display:flex;gap:9px;align-items:center;width:100%;
+ animation:cbq-toast-in var(--d3) var(--spring) both}
+.toast .dotm{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.toast.good .dotm{background:var(--ok)} .toast.bad .dotm{background:var(--bad)}
+.toast.warn .dotm{background:var(--warn)}
+.toast.out{animation:cbq-fade var(--d2) var(--ease) reverse both}
+
+/* ---- misc ---- */
+.divider{height:1px;background:var(--line);margin:var(--s5) 0}
+.muted{color:var(--dim)}
+.tnum{font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:var(--s3)}
+.inline{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.pushr{margin-left:auto}
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--s3)}
+.cols3{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s3)}
+.scrolly{max-height:var(--sh,340px);overflow-y:auto;overscroll-behavior:contain}
+.scrolly::-webkit-scrollbar{width:9px}
+.scrolly::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:var(--r-full);
+ border:2px solid var(--panel)}
+
+/* ==========================================================================
+   PHONE
+   The bank is used one-handed, at night, on a ward. Everything here exists
+   because of that, not because a breakpoint was due.
+   ========================================================================== */
+@media (max-width:600px){
+
+  /* The single biggest change. On a 375px screen the answer buttons push
+     Previous / Next below the fold on any stem longer than a paragraph, so
+     moving through a block meant scroll, tap, scroll back. The action row now
+     rides the bottom of the viewport while the card is on screen, inside the
+     card, so it never covers the last option. Scoped to the practice view -
+     the exam runner has its own sticky header and must not gain a second bar. */
+  #viewPractice .nav{position:sticky;bottom:0;z-index:8;
+    margin:var(--s4) -15px calc(env(safe-area-inset-bottom,0px) * -1 - 15px);
+    padding:10px 15px calc(10px + env(safe-area-inset-bottom,0px));
+    background:color-mix(in srgb,var(--panel) 92%,transparent);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-top:1px solid var(--line)}
+  #viewPractice .nav button{flex:1 1 auto;min-width:0}
+  #viewPractice .nav .starbtn{flex:0 0 auto}
+  #viewPractice .nav .hint{display:none}
+
+  /* Two tiles across, not one. A single column of six KPI cards is four
+     screens of scrolling before the first table. */
+  .statgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2)}
+  .stat-card{padding:12px 13px}
+  .stat-card .val{font-size:22px}
+  .stat-card .lbl{font-size:10px;letter-spacing:.05em}
+  .kpi{padding:12px 13px}
+  .cols2,.cols3{grid-template-columns:minmax(0,1fr);gap:var(--s2)}
+
+  /* Section heads stack; their controls get a full row rather than being
+     squeezed to 40px wide next to a wrapped title. */
+  .sect{margin:var(--s5) 0 var(--s3);gap:var(--s2)}
+  .sect .act{margin-left:0;flex:1 1 100%}
+  .sect .act > *{flex:1 1 auto}
+  .sect h2{font-size:16px}
+
+  .panel>.ph{padding:11px 13px}
+  .panel>.pb{padding:13px}
+  .panel>.pb.flush table th:first-child,.panel>.pb.flush table td:first-child{padding-left:13px}
+  .panel>.pb.flush table th:last-child,.panel>.pb.flush table td:last-child{padding-right:13px}
+
+  /* A topic name and a bar cannot share 350px. Label goes above. */
+  .bars .b{grid-template-columns:1fr auto;gap:4px 10px}
+  .bars .b .bl{grid-column:1;grid-row:1;white-space:normal;font-size:12px;color:var(--ink)}
+  .bars .b .bv{grid-column:2;grid-row:1}
+  .bars .b .bt{grid-column:1 / -1;grid-row:2;height:8px}
+
+  .ring{--ring-size:88px}
+  .prow{padding:10px 13px;gap:10px}
+  .prow .av{width:30px;height:30px;font-size:11px}
+  .risk .r{flex-wrap:wrap;padding:10px 13px}
+  .risk .r .why{flex:1 1 100%;order:2}
+  .risk .r .sev{order:1}
+
+  /* Horizontal scroll needs to look scrollable, or nobody scrolls it. */
+  .tscroll{background:
+    linear-gradient(to right,var(--panel) 30%,transparent) left/28px 100% no-repeat,
+    linear-gradient(to left,var(--panel) 30%,transparent) right/28px 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.22),transparent) left/12px 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.22),transparent) right/12px 100% no-repeat;
+    background-attachment:local,local,scroll,scroll}
+
+  .subtabs{width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  .subtabs::-webkit-scrollbar{display:none}
+  .subtabs button{flex:none}
+
+  .examhdr{padding:9px 11px;gap:9px}
+  .clock{font-size:19px}
+  .qbtn{width:34px;height:34px}
+  .toasts{bottom:calc(env(safe-area-inset-bottom,0px) + 76px)}
+  .scrolly{--sh:260px}
+}
+
+/* Very narrow (SE-class, 320-360px) */
+@media (max-width:380px){
+  .statgrid,.grid{grid-template-columns:minmax(0,1fr)}
+  .stat-card .val{font-size:24px}
+}
+
+/* Landscape phone: the sticky action bar would eat a third of the height. */
+@media (max-height:520px) and (orientation:landscape){
+  #viewPractice .nav{position:static;margin:var(--s4) 0 0;padding:0;
+    background:none;border-top:none;backdrop-filter:none}
+}
+
+/* ==========================================================================
+   REDUCED MOTION
+   One switch. Anything animated above collapses to an instant, final-state
+   render - not to a broken one. Rings still show their arc, bars still show
+   their width, the clock still turns red under a minute; they just do not move.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important}
+  .ring .arc{stroke-dashoffset:var(--dash-to,0)}
+  .meter i,.bars .b .bt i,.spark i,.tabs button.on::before{transform:none}
+  .sk{animation:none;background:var(--panel2)}
+  .opt.correct,.opt.wrong{animation:none}
+  .clock.bad{animation:none}
+  .tabs button.has-alert::after{animation:none}
+}
 </style></head><body>
 
 <!-- ============ LANDING + SIGN IN ============ -->
@@ -4189,7 +4804,7 @@ async function renderAdmin(){
   // and leave the whole Residents tab reading "Loading…" for the rest of the
   // session, and a plain {error} result quietly rendered a roster of zeroes as
   // though every resident had answered nothing.
-  const [r1, r2, r3, r4] = await Promise.allSettled([
+  const [r1, r2, r3, r4, r5] = await Promise.allSettled([
     sb.from('profiles').select('id,email,full_name,role,created_at,last_seen_at'),
     sb.from('allowed_emails')
       .select('email,role,full_name,added_at,subscribed_at,duration_months,duration_days,expires_at,paused,promo_limited')
@@ -4197,7 +4812,10 @@ async function renderAdmin(){
     sb.from('attempts').select('user_id,correct,question_uid'),
     // The activity feed + money KPIs. Deliberately OUTSIDE the fatal check
     // below: if this one call fails the roster must still render.
-    sb.rpc('admin_recent_activity')
+    sb.rpc('admin_recent_activity'),
+    // Cohort shape: 14-day activity and topic accuracy across every resident.
+    // Same rule - outside the fatal check, so the roster survives it failing.
+    sb.rpc('consultant_dashboard')
   ]);
   if ([r1,r2,r3].some(r => r.status === 'rejected' || (r.value && r.value.error))){
     console.error('admin load failed', r1, r2, r3);
@@ -4272,26 +4890,77 @@ async function renderAdmin(){
       }).join('')) || '<div class="empty">Nothing yet.</div>')
     : '<div class="empty">Activity feed could not load — reload the page to retry.</div>';
 
+  /* One tile. Kept local to renderAdmin so nothing else can drift from it. */
+  const adStat = (lbl, val, foot, cls) =>
+    `<div class="stat-card ${cls || ''}"><span class="lbl">${esc(lbl)}</span>`
+    + `<span class="val">${esc(String(val))}</span>`
+    + `<span class="foot">${foot}</span></div>`;
+
+  /* Both are optional by design: renderAdmin must survive either reporting RPC
+     failing, because the roster is the part of this tab that has to work. */
+  const adDash = (r5.status === 'fulfilled' && r5.value && !r5.value.error) ? r5.value.data : null;
+  const adActivity = (adDash && Array.isArray(adDash.activity) && adDash.activity.length)
+    ? adDash.activity : null;
+  const adTopics = (adDash && Array.isArray(adDash.by_topic) && adDash.by_topic.length)
+    ? adDash.by_topic : null;
+
   v.innerHTML = `
-    <h2 class="seclabel" style="margin-top:14px">Overview</h2>
-    <div class="grid">
-      <div class="kpi"><b>${(allow||[]).length}</b><span>on the allowlist</span></div>
-      <div class="kpi"><b>${tally.active + tally.ending}</b><span>subscriptions running</span></div>
-      <div class="kpi"><b>${trialsActive}</b><span>free trials active</span></div>
-      <div class="kpi"><b>${tally.ending}</b><span>ending within 7 days</span></div>
-      <div class="kpi"><b>${tally.paused}</b><span>paused by you</span></div>
-      <div class="kpi"><b>${tally.expired}</b><span>ended</span></div>
-      <div class="kpi"><b>${kk.sar_captured != null ? kk.sar_captured + ' SAR' : '—'}</b>
-        <span>collected · ${kk.payments_captured != null ? kk.payments_captured + ' payments' : 'payments'}</span></div>
-      <div class="kpi"><b>${kk.signups_7d != null ? kk.signups_7d : '—'}</b><span>joined this week</span></div>
-      <div class="kpi"><b>${totalDone}</b><span>questions answered by all</span></div>
+    <div class="sect"><h2>Overview</h2>
+      <p class="sub">Everything you act on, above everything you only read</p></div>
+    <div class="statgrid" style="margin-bottom:var(--s4)">
+      ${adStat('On the allowlist', (allow||[]).length,
+               `${tally.active + tally.ending} running · ${trialsActive} on a free trial`, '')}
+      ${adStat('Ending in 7 days', tally.ending,
+               tally.ending ? 'chase these before they lapse' : 'nothing to chase', tally.ending ? 'warn' : '')}
+      ${adStat('Paused or ended', tally.paused + tally.expired,
+               `${tally.paused} paused by you · ${tally.expired} lapsed`, '')}
+      ${adStat('Collected',
+               kk.sar_captured != null ? kk.sar_captured + ' SAR' : '—',
+               kk.payments_captured != null
+                 ? `${kk.payments_captured} live payment${kk.payments_captured == 1 ? '' : 's'} · test mode excluded`
+                 : 'payments', 'ok')}
+      ${adStat('Joined this week', kk.signups_7d != null ? kk.signups_7d : '—',
+               'new on the roster', 'acc')}
+      ${adStat('Answered all time', totalDone, `across ${(prof||[]).length} accounts`, '')}
     </div>
 
-    <h2 class="seclabel" style="margin-top:18px">Recent activity</h2>
-    <div class="card" style="padding-top:8px;padding-bottom:8px">${feedRows}</div>
+    <div class="cols2">
+      <div class="panel">
+        <div class="ph"><h3>Answers a day</h3><span class="phsub">last 14 days</span></div>
+        <div class="pb">
+          ${adActivity
+            ? `<div class="spark" data-vals="${adActivity.map(a => a.n).join(',')}"
+                    data-label="answers a day over the last fortnight" style="height:66px"></div>
+               <div class="inline" style="margin-top:10px;font-size:11.5px;color:var(--faint)">
+                 <span>${new Date(adActivity[0].d).toLocaleDateString(undefined,{day:'numeric',month:'short'})}</span>
+                 <span class="pushr"><b class="tnum" style="color:var(--ink)">${
+                   adActivity[adActivity.length-1].n}</b> today</span></div>`
+            : '<div class="empty" style="padding:24px">Daily activity could not load.</div>'}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h3>Weakest topics</h3>
+          <span class="phsub">everyone · at least 5 answers</span></div>
+        <div class="pb">${adTopics
+          ? `<div class="bars">${adTopics.slice(0,6).map(t => {
+              const p = Math.round(t.pct);
+              const g = p < 65 ? 'g1' : p < 78 ? 'g2' : 'g3';
+              return `<div class="b ${g}"><span class="bl" title="${esc(t.topic)}">${esc(t.topic)}`
+                + ` <span class="muted">· ${t.attempts}</span></span>`
+                + `<span class="bt"><i style="width:${p}%"></i></span>`
+                + `<span class="bv">${p}%</span></div>`;
+            }).join('')}</div>`
+          : '<div class="empty" style="padding:24px">Topic accuracy could not load.</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="sect"><h2>Recent activity</h2>
+      <p class="sub">Sign-ups, payments, promo redemptions and bundle requests</p></div>
+    <div class="panel"><div class="pb">${feedRows}</div></div>
 
     <h2 class="seclabel" style="margin-top:18px">Mock exams</h2>
-    <div id="pdExamsCard" class="card"></div>
+    <div id="pdExamsCardAdmin" class="card"></div>
 
     <h2 class="seclabel" style="margin-top:18px">Roster</h2>
     <div class="card">
@@ -4459,7 +5128,7 @@ async function residentDetail(uid){
     </div>
     ${topics ? `<h3 style="font-size:13px;margin:14px 0 8px">Weakest topics first</h3>
       <div class="tscroll"><table><tbody>${topics}</tbody></table></div>` : '<div class="empty">Nothing answered yet.</div>'}
-    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (most recent 60)</h3>
+    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (up to 60, grouped by topic)</h3>
       <div class="tscroll"><table><tbody>${wrong}</tbody></table></div>` : ''}
     <div class="nav"><button id="closeDetail">Close</button></div>
   </div>`;
@@ -4686,42 +5355,278 @@ async function manageConsultantResidents(cid, name){
 
 // ========================================================= my residents (consultant view)
 // A consultant's entire surface: only the residents the administrator assigned.
+/* Thresholds for the "Needs attention" rail. Deliberately here and not in SQL:
+   a programme director should be able to retune these without a migration. */
+const PD_RISK = {
+  dormantDays:   30,   // no answer at all in this many days
+  slippingPct:   65,   // accuracy over the last 40 answers, below this
+  paceDays:      60,   // days to their exam, at or under this
+  paceAnswered: 600,   // ...having answered fewer than this
+  paceAccuracy:  80,   // ...and NOT already scoring at or above this.
+                       // Without this gate the rail flags your strongest
+                       // residents, and a rail that cries wolf stops being read.
+  expiringDays:   7    // subscription ends within this many days
+};
+
+function pdDays(d){
+  if (!d) return null;
+  /* ceil, not round: a target date of today must read 0 days left, not -1.
+     The stored value is a bare date, so it parses at midnight UTC while
+     Date.now() is mid-afternoon - rounding buried the exam-day case. */
+  return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+}
+function pdSince(d){
+  if (!d) return null;
+  return Math.round((Date.now() - new Date(d).getTime()) / 86400000);
+}
+function pdAgo(d){
+  const n = pdSince(d);
+  if (n === null) return 'never';
+  if (n <= 0) return 'today';
+  if (n === 1) return 'yesterday';
+  if (n < 30) return n + ' d ago';
+  return new Date(d).toLocaleDateString();
+}
+function pdTone(p){ return p === null || p === undefined ? 'dim'
+  : p < 65 ? 'bad' : p < 78 ? 'warn' : 'ok'; }
+function pdBand(p){ return p === null || p === undefined ? 'g0'
+  : p < 65 ? 'g1' : p < 78 ? 'g2' : 'g3'; }
+function pdInitials(n, e){
+  if (!n){
+    /* No name on the roster yet. Take one letter from the local part of the
+       address - splitting the whole address on punctuation gave "RE" for
+       r21@example.test, which reads as a surname that does not exist. */
+    const local = String(e || '?').split('@')[0].replace(/[^A-Za-z]/g, '');
+    return (local[0] || '?').toUpperCase();
+  }
+  const w = n.replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase();
+}
+
+/* Returns the reasons this resident needs a word, worst first. Signals come
+   from the RPC raw; the verdict is made here. */
+function pdRisks(r){
+  /* A paused account is a decision you already made. Reporting it as dormant
+     as well is noise, so paused short-circuits everything below it. */
+  if (r.paused)
+    return [{ sev:'lo', tag:'paused', why:'you have paused this account' }];
+
+  const out = [];
+  const pct = (r.pct === null || r.pct === undefined) ? null : Number(r.pct);
+
+  if (!r.answered)
+    out.push({ sev:'hi', tag:'never started', why:'on the roster but has never answered a question' });
+  else if (!r.last_30)
+    out.push({ sev:'hi', tag:'dormant',
+               why:'no activity in ' + PD_RISK.dormantDays + ' days · last seen ' + pdAgo(r.last_seen) });
+
+  if (r.recent_pct !== null && r.recent_pct !== undefined && r.recent_pct < PD_RISK.slippingPct)
+    out.push({ sev:'hi', tag:'slipping',
+               why:r.recent_pct + '% over the last 40 answers'
+                   + (r.weakest ? ' · weakest in ' + r.weakest : '') });
+
+  /* Behind pace means "will not get through enough of the bank in time", so it
+     is gated on accuracy as well as volume. A resident holding 95% with an exam
+     in a fortnight does not need chasing, and putting them on this rail is how
+     a programme director learns to stop reading it. */
+  const dExam = pdDays(r.target_exam_on);
+  if (dExam !== null && dExam >= 0 && dExam <= PD_RISK.paceDays
+      && (r.answered || 0) < PD_RISK.paceAnswered
+      && (pct === null || pct < PD_RISK.paceAccuracy)){
+    const perDay = Math.ceil((PD_RISK.paceAnswered - (r.answered || 0)) / Math.max(1, dExam));
+    out.push({ sev:'md', tag:'behind pace',
+               why:(r.answered || 0) + ' answered · '
+                   + (dExam === 0 ? 'their exam is today'
+                      : dExam + ' day' + (dExam === 1 ? '' : 's') + ' left, about '
+                        + perDay + ' a day to catch up') });
+  }
+
+  const dSub = pdDays(r.expires_at);
+  if (dSub !== null && dSub >= 0 && dSub <= PD_RISK.expiringDays)
+    out.push({ sev:'lo', tag:'renewal', why:'access ends in ' + dSub + ' day' + (dSub === 1 ? '' : 's') });
+
+  return out;
+}
+
+function pdBars(rows, keyLabel, keyPct, keySub){
+  if (!rows || !rows.length)
+    return '<div class="empty" style="padding:22px">Not enough answers yet.</div>';
+  return rows.map(x => {
+    const p = x[keyPct] === null || x[keyPct] === undefined ? null : Math.round(x[keyPct]);
+    const sub = keySub && x[keySub] != null ? ' <span class="muted">· ' + esc(String(x[keySub])) + '</span>' : '';
+    return '<div class="b ' + pdBand(p) + '">'
+      + '<span class="bl" title="' + esc(x[keyLabel]) + '">' + esc(x[keyLabel]) + sub + '</span>'
+      + '<span class="bt"><i style="width:' + (p === null ? 0 : p) + '%"></i></span>'
+      + '<span class="bv">' + (p === null ? '—' : p + '%') + '</span></div>';
+  }).join('');
+}
+
+function pdSkeleton(){
+  const tile = '<div class="sk sk-tile"></div>';
+  const row  = '<div class="sk sk-row"></div>';
+  return '<div class="statgrid" style="margin-bottom:var(--s4)">'
+       + tile + tile + tile + tile + '</div>'
+       + '<div class="cols2"><div class="panel"><div class="pb">'
+       + '<div class="sk sk-line w60"></div><div class="sk sk-line w80"></div>'
+       + '<div class="sk sk-line w40"></div><div class="sk sk-line w80"></div></div></div>'
+       + '<div class="panel"><div class="pb">'
+       + '<div class="sk sk-line w80"></div><div class="sk sk-line w60"></div>'
+       + '<div class="sk sk-line w80"></div><div class="sk sk-line w40"></div></div></div></div>'
+       + '<div class="panel" style="margin-top:var(--s4)"><div class="pb">'
+       + row + row + row + '</div></div>';
+}
+
 async function renderMyResidents(){
   const v = $('#viewMyres');
-  v.innerHTML = '<div class="empty">Loading…</div>';
-  const { data, error } = await sb.rpc('consultant_my_residents');
-  if (error){ v.innerHTML = '<div class="card"><div class="empty">Could not load your residents.</div></div>'; return; }
-  const list = data || [];
-  const totalDone = list.reduce((s,r)=>s+(r.answered||0),0);
-  const rows = list.map(r => {
-    const pct = r.answered ? Math.round(100*r.correct/r.answered) : null;
-    const seen = r.last_seen ? new Date(r.last_seen).toLocaleDateString() : 'never';
-    return `<tr data-uid="${r.id}" style="cursor:pointer">
-      <td data-open><b>${esc(r.name||'—')}</b><div style="font-size:11.5px;color:var(--dim)">${esc(r.email)}</div></td>
-      <td class="num">${r.answered||0}</td>
-      <td class="num">${pct===null?'—':pct+'%'}</td>
-      <td style="width:90px"><div class="meter"><i style="width:${pct||0}%;background:${
-        pct===null?'var(--line)':pct<60?'var(--bad)':pct<80?'var(--warn)':'var(--ok)'}"></i></div></td>
-      <td style="font-size:12px;color:var(--dim)">${seen}</td></tr>`;
+  v.innerHTML = pdSkeleton();
+
+  const { data, error } = await sb.rpc('consultant_dashboard');
+  if (error || !data){
+    v.innerHTML = '<div class="card"><div class="empty">Could not load your residents.<br>'
+      + '<span style="font-size:12px">' + esc((error && error.message) || 'No response.') + '</span></div></div>';
+    return;
+  }
+
+  const list   = data.residents || [];
+  const cohort = data.cohort || {};
+  const flagged = list.map(r => ({ r: r, risks: pdRisks(r) })).filter(x => x.risks.length);
+  const urgent  = flagged.filter(x => x.risks.some(k => k.sev === 'hi'));
+  const rank    = { hi:0, md:1, lo:2 };
+  flagged.sort((a, b) => rank[a.risks[0].sev] - rank[b.risks[0].sev]);
+
+  const answeredThisMonth = list.reduce((s, r) => s + (r.last_30 || 0), 0);
+  const cohortPct = cohort.pct === null || cohort.pct === undefined ? null : Math.round(cohort.pct);
+
+  const stat = (lbl, val, foot, cls) =>
+    '<div class="stat-card ' + (cls || '') + '"><span class="lbl">' + lbl + '</span>'
+    + '<span class="val">' + val + '</span>'
+    + '<span class="foot">' + foot + '</span></div>';
+
+  const roster = list.map(r => {
+    const p = r.pct === null || r.pct === undefined ? null : Math.round(r.pct);
+    const meta = [r.pgy || 'PGY not set',
+                  (r.answered || 0) + ' answered',
+                  'last seen ' + pdAgo(r.last_seen)].join(' · ');
+    return '<div class="prow" data-uid="' + esc(r.id) + '" tabindex="0" role="button"'
+      + ' aria-label="' + esc(r.name || r.email) + ', open breakdown">'
+      + '<span class="av">' + esc(pdInitials(r.name, r.email)) + '</span>'
+      + '<span class="pn"><b>' + esc(r.name || r.email) + '</b><span>' + esc(meta) + '</span></span>'
+      + '<span class="pr"><span class="meter"><i style="width:' + (p === null ? 0 : p)
+      + '%;background:var(--' + pdTone(p) + ')"></i></span>'
+      + '<b class="tnum" style="min-width:40px;text-align:right;color:var(--' + pdTone(p) + ')">'
+      + (p === null ? '—' : p + '%') + '</b></span></div>';
   }).join('');
-  v.innerHTML = `
-    <div class="grid">
-      <div class="kpi"><b>${list.length}</b><span>residents you monitor</span></div>
-      <div class="kpi"><b>${totalDone}</b><span>questions answered by them</span></div>
-    </div>
-    ${list.length ? `<div class="card" style="text-align:right;padding:12px 16px">
-      <button id="consReport" class="primary">Generate report</button></div>` : ''}
-    <div id="pdExamsCard" class="card"></div>
-    <div id="myresDetail"></div>
-    <div class="card">
-      ${list.length ? `<div style="font-size:11.5px;color:var(--faint);margin-bottom:8px">Click a resident for their topic breakdown and wrong answers.</div>
-      <div style="overflow-x:auto"><table>
-        <thead><tr><th>Resident</th><th class="num">Answered</th><th class="num">Score</th><th></th><th>Last seen</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>`
-      : '<div class="empty">No residents have been assigned to you yet. Your administrator assigns them.</div>'}
-    </div>`;
-  v.querySelectorAll('tr[data-uid] [data-open]').forEach(td =>
-    td.onclick = () => consultantDetail(td.closest('tr').dataset.uid));
+
+  /* Everyone who has never answered gets one shared row rather than one row
+     each. On this roster that is seven identical lines, and a rail where two
+     thirds of the entries say the same thing stops being read. The people with
+     a specific, actionable problem stay on their own line. */
+  const never = flagged.filter(x => x.risks.length === 1 && x.risks[0].tag === 'never started');
+  const named = flagged.filter(x => never.indexOf(x) < 0);
+  const groupNever = never.length > 2;
+  const riskRow = x =>
+    '<div class="r ' + x.risks[0].sev + '" data-uid="' + esc(x.r.id) + '" style="cursor:pointer">'
+    + '<span class="sev"></span>'
+    + '<span class="why"><b>' + esc(x.r.name || x.r.email) + '</b> — '
+    + esc(x.risks.map(k => k.why).join(' · ')) + '</span>'
+    + '<span class="pill ' + (x.risks[0].sev === 'hi' ? 'bad' : x.risks[0].sev === 'md' ? 'warn' : 'dim')
+    + '">' + esc(x.risks[0].tag) + '</span></div>';
+
+  const riskRail = flagged.length
+    ? '<div class="risk">'
+      + (groupNever
+          ? '<div class="r hi"><span class="sev"></span><span class="why"><b>'
+            + never.length + ' residents</b> have never answered a question — '
+            + esc(never.slice(0, 6).map(x => x.r.name || x.r.email).join(', '))
+            + (never.length > 6 ? ' and ' + (never.length - 6) + ' more' : '')
+            + '</span><span class="pill bad">never started</span></div>'
+          : '')
+      + (groupNever ? named : flagged).map(riskRow).join('') + '</div>'
+    : '<div class="panel"><div class="pb"><div class="empty" style="padding:26px">'
+      + 'Nobody is flagged. Every resident has answered in the last '
+      + PD_RISK.dormantDays + ' days and is holding above ' + PD_RISK.slippingPct + '%.'
+      + '</div></div></div>';
+
+  v.innerHTML =
+    '<div class="statgrid" style="margin-bottom:var(--s4)">'
+    + stat('Residents', String(list.length), esc(data.scope || 'assigned to you'), '')
+    + stat('Cohort accuracy', cohortPct === null ? '—' : cohortPct + '%',
+           (cohort.correct || 0).toLocaleString('en') + ' right of '
+           + (cohort.answered || 0).toLocaleString('en'),
+           cohortPct === null ? '' : pdTone(cohortPct) === 'ok' ? 'ok'
+             : pdTone(cohortPct) === 'warn' ? 'warn' : 'bad')
+    + stat('Answered this month', answeredThisMonth.toLocaleString('en'),
+           'across the whole cohort', 'acc')
+    + stat('Need attention', String(flagged.length),
+           urgent.length ? urgent.length + ' urgent' : 'nothing urgent',
+           flagged.length ? (urgent.length ? 'bad' : 'warn') : '')
+    + '</div>'
+
+    + '<div class="cols2">'
+      + '<div class="panel"><div class="ph"><h3>Cohort readiness</h3>'
+        + '<span class="phsub">by training year</span></div>'
+        + '<div class="pb" style="display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap">'
+        + '<div class="ring" data-pct="' + (cohortPct === null ? 0 : cohortPct) + '"'
+        + ' data-label="cohort" data-tone="' + pdTone(cohortPct) + '"></div>'
+        + '<div class="bars" style="flex:1;min-width:200px">'
+        + pdBars(data.by_pgy || [], 'pgy', 'pct', 'n') + '</div></div></div>'
+      + '<div class="panel"><div class="ph"><h3>Weakest topics</h3>'
+        + '<span class="phsub">cohort-wide · at least 5 answers</span>'
+        + '<span class="phact"><button id="consReport" style="min-height:30px">Printable report</button>'
+        + '</span></div>'
+        + '<div class="pb"><div class="bars">'
+        + pdBars((data.by_topic || []).slice(0, 8), 'topic', 'pct', 'attempts') + '</div></div></div>'
+    + '</div>'
+
+    + '<div class="sect"><h2>Needs attention</h2>'
+      + '<p class="sub">Worked out from answers already stored. Nothing new is written, '
+      + 'and nobody is emailed.</p></div>'
+    + riskRail
+
+    + '<div class="sect"><h2>Mock exams</h2>'
+      + '<p class="sub">Papers you have set from the Director Mock bank</p></div>'
+    + '<div id="pdExamsCard" class="card"></div>'
+
+    + '<div id="myresDetail"></div>'
+
+    + '<div class="sect"><h2>Your residents</h2>'
+      + '<p class="sub">' + (list.length ? 'Tap anyone for their topic breakdown and wrong answers'
+                                         : 'None assigned yet') + '</p>'
+      + (list.length > 6 ? '<span class="act"><input type="search" id="pdFilter"'
+          + ' placeholder="Filter by name or email…" style="width:230px"></span>' : '')
+      + '</div>'
+    + (list.length
+        ? '<div class="panel"><div class="plist" id="pdRoster">' + roster + '</div>'
+          + '<div class="pb hide" id="pdNone"><div class="empty" style="padding:26px">'
+          + 'Nobody matches that.</div></div></div>'
+        : '<div class="panel"><div class="pb"><div class="empty">'
+          + 'No residents have been assigned to you yet. Your administrator assigns them.'
+          + '</div></div></div>');
+
+  const open = uid => consultantDetail(uid);
+  v.querySelectorAll('.prow[data-uid]').forEach(el => {
+    el.onclick = () => open(el.dataset.uid);
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(el.dataset.uid); } };
+  });
+  v.querySelectorAll('.risk .r[data-uid]').forEach(el => {
+    el.onclick = () => {
+      open(el.dataset.uid);
+      const d = $('#myresDetail'); if (d) d.scrollIntoView({ behavior:'smooth', block:'start' });
+    };
+  });
+
+  const f = $('#pdFilter');
+  if (f) f.oninput = () => {
+    const q = (f.value || '').trim().toLowerCase();
+    let shown = 0;
+    v.querySelectorAll('#pdRoster .prow').forEach(el => {
+      const hit = !q || el.textContent.toLowerCase().indexOf(q) >= 0;
+      el.classList.toggle('hide', !hit);
+      if (hit) shown++;
+    });
+    const none = $('#pdNone'); if (none) none.classList.toggle('hide', shown > 0);
+  };
+
   const rep = $('#consReport'); if (rep) rep.onclick = generateConsultantReport;
   renderPDExamsCard();
 }
@@ -4730,8 +5635,20 @@ async function renderMyResidents(){
 // The consultant/admin creates a paper (title, N questions, minutes) drawn from
 // any track including the private Director Mock bank. Publishing lets the
 // residents in their roster see it under "Mock exams from your Programme Director".
+/* Returns whichever exam-builder host is inside a view that is actually on
+   screen. Two hosts exist - #pdExamsCard on My residents, #pdExamsCardAdmin on
+   Residents - and a plain $() would always pick the first in DOM order. */
+function pdExamsHost(){
+  var all = Array.prototype.slice.call(
+    document.querySelectorAll('#pdExamsCard, #pdExamsCardAdmin'));
+  var live = all.filter(function(el){
+    var v = el.closest('[id^="view"]');
+    return v && !v.classList.contains('hide');
+  });
+  return live[0] || all[0] || null;
+}
 async function renderPDExamsCard(){
-  const host = $('#pdExamsCard'); if (!host) return;
+  const host = pdExamsHost(); if (!host) return;
   host.innerHTML = '<div class="empty" style="padding:12px">Loading exam list…</div>';
   const { data: exams, error } = await sb.from('exams')
     .select('id,title,duration_minutes,question_uids,published,created_at,opens_at,closes_at,digest_sent_at')
@@ -4885,7 +5802,7 @@ function showPDExamResults(d, examId){
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;overflow:auto;padding:20px';
   modal.innerHTML = `
-    <div style="max-width:840px;margin:0 auto;background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--text)">
+    <div style="max-width:840px;margin:0 auto;background:var(--panel);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--ink)">
       <div class="qhead"><b style="font-size:16px">${esc(d.exam.title)}</b>
         <button id="pdResClose" style="margin-left:auto">Close</button></div>
       <div style="font-size:12px;color:var(--dim);margin-bottom:14px">${total} questions · ${(d.sessions||[]).length} sessions · ${submitted.length} submitted</div>
@@ -4893,7 +5810,7 @@ function showPDExamResults(d, examId){
       <div class="tscroll"><table><thead><tr><th>Resident</th><th class="num">Score</th><th></th><th>Submitted</th></tr></thead>
         <tbody>${sess || '<tr><td colspan="4" class="empty">Nobody has sat this yet.</td></tr>'}</tbody></table></div>
       ${topics ? `<h3 style="font-size:13px;margin:18px 0 6px">By topic (submitted sessions only)</h3>
-        <div class="tscroll"><table><thead><tr><th>Topic</th><th class="num">Attempts</th><th class="num">Correct</th></tr></thead>
+        <div class="tscroll"><table><thead><tr><th>Topic</th><th class="num">Attempts</th><th class="num">Average</th></tr></thead>
           <tbody>${topics}</tbody></table></div>` : ''}
       ${examId && submitted.length ? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button id="pdEmailDigest">Email me these results now</button>
@@ -4952,7 +5869,7 @@ async function consultantDetail(uid){
     </div>
     ${topics ? `<h3 style="font-size:13px;margin:14px 0 8px">Weakest topics first</h3>
       <div class="tscroll"><table><tbody>${topics}</tbody></table></div>` : '<div class="empty">Nothing answered yet.</div>'}
-    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (most recent 60)</h3>
+    ${wrong ? `<h3 style="font-size:13px;margin:16px 0 8px">Got wrong (up to 60, grouped by topic)</h3>
       <div class="tscroll"><table><tbody>${wrong}</tbody></table></div>` : ''}
     <div class="nav"><button id="closeMyres">Close</button></div>
   </div>`;
@@ -5201,7 +6118,7 @@ async function startMockExam(examId){
 
   const wrap = document.createElement('div');
   wrap.id = 'mkxWrap';
-  wrap.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9998;overflow:auto;padding:20px;color:var(--text)';
+  wrap.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9998;overflow:auto;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));color:var(--ink)';
   document.body.appendChild(wrap);
   document.body.style.overflow = 'hidden';
 
@@ -5210,7 +6127,7 @@ async function startMockExam(examId){
     const opts = ['A','B','C','D'].map(k => {
       const active = state.chosen[q.uid] === k;
       const txt = q.options && q.options[k] ? q.options[k] : '';
-      return `<label class="opt" style="display:flex;gap:8px;padding:10px 12px;border:1px solid ${active?'var(--accent)':'var(--line)'};border-radius:8px;margin-bottom:8px;cursor:pointer;background:${active?'rgba(52,120,246,0.08)':'transparent'}">
+      return `<label class="opt" style="display:flex;gap:8px;padding:10px 12px;border:1px solid ${active?'var(--accent)':'var(--line)'};border-radius:8px;margin-bottom:8px;cursor:pointer;background:${active?'var(--accent-soft)':'var(--panel2)'}">
         <input type="radio" name="mkxopt" value="${k}" ${active?'checked':''} style="margin-top:3px">
         <span style="font-weight:600;min-width:16px">${k}.</span>
         <span>${esc(txt)}</span></label>`;
@@ -5232,8 +6149,12 @@ async function startMockExam(examId){
             <span class="tag">${esc(q.topic||'')}</span>
             <span class="tag" style="opacity:.7">${esc(q.track||'')}</span>
           </div>
-          <div style="font-size:14.5px;line-height:1.6;margin-bottom:14px;white-space:pre-wrap">${esc(q.stem||'')}</div>
-          <div>${opts}</div>
+          ${q.image_path ? `<div class="qimg">
+            <img data-qimg="${esc(q.image_path)}" alt="Image accompanying this question">
+            <div class="imgmsg">Loading the image…</div>
+          </div>` : ''}
+          <div class="stem" style="margin-bottom:14px">${esc(q.stem||'')}</div>
+          <div class="opts">${opts}</div>
           <div class="nav" style="margin-top:14px">
             <button id="mkxPrev" ${state.i===0?'disabled':''}>Previous</button>
             <button id="mkxNext" ${state.i===state.items.length-1?'disabled':''}>Next</button>
@@ -5250,6 +6171,9 @@ async function startMockExam(examId){
     $('#mkxPrev').onclick = () => { if (state.i>0){ state.i--; paint(); } };
     $('#mkxNext').onclick = () => { if (state.i<state.items.length-1){ state.i++; paint(); } };
     $('#mkxSubmit').onclick = () => submit(false);
+    /* exam_start hands back image_path for every item. Without this the paper
+       silently drops the picture and the question cannot be answered. */
+    if (q.image_path) { try { drawImage(wrap); } catch (e) {} }
     updateClock();
   }
   function updateClock(){
@@ -6087,7 +7011,7 @@ async function showQuestionHistory(uid){
   const modal = document.createElement('div');
   modal.id = 'qhistModal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;overflow:auto;padding:20px';
-  modal.innerHTML = `<div style="max-width:920px;margin:0 auto;background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--text)">
+  modal.innerHTML = `<div style="max-width:920px;margin:0 auto;background:var(--panel);border-radius:12px;padding:20px;border:1px solid var(--line);color:var(--ink)">
       <div class="qhead"><b style="font-size:16px">History — ${esc(uid)}</b>
         <span class="spacer"></span><button id="qhistClose">Close</button></div>
       <div style="font-size:12px;color:var(--dim);margin:6px 0 12px">
@@ -6399,6 +7323,177 @@ function oscFinal(){
     gate(); setTimeout(gate,2000); setTimeout(gate,5000);
   }
   ready(install);
+})();
+</script>
+<script>
+/* ============================================================================
+   CerebrobanQ motion + chart enhancer  (v2)
+   ----------------------------------------------------------------------------
+   Additive and self-contained. It never reads or writes application state,
+   never touches an RPC, and never changes a value - it only animates toward
+   the value the app already wrote, then restores that exact string.
+
+   Why a MutationObserver: the app rebuilds whole views with innerHTML on
+   every render, so anything wired once at boot is gone on the next repaint.
+
+   Safety rules baked in below:
+     - Nothing inside a <table> is ever touched. Three admin filters match on
+       tr.textContent, and a half-finished count-up would change what they match.
+     - The original textContent is restored verbatim at the end of every count,
+       so "600 SAR", "—" and "12" all survive.
+     - Every entry point is wrapped. A throw here must never take the app down.
+     - prefers-reduced-motion short-circuits the whole file.
+   ========================================================================== */
+(function(){
+  'use strict';
+  var REDUCED = false;
+  try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+
+  /* ---------------------------------------------------------------- count-up */
+  var NUM = /^(\D{0,3}?)(\d[\d,]*)(?:\.(\d+))?(\D{0,8})$/;
+
+  function countUp(el){
+    if (el.dataset.cbqCounted) return;
+    el.dataset.cbqCounted = '1';
+    if (REDUCED) return;
+    if (el.closest('table')) return;              // never inside a filtered row
+    var final = el.textContent;
+    var m = NUM.exec(final.trim());
+    if (!m) return;
+    var target = parseFloat(m[2].replace(/,/g,'') + (m[3] ? '.' + m[3] : ''));
+    if (!isFinite(target) || target <= 0 || target > 9999999) return;
+    var dp = m[3] ? m[3].length : 0;
+    var pre = m[1], post = m[4];
+    var dur = target < 12 ? 380 : 720, t0 = 0;
+    function frame(ts){
+      if (!t0) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);            // ease-out cubic
+      if (p < 1){
+        var v = target * e;
+        el.textContent = pre + (dp ? v.toFixed(dp)
+                                   : Math.round(v).toLocaleString('en')) + post;
+        requestAnimationFrame(frame);
+      } else {
+        el.textContent = final;                   // exact original string back
+      }
+    }
+    el.textContent = pre + (dp ? (0).toFixed(dp) : '0') + post;
+    requestAnimationFrame(frame);
+  }
+
+  /* -------------------------------------------------------------------- ring
+     <div class="ring" data-pct="72" data-label="score" data-tone="ok"></div> */
+  function buildRing(el){
+    if (el.dataset.cbqRing) return;
+    el.dataset.cbqRing = '1';
+    var pct = Math.max(0, Math.min(100, parseFloat(el.dataset.pct) || 0));
+    var size = el.classList.contains('sm') ? 64 : 104;
+    var w    = el.classList.contains('sm') ? 7 : 9;
+    var r    = (size - w) / 2;
+    var len  = 2 * Math.PI * r;
+    var tone = el.dataset.tone;
+    var col  = tone === 'ok'   ? 'var(--ok)'
+             : tone === 'bad'  ? 'var(--bad)'
+             : tone === 'warn' ? 'var(--warn)'
+             : 'var(--accent)';
+    el.style.setProperty('--dash-len', len.toFixed(2));
+    el.style.setProperty('--dash-to', (len * (1 - pct / 100)).toFixed(2));
+    el.style.setProperty('--ring-col', col);
+    var c = size / 2;
+    var svg = '<svg viewBox="0 0 ' + size + ' ' + size + '" aria-hidden="true">'
+            + '<circle class="track" cx="' + c + '" cy="' + c + '" r="' + r.toFixed(2) + '"/>'
+            + '<circle class="arc" cx="' + c + '" cy="' + c + '" r="' + r.toFixed(2) + '"/>'
+            + '</svg>';
+    var lbl = el.dataset.label
+            ? '<span class="ringlbl">' + esc(el.dataset.label) + '</span>' : '';
+    var txt = el.dataset.text != null ? esc(el.dataset.text) : Math.round(pct) + '%';
+    el.innerHTML = svg + '<span class="inner"><span class="ringval">' + txt
+                 + '</span>' + lbl + '</span>';
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', (el.dataset.label || 'score') + ': ' + txt);
+  }
+
+  /* ------------------------------------------------------------------- spark
+     <div class="spark" data-vals="3,7,2,9,4"></div> */
+  function buildSpark(el){
+    if (el.dataset.cbqSpark) return;
+    el.dataset.cbqSpark = '1';
+    var vals = (el.dataset.vals || '').split(',')
+                 .map(function(v){ return parseFloat(v) || 0; });
+    if (!vals.length) return;
+    var max = Math.max.apply(null, vals) || 1;
+    var last = vals.length - 1;
+    el.innerHTML = vals.map(function(v, i){
+      var h = Math.max(6, Math.round(v / max * 100));
+      return '<i style="height:' + h + '%;animation-delay:' + (i * 18) + 'ms"'
+           + (i === last ? ' class="on"' : '') + '></i>';
+    }).join('');
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', el.dataset.label || 'recent activity');
+  }
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  /* -------------------------------------------------------------------- scan */
+  function scan(root){
+    try {
+      if (!root || root.nodeType !== 1) return;
+      var q = function(sel){
+        var out = [];
+        try {
+          if (root.matches && root.matches(sel)) out.push(root);
+          out.push.apply(out, root.querySelectorAll(sel));
+        } catch(e){}
+        return out;
+      };
+      q('.ring[data-pct]').forEach(buildRing);
+      q('.spark[data-vals]').forEach(buildSpark);
+      q('.kpi > b, .statchip > b, .stat-card > .val').forEach(countUp);
+    } catch(e){}
+  }
+
+  /* -------------------------------------------------------------------- toast
+     window.cbqToast('Saved', 'good') - available to any later code. */
+  var tray = null;
+  window.cbqToast = function(msg, kind, ms){
+    try {
+      if (!tray){
+        tray = document.createElement('div');
+        tray.className = 'toasts';
+        tray.setAttribute('aria-live', 'polite');
+        document.body.appendChild(tray);
+      }
+      var t = document.createElement('div');
+      t.className = 'toast' + (kind ? ' ' + kind : '');
+      t.innerHTML = '<span class="dotm"></span><span></span>';
+      t.lastChild.textContent = msg;
+      tray.appendChild(t);
+      setTimeout(function(){
+        t.classList.add('out');
+        setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 260);
+      }, ms || 2600);
+    } catch(e){}
+  };
+
+  /* ------------------------------------------------------------------ observe */
+  function boot(){
+    scan(document.body);
+    try {
+      new MutationObserver(function(muts){
+        for (var i = 0; i < muts.length; i++){
+          var added = muts[i].addedNodes;
+          for (var j = 0; j < added.length; j++) scan(added[j]);
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch(e){}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 </body></html>
