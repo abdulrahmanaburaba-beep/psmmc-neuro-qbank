@@ -4767,8 +4767,11 @@ async function renderPDExamsCard(){
         </div></td>
       <td class="num" style="width:110px;font-size:11px;color:var(--dim)">${new Date(e.created_at).toLocaleDateString()}</td>
       <td style="width:150px"><button class="pdExRes ${newSince>0?'primary':''}" data-id="${e.id}">${resultsLabel}</button></td>
-      <td style="width:90px">${e.published ? '' :
-        `<button class="pdExPub primary" data-id="${e.id}">Publish</button>`}</td>
+      <td style="width:90px">${e.published
+        ? `<button class="pdExCancel" data-id="${e.id}" data-title="${esc(e.title)}" title="Recall this exam — residents lose sight of it immediately">Cancel</button>`
+        : `<button class="pdExPub primary" data-id="${e.id}">Publish</button>`}</td>
+      <td style="width:70px"><button class="pdExDel" data-id="${e.id}" data-title="${esc(e.title)}" data-n="${nDone}"
+        style="color:var(--bad)" title="Delete the exam and every session/result">Delete</button></td>
     </tr>`;
   }).join('');
   host.innerHTML = `
@@ -4824,8 +4827,30 @@ async function renderPDExamsCard(){
     renderPDExamsCard();
   };
   host.querySelectorAll('.pdExPub').forEach(b => b.onclick = async () => {
+    if (!confirm('Publish this exam?\n\nEvery resident on the roster is emailed the moment it goes live.')) return;
     const { error } = await sb.rpc('exam_publish', { p_id: b.dataset.id });
     if (error) alertBar('Publish failed: ' + error.message); else renderPDExamsCard();
+  });
+  host.querySelectorAll('.pdExCancel').forEach(b => b.onclick = async () => {
+    if (!confirm('Cancel "' + b.dataset.title + '"?\n\n'
+      + 'Residents lose sight of it immediately, nobody new can start it, and anyone '
+      + 'mid-exam cannot submit. Results already submitted are kept. You can publish it '
+      + 'again later — the roster is re-emailed if you do.')) return;
+    const { data, error } = await sb.rpc('exam_cancel', { p_exam_id: b.dataset.id });
+    if (error){ alertBar('Cancel failed: ' + error.message); return; }
+    alertBar('Cancelled. ' + (data.open_sessions_cut||0) + ' open session(s) cut off, '
+      + (data.submitted_kept||0) + ' submitted result(s) kept.');
+    renderPDExamsCard();
+  });
+  host.querySelectorAll('.pdExDel').forEach(b => b.onclick = async () => {
+    const n = +b.dataset.n || 0;
+    if (!confirm('Delete "' + b.dataset.title + '" permanently?\n\n'
+      + (n ? n + ' submitted result(s) will be deleted with it. ' : '')
+      + 'This cannot be undone. To just take it away from residents, use Cancel instead.')) return;
+    const { data, error } = await sb.rpc('exam_delete', { p_exam_id: b.dataset.id });
+    if (error){ alertBar('Delete failed: ' + error.message); return; }
+    alertBar('Deleted "' + (data.title||'exam') + '" and ' + (data.sessions_removed||0) + ' session(s).');
+    renderPDExamsCard();
   });
   host.querySelectorAll('.pdExRes').forEach(b => b.onclick = async () => {
     const { data, error } = await sb.rpc('exam_results', { p_exam_id: b.dataset.id });
