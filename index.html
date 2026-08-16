@@ -4827,11 +4827,26 @@ async function renderAdmin(){
   const act = (r4.status === 'fulfilled' && r4.value && !r4.value.error) ? r4.value.data : null;
   const kk  = (act && act.kpis) || {};
 
+  /* Both reporting RPCs are optional: the roster is the part of this tab that
+     has to work, so neither is allowed to break it. */
+  const adDash = (r5.status === 'fulfilled' && r5.value && !r5.value.error) ? r5.value.data : null;
+
+  /* PostgREST caps an unbounded select at 1,000 rows and says nothing about it.
+     Counting `att` client-side therefore understates every resident once the
+     table passes that mark - which it did long ago. Prefer the server-side
+     figures, which are computed over every row. */
   const stat = {};
-  (att||[]).forEach(a => {
-    stat[a.user_id] = stat[a.user_id] || { done:0, ok:0 };
-    stat[a.user_id].done++; if (a.correct) stat[a.user_id].ok++;
-  });
+  const attTruncated = (att || []).length >= 1000;
+  if (adDash && Array.isArray(adDash.residents) && adDash.residents.length){
+    adDash.residents.forEach(r => {
+      stat[r.id] = { done: r.answered || 0, ok: r.correct || 0, exact: true };
+    });
+  } else {
+    (att||[]).forEach(a => {
+      stat[a.user_id] = stat[a.user_id] || { done:0, ok:0, exact: !attTruncated };
+      stat[a.user_id].done++; if (a.correct) stat[a.user_id].ok++;
+    });
+  }
   const byEmail = {};
   (people||[]).forEach(p => byEmail[p.email.toLowerCase()] = p);
 
@@ -4898,7 +4913,6 @@ async function renderAdmin(){
 
   /* Both are optional by design: renderAdmin must survive either reporting RPC
      failing, because the roster is the part of this tab that has to work. */
-  const adDash = (r5.status === 'fulfilled' && r5.value && !r5.value.error) ? r5.value.data : null;
   const adActivity = (adDash && Array.isArray(adDash.activity) && adDash.activity.length)
     ? adDash.activity : null;
   const adTopics = (adDash && Array.isArray(adDash.by_topic) && adDash.by_topic.length)
@@ -4921,7 +4935,13 @@ async function renderAdmin(){
                  : 'payments', 'ok')}
       ${adStat('Joined this week', kk.signups_7d != null ? kk.signups_7d : '—',
                'new on the roster', 'acc')}
-      ${adStat('Answered all time', totalDone, `across ${(people||[]).length} accounts`, '')}
+      ${adStat('Answered all time',
+               (adDash && adDash.cohort && adDash.cohort.answered != null)
+                 ? Number(adDash.cohort.answered).toLocaleString('en')
+                 : (attTruncated ? totalDone.toLocaleString('en') + '+' : totalDone.toLocaleString('en')),
+               (adDash && adDash.cohort && adDash.cohort.answered != null)
+                 ? `across ${(people||[]).length} accounts`
+                 : 'partial count - the reporting call did not answer', '')}
     </div>
 
     <div class="cols2">
