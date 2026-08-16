@@ -6,8 +6,11 @@ name: Keep Supabase awake
 # after 60 days of no commits.
 #
 # No secrets are needed: the URL and the publishable key below are the same two
-# values already sitting in index.html, and the request only counts rows a
-# signed-out visitor is allowed to count.
+# values already sitting in index.html. The expected answer is HTTP 401
+# "permission denied for table questions" - that error comes from Postgres
+# itself, which proves the request went API gateway -> PostgREST -> database
+# and back. An anonymous caller being refused by RLS design still counts as
+# real database activity.
 
 on:
   schedule:
@@ -26,14 +29,20 @@ jobs:
       - name: Touch the database
         run: |
           CODE=$(curl -s -o /tmp/out.txt -w '%{http_code}' \
-            -H 'apikey: sb_publishable_Lc8toRDfrYJIlqPTyB7_xA_dFym0V5-' \
+            -H 'apikey: sb_publishable_9k0N91WSBVmliPE6hYER2w_3kQz4VHY' \
             -H 'Accept: application/json' \
             'https://jnwbcfwtlnrupkthbluh.supabase.co/rest/v1/questions?select=uid&limit=1')
           echo "HTTP $CODE"
           head -c 300 /tmp/out.txt; echo
-          # 401 is the expected, healthy answer: anonymous callers are refused
-          # by design. Anything that answers at all means the project is awake.
+          # The healthy answer is 401 with a Postgres "permission denied"
+          # body (the database spoke). "Unregistered API key" means the key
+          # was rotated and this file needs the new one - fail loudly so the
+          # run goes red instead of pinging nothing for months.
           if [ "$CODE" = "000" ]; then echo "No response - project may be paused"; exit 1; fi
+          if grep -q 'Unregistered API key' /tmp/out.txt; then
+            echo "Publishable key is stale - update keepalive.yml with the key from index.html"
+            exit 1
+          fi
 
       - name: Record the ping
         run: |
