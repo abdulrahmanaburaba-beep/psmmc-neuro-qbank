@@ -2098,6 +2098,59 @@ document.addEventListener('click', e => {
 
 
 // ---------------------------------------------------------------- sign in
+// ------------------------------------------------------------- eligibility
+// Ask the server whether this address can actually receive a link BEFORE asking
+// Supabase to send one. Someone who is not on the roster is now told so and is
+// pointed at the plans, instead of waiting for an email that can never arrive.
+// signin_check() also does the logging that log_link_request() used to do, and an
+// address with no account is deliberately NOT counted as a sign-in attempt - it
+// spends none of that address's hourly budget and never reaches Supabase Auth.
+// If the check itself fails we fall through to the old uniform behaviour rather
+// than locking a legitimate resident out of a working sign-in.
+async function gateEligibility(email, show){
+  let chk = null;
+  try {
+    const { data, error } = await sb.rpc('signin_check', { p_email: email });
+    if (!error) chk = data;
+  } catch (e) {}
+  if (!chk || !chk.status) return true;
+
+  const toPlans = () => {
+    const buy = $('#gateBuy');
+    if (buy){
+      buy.classList.remove('hide');
+      buy.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  switch (chk.status){
+    case 'not_registered':
+      show('This email is not registered. There is no CerebrobanQ account for '
+         + email + '. Choose a plan below to subscribe \u2014 you are signed in straight '
+         + 'after payment, using this same address.', 'err');
+      toPlans();
+      return false;
+    case 'expired':
+      show('Your subscription ended on ' + chk.expired_on + '. Renew below and your '
+         + 'progress, notes and flagged questions are exactly where you left them.', 'err');
+      toPlans();
+      return false;
+    case 'paused':
+      show('This account is on hold. Write to support@cerebrobanq.com and we will '
+         + 'sort it out.', 'err');
+      return false;
+    case 'invalid':
+      show('Please enter a valid email address.', 'err');
+      return false;
+    case 'throttled':
+      show('Too many sign-in attempts from here. Wait an hour and try again, or write '
+         + 'to support@cerebrobanq.com.', 'err');
+      return false;
+    default:
+      return true;
+  }
+}
+
 function gmsg(text, kind='info'){
   const el = $('#gatemsg');
   el.className = 'msg ' + kind;
@@ -2112,18 +2165,23 @@ $('#send').onclick = async () => {
   // Two links per address per hour. A shared mailbox gives itself away by asking
   // for links constantly, so every request is also recorded server-side where it
   // cannot be cleared; this counter is only the polite front door.
+  const eligible = await gateEligibility(email, gmsg);
+  if (!eligible) return;
+
+  // Five links per address per hour, matching the server-side cap in
+  // auth-send-email. Every request is also recorded server-side by signin_check,
+  // where it cannot be cleared; this counter is only the polite front door.
   const rk = 'qbank.links.' + email.toLowerCase();
   let hist = [];
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
   hist = hist.filter(t => Date.now() - t < 3600000);
-  if (hist.length >= 2){
-    gmsg('Two sign-in links have already been sent to that address in the last hour. '
+  if (hist.length >= 5){
+    gmsg('Five sign-in links have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
     return;
   }
   hist.push(Date.now());
   try { localStorage.setItem(rk, JSON.stringify(hist)); } catch (e) {}
-  sb.rpc('log_link_request', { p_email: email }).then(()=>{}, ()=>{});
 
   $('#send').disabled = true;
   gmsg('Sending…');
@@ -2172,18 +2230,23 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
     el.textContent = t;
     el.classList.remove('hide');
   };
+  const eligible = await gateEligibility(email, say);
+  if (!eligible) return;
+
+  // Five links per address per hour, matching the server-side cap in
+  // auth-send-email. Every request is also recorded server-side by signin_check,
+  // where it cannot be cleared; this counter is only the polite front door.
   const rk = 'qbank.links.' + email.toLowerCase();
   let hist = [];
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
   hist = hist.filter(t => Date.now() - t < 3600000);
-  if (hist.length >= 2){
-    say('Two sign-in links have already been sent to that address in the last hour. '
+  if (hist.length >= 5){
+    say('Five sign-in links have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
     return;
   }
   hist.push(Date.now());
   try { localStorage.setItem(rk, JSON.stringify(hist)); } catch (e) {}
-  sb.rpc('log_link_request', { p_email: email }).then(()=>{}, ()=>{});
 
   if ($(btnId)) $(btnId).disabled = true;
   say('Sending…', 'info');
@@ -3047,6 +3110,46 @@ function buildFilters(){
   $('#fTrack').append(opt('','All tracks'), ...tracks.map(t=>opt(t,`${t} (${tr[t]})`)));
   $('#fTopic').append(opt('','All topics'), ...Object.keys(tp).sort().map(t=>opt(t,`${t} (${tp[t]})`)));
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
+  restoreFilter();
+}
+
+// ------------------------------------------------- resume where they left off
+// The track / topic / unseen choice lives on the server, not in localStorage: an
+// account may be used from up to three devices and "carry on where I was" has to
+// survive the switch. Written here and (for custom blocks) by build_block itself.
+let FILTER_RESTORED = false;
+function rememberFilter(){
+  if (!FILTER_RESTORED) return;   // never overwrite the saved filter before reading it
+  try {
+    sb.rpc('save_my_filter', { p: {
+      status: state.unseen     ? 'unused'
+            : state.wrongOnly  ? 'incorrect'
+            : state.flaggedOnly? 'flagged'
+            : state.reviewOnly ? 'needs_check' : 'all',
+      tracks: $('#fTrack').value ? [$('#fTrack').value] : null,
+      topics: $('#fTopic').value ? [$('#fTopic').value] : null
+    }}).then(()=>{}, ()=>{});
+  } catch (e) {}
+}
+async function restoreFilter(){
+  try {
+    const { data, error } = await sb.rpc('my_filter');
+    if (!error && data && data.filter){
+      const f = data.filter;
+      const wantTrack = Array.isArray(f.tracks) && f.tracks.length ? f.tracks[0] : '';
+      const wantTopic = Array.isArray(f.topics) && f.topics.length ? f.topics[0] : '';
+      if (wantTrack && [...$('#fTrack').options].some(o => o.value === wantTrack)) $('#fTrack').value = wantTrack;
+      if (wantTopic && [...$('#fTopic').options].some(o => o.value === wantTopic)) $('#fTopic').value = wantTopic;
+      // Open on unseen. A resident coming back wants the next question they have not
+      // answered, not the ones they already have.
+      if (data.first_time || f.status === 'unused' || !f.status){
+        state.unseen = true; state.wrongOnly = false;
+        $('#bUnseen').classList.add('on'); $('#bWrong').classList.remove('on');
+      }
+      apply();
+    }
+  } catch (e) {
+  } finally { FILTER_RESTORED = true; }
 }
 function apply(){
   // A custom block is a fixed list the server chose. While one is open it wins over
@@ -3076,13 +3179,13 @@ function apply(){
   if (state.shuffle) for (let i=l.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [l[i],l[j]]=[l[j],l[i]]; }
   state.list = l; state.i = 0; render();
 }
-['fTrack','fTopic'].forEach(id => $('#'+id).onchange = apply);
+['fTrack','fTopic'].forEach(id => $('#'+id).onchange = () => { apply(); rememberFilter(); });
 let deb; $('#fSearch').oninput = () => { clearTimeout(deb); deb = setTimeout(apply, 180); };
 $('#bShuffle').onclick = function(){ state.shuffle=!state.shuffle; this.classList.toggle('on',state.shuffle); apply(); };
 $('#bWrong').onclick  = function(){ state.wrongOnly=!state.wrongOnly; if(state.wrongOnly){state.unseen=false;$('#bUnseen').classList.remove('on');}
-                                    this.classList.toggle('on',state.wrongOnly); apply(); };
+                                    this.classList.toggle('on',state.wrongOnly); apply(); rememberFilter(); };
 $('#bUnseen').onclick = function(){ state.unseen=!state.unseen; if(state.unseen){state.wrongOnly=false;$('#bWrong').classList.remove('on');}
-                                    this.classList.toggle('on',state.unseen); apply(); };
+                                    this.classList.toggle('on',state.unseen); apply(); rememberFilter(); };
 $('#bReview').onclick = function(){ state.reviewOnly=!state.reviewOnly;
                                     this.classList.toggle('on',state.reviewOnly); apply(); };
 $('#bFlagged').onclick = function(){ state.flaggedOnly=!state.flaggedOnly;
