@@ -2162,11 +2162,13 @@ $('#send').onclick = async () => {
   const email = $('#email').value.trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gmsg('Please enter a valid email address.','err'); return; }
 
-  // Two links per address per hour. A shared mailbox gives itself away by asking
-  // for links constantly, so every request is also recorded server-side where it
-  // cannot be cleared; this counter is only the polite front door.
+  if (SENDING) return;                 // synchronous: no await above this line
+  SENDING = true;
+  $('#send').disabled = true;
+  const releaseSend = () => { SENDING = false; $('#send').disabled = false; };
+
   const eligible = await gateEligibility(email, gmsg);
-  if (!eligible) return;
+  if (!eligible) { releaseSend(); return; }
 
   // Five links per address per hour, matching the server-side cap in
   // auth-send-email. Every request is also recorded server-side by signin_check,
@@ -2178,6 +2180,7 @@ $('#send').onclick = async () => {
   if (hist.length >= 5){
     gmsg('Five sign-in links have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    releaseSend();
     return;
   }
   hist.push(Date.now());
@@ -2214,7 +2217,7 @@ $('#send').onclick = async () => {
     gmsg('If that address is approved for this bank, a sign-in link is on its way. '
        + 'Check your inbox, and your spam folder.', 'good');
   }
-  $('#send').disabled = false;
+  releaseSend();
 };
 $('#email').addEventListener('keydown', e => { if (e.key === 'Enter') $('#send').click(); });
 
@@ -2230,8 +2233,13 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
     el.textContent = t;
     el.classList.remove('hide');
   };
+  if (SENDING) return;                 // synchronous: no await above this line
+  SENDING = true;
+  if ($(btnId)) $(btnId).disabled = true;
+  const releaseSend = () => { SENDING = false; if ($(btnId)) $(btnId).disabled = false; };
+
   const eligible = await gateEligibility(email, say);
-  if (!eligible) return;
+  if (!eligible) { releaseSend(); return; }
 
   // Five links per address per hour, matching the server-side cap in
   // auth-send-email. Every request is also recorded server-side by signin_check,
@@ -2243,6 +2251,7 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
   if (hist.length >= 5){
     say('Five sign-in links have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    releaseSend();
     return;
   }
   hist.push(Date.now());
@@ -2271,7 +2280,7 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
        + 'If that address is approved for this bank, a sign-in link is on its way. '
        + 'Check your inbox, and your spam folder.', 'good');
   }
-  if ($(btnId)) $(btnId).disabled = false;
+  releaseSend();
 }
 
 $('#gatePromoToggle').onclick = e => {
@@ -3112,6 +3121,14 @@ function buildFilters(){
   if (!ALL.length) alertBar('No questions loaded. Reload the page; if it persists, contact the administrator.');
   restoreFilter();
 }
+
+// A sign-in send is in flight. Checked and set synchronously before any await:
+// gateEligibility() is a network round trip, and while it was pending the button
+// stayed live and the localStorage counter had not been written yet, so repeated
+// taps each started a fresh send. Two taps produced seven emails and burned the
+// server's five-per-hour cap, after which the page still said "check your inbox"
+// and nothing was sent.
+let SENDING = false;
 
 // ------------------------------------------------- resume where they left off
 // The track / topic / unseen choice lives on the server, not in localStorage: an
