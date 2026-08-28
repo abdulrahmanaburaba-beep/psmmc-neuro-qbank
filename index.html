@@ -1117,7 +1117,7 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
       <p class="pitch">Board revision that <b>shows its work</b> — every question written to the
         Saudi Neurology Board blueprint, with a worked explanation and a source.</p>
       <div class="statrow" aria-label="What is inside">
-        <div class="statchip"><b>2,489</b><span>Questions</span></div>
+        <div class="statchip"><b id="qcount">2,905</b><span>Questions</span></div>
         <div class="statchip"><b>3</b><span>Board tracks</span></div>
         <div class="statchip"><b>OSCE</b><span>Case practice</span></div>
       </div>
@@ -8045,6 +8045,19 @@ function oscFinal(){
     gate(); setTimeout(gate,2000); setTimeout(gate,5000);
   }
   ready(install);
+})();
+</script>
+
+<script>
+(function(){
+  try{
+    if(typeof sb==='undefined'||!sb||!sb.rpc) return;
+    sb.rpc('public_stats').then(function(r){
+      var n=r&&r.data&&r.data.questions;
+      if(n){var el=document.getElementById('qcount');
+        if(el) el.textContent=Number(n).toLocaleString('en-US');}
+    }).catch(function(){});
+  }catch(e){}
 })();
 </script>
 
