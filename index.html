@@ -1125,11 +1125,17 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2p
 
     <div class="gatebox">
       <h1>Sign in</h1>
-      <p class="lede">No password. We email you a link that signs you in.</p>
+      <p class="lede">No password. We email you a 6-digit code that signs you in.</p>
       <label for="email">Your email address</label>
       <input id="email" type="email" autocomplete="email" placeholder="name@example.com" maxlength="200">
-      <button id="send" class="primary">Email me a sign-in link</button>
+      <button id="send" class="primary">Email me a sign-in code</button>
       <div id="gatemsg" class="msg info hide" role="status" aria-live="polite"></div>
+      <div id="otpRow" class="hide" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <label for="otpCode">Enter the 6-digit code from your email</label>
+        <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">
+        <button id="otpVerify" class="primary">Verify &amp; sign in</button>
+        <div id="otpMsg" class="msg info hide" role="status" aria-live="polite"></div>
+      </div>
       <div id="gateBuy" class="hide" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
         <div style="font-size:12.5px;color:var(--dim);margin-bottom:8px">Not a member yet?</div>
         <button id="gatePay" style="width:100%">See plans and subscribe</button>
@@ -2179,8 +2185,8 @@ $('#send').onclick = async () => {
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
   hist = hist.filter(t => Date.now() - t < 3600000);
   if (hist.length >= 5){
-    gmsg('Five sign-in links have already been sent to that address in the last hour. '
-       + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    gmsg('Five sign-in codes have already been sent to that address in the last hour. '
+       + 'Check your inbox and your spam folder — the most recent code still works.', 'err');
     releaseSend();
     return;
   }
@@ -2215,12 +2221,37 @@ $('#send').onclick = async () => {
   } else {
     // Deliberately identical whether or not the address is on the list: telling a
     // stranger "that email isn't approved" would confirm who is on the roster.
-    gmsg('If that address is approved for this bank, a sign-in link is on its way. '
-       + 'Check your inbox, and your spam folder.', 'good');
+    gmsg('If that address is approved for this bank, a 6-digit sign-in code is on its way. '
+       + 'Enter it below, or tap the link in the same email. Check your spam folder too.', 'good');
+    showOtpEntry(email);
   }
   releaseSend();
 };
 $('#email').addEventListener('keydown', e => { if (e.key === 'Enter') $('#send').click(); });
+
+// ---- Email OTP: verify the 6-digit code the resident types back in. signInWithOtp
+// emails both a code and a single-use link; entering the code here calls verifyOtp,
+// and onAuthStateChange then picks up the session and runs start(user) exactly as the
+// link path does. The link remains a fallback for anyone who would rather just tap.
+let OTP_EMAIL = '';
+function showOtpEntry(email){
+  OTP_EMAIL = email;
+  const row = $('#otpRow');
+  if (row){ row.classList.remove('hide'); const c = $('#otpCode'); if (c){ c.value=''; c.focus(); } }
+}
+async function verifyOtpCode(){
+  const code = ($('#otpCode').value || '').replace(/\D/g,'');
+  const omsg = (t,k)=>{ const el=$('#otpMsg'); el.className='msg '+k; el.textContent=t; el.classList.remove('hide'); };
+  if (!OTP_EMAIL){ omsg('Enter your email above and request a code first.','err'); return; }
+  if (code.length < 4){ omsg('Enter the code from your email.','err'); return; }
+  const btn = $('#otpVerify'); if (btn) btn.disabled = true;
+  omsg('Signing you in…','info');
+  const { error } = await sb.auth.verifyOtp({ email: OTP_EMAIL, token: code, type: 'email' });
+  if (error){ omsg('That code is incorrect or has expired. Check the latest email, or request a new code.','err'); if (btn) btn.disabled = false; }
+  // success -> onAuthStateChange runs start(user); nothing else to do here.
+}
+if ($('#otpVerify')) $('#otpVerify').onclick = verifyOtpCode;
+if ($('#otpCode')) $('#otpCode').addEventListener('keydown', e => { if (e.key === 'Enter') verifyOtpCode(); });
 
 // ------------------------------------------------------ free trial promo code
 // Shared by the plain sign-in button and the trial-code panel below: requests a
@@ -2250,8 +2281,8 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
   hist = hist.filter(t => Date.now() - t < 3600000);
   if (hist.length >= 5){
-    say('Five sign-in links have already been sent to that address in the last hour. '
-       + 'Check your inbox and your spam folder — the most recent link still works.', 'err');
+    say('Five sign-in codes have already been sent to that address in the last hour. '
+       + 'Check your inbox and your spam folder — the most recent code still works.', 'err');
     releaseSend();
     return;
   }
