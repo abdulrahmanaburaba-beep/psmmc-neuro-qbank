@@ -2465,9 +2465,9 @@ $('#send').onclick = async () => {
   const rk = 'qbank.links.' + email.toLowerCase();
   let hist = [];
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
-  hist = hist.filter(t => Date.now() - t < 86400000);
+  hist = hist.filter(t => Date.now() - t < 3600000);
   if (hist.length >= 10){
-    gmsg('Ten sign-in codes have already been sent to that address in the last 24 hours. '
+    gmsg('Ten sign-in codes have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent code still works.', 'err');
     releaseSend();
     return;
@@ -2612,9 +2612,9 @@ async function requestSignInLink(email, msgId, btnId, successPrefix){
   const rk = 'qbank.links.' + email.toLowerCase();
   let hist = [];
   try { hist = JSON.parse(localStorage.getItem(rk) || '[]'); } catch (e) {}
-  hist = hist.filter(t => Date.now() - t < 86400000);
+  hist = hist.filter(t => Date.now() - t < 3600000);
   if (hist.length >= 10){
-    say('Ten sign-in codes have already been sent to that address in the last 24 hours. '
+    say('Ten sign-in codes have already been sent to that address in the last hour. '
        + 'Check your inbox and your spam folder — the most recent code still works.', 'err');
     releaseSend();
     return;
@@ -8415,14 +8415,22 @@ function oscFinal(){
 
 <script>
 (function(){
-  try{
-    if(typeof sb==='undefined'||!sb||!sb.rpc) return;
-    sb.rpc('public_stats').then(function(r){
-      var n=r&&r.data&&r.data.questions;
-      if(n){var el=document.getElementById('qcount');
-        if(el) el.textContent=Number(n).toLocaleString('en-US');}
-    }).catch(function(){});
-  }catch(e){}
+  // The Supabase client is created in the module above, which runs AFTER this
+  // classic script has already executed, so window.sb is never ready on the first
+  // pass. Poll briefly for it instead of giving up, then ask public_stats once.
+  var tries=0;
+  function go(){
+    var c=window.sb;
+    if(!c||!c.rpc){ if(++tries<50) setTimeout(go,200); return; }
+    try{
+      c.rpc('public_stats').then(function(r){
+        var n=r&&r.data&&r.data.questions;
+        if(n){var el=document.getElementById('qcount');
+          if(el) el.textContent=Number(n).toLocaleString('en-US');}
+      }).catch(function(){});
+    }catch(e){}
+  }
+  go();
 })();
 </script>
 
